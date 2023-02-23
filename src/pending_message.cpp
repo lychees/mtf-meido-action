@@ -7,6 +7,7 @@
 #include "utils.h"
 #include "player.h"
 #include "main_data.h"
+#include "game_system.h"
 #include <cassert>
 #include <cctype>
 #include <algorithm>
@@ -64,10 +65,11 @@ int PendingMessage::PushLine(std::string msg) {
 		for (;offset>0;--offset) {
 			cur += msg[++i];
 		}
-		if (len >= IsFaceEnabled() ? 37 : 49) {
+		if (len >= (Main_Data::game_system->GetMessageFaceIndex() ? 37 : 49)) {
 			PushLineImpl(line); line.clear();
 			len = 0;
 		}
+
 		line += cur;
 		len += delta;
 	}
