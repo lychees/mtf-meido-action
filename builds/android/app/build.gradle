@@ -1,0 +1,84 @@
+apply plugin: 'com.android.application'
+android {
+    compileSdkVersion 33
+    buildToolsVersion '33.0.0'
+    ndkVersion '21.4.7075529'
+    assetPacks = [":assets"]
+    defaultConfig {
+        applicationId "org.easyrpg.player"
+        minSdkVersion 21
+        targetSdkVersion 33
+        versionName VERSION_NAME
+        versionCode Integer.parseInt(VERSION_CODE)
+    }
+    signingConfigs {
+        release {
+            storeFile file(RELEASE_STORE_FILE)
+            storePassword RELEASE_STORE_PASSWORD
+            keyAlias RELEASE_KEY_ALIAS
+            keyPassword RELEASE_KEY_PASSWORD
+        }
+    }
+    buildTypes {
+        debug {
+            ndk {
+                abiFilters = []
+                abiFilters.addAll(ABI_FILTERS_DEBUG.split(','))
+            }
+        }
+        release {
+            ndk {
+                abiFilters = []
+                abiFilters.addAll(ABI_FILTERS_RELEASE.split(','))
+            }
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
+            signingConfig signingConfigs.release
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path "../../../CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+	lint {
+		abortOnError false
+		disable 'MissingTranslation'
+	}
+	defaultConfig {
+        externalNativeBuild {
+            cmake {
+                arguments "-DPLAYER_GRADLE_BUILD=ON",
+                        "-DBUILD_SHARED_LIBS=ON",
+                        "-DPLAYER_ENABLE_TESTS=OFF"
+
+                if (project.hasProperty("toolchainDirs")) {
+                    arguments.add('-DPLAYER_ANDROID_TOOLCHAIN_PATH=' + project.properties['toolchainDirs'])
+                }
+
+                if (project.hasProperty("cmakeOptions")) {
+                    arguments.addAll(project.properties['cmakeOptions'].split(" "))
+                }
+            }
+        }
+    }
+}
+
+allprojects {
+    repositories {
+        maven {
+            url 'https://maven.google.com'
+        }
+    }
+}
+
+dependencies {
+    // TODO: Bump appcompat & material when targetSdkVersion is 31+
+    implementation 'androidx.appcompat:appcompat:1.3.1'
+    implementation 'com.google.android.material:material:1.4.0'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    implementation 'androidx.recyclerview:recyclerview:1.2.1'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.3'
+    implementation 'androidx.documentfile:documentfile:1.0.1'
+}

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<androidx.cardview.widget.CardView
+    android:id="@+id/card_view"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="280dp"
+    android:layout_height="210dp"
+    android:layout_margin="5dp"
+    >
+    <!-- card_view:cardCornerRadius="0dp" -->
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/screen"
+            android:scaleType="centerCrop"
+
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+
+            android:layout_alignParentStart="true"
+            android:layout_alignParentTop="true"
+            />
+        <View
+            android:background="@drawable/gradient_bottom_to_top"
+
+            android:layout_width="match_parent"
+            android:layout_height="210dp"
+
+            android:layout_alignBottom="@id/screen"
+            />
+        <View
+            android:background="@drawable/gradient_top_to_bottom"
+
+            android:layout_width="match_parent"
+            android:layout_height="210dp"
+
+            android:layout_alignBottom="@id/screen"
+            />
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+
+            android:layout_alignBottom="@id/screen"
+            android:layout_alignParentStart="true"
+            android:padding="8dp"
+
+            android:textColor="#FFFFFF"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:textAlignment="center"
+            android:gravity="center_horizontal"
+            />
+
+        <ImageButton
+            android:id="@+id/game_browser_thumbnail_favorite_button"
+            android:background="@android:color/transparent"
+
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+
+            android:layout_alignTop="@id/screen"
+            android:layout_alignParentEnd="true"
+            android:padding="4dp"
+            />
+
+        <ImageButton
+            android:id="@+id/game_browser_thumbnail_option_button"
+            android:src="@drawable/ic_action_settings_white"
+            android:background="@android:color/transparent"
+
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+
+            android:layout_below="@id/game_browser_thumbnail_favorite_button"
+            android:layout_alignParentEnd="true"
+            android:padding="4dp"
+            />
+    </RelativeLayout>
+</androidx.cardview.widget.CardView>

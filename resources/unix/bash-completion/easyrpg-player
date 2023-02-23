@@ -1,0 +1,103 @@
+# bash completion script for easyrpg-player
+# (c) carstene1ns <dev f4ke de> 2016-2021
+# available under the MIT license
+
+_easyrpg-player ()
+{
+  local cur prev
+
+  # some of this boilerplate is deprecated
+  _init_completion || return
+  COMPREPLY=()
+  cur=${COMP_WORDS[COMP_CWORD]}
+  prev=${COMP_WORDS[COMP_CWORD-1]}
+
+  # all possible options
+  ouropts='--autobattle-algo --battle-test --disable-audio --disable-rtp --enable-mouse --enable-touch \
+           --encoding --enemyai-algo --engine --fps-limit --fps-render-window --fullscreen -h --help \
+           --hide-title --load-game-id --new-game --no-vsync --project-path --rtp-path --record-input \
+           --replay-input --save-path --seed --show-fps --start-map-id --start-party --no-log-color \
+           --start-position --test-play --window -v --version'
+  rpgrtopts='BattleTest battletest HideTitle hidetitle TestPlay testplay Window window'
+  engines='rpg2k rpg2kv150 rpg2ke rpg2k3 rpg2k3v105 rpg2k3e'
+  autobattle_algos='RPG_RT RPG_RT+ ATTACK'
+  enemyai_algos='RPG_RT RPG_RT+'
+
+  # first list all special cases expecting arguments
+  case $prev in
+    # supported engines
+    --engine)
+      COMPREPLY=($(compgen -W "$engines" -- $cur))
+      return
+      ;;
+    # load map files
+    --start-map-id)
+      # broken, disabled for now
+      #_filedir '@(lmu|emu)'
+      return
+      ;;
+    # Select autobattle algorithm
+    --autobattle-algo)
+      COMPREPLY=($(compgen -W "$autobattle_algos" -- $cur))
+      return
+      ;;
+    # Select enemyai algorithm
+    --enemyai-algo)
+      COMPREPLY=($(compgen -W "$enemyai_algos" -- $cur))
+      return
+      ;;
+    # load save files
+    --load-game-id)
+      # broken, disabled for now
+      #_filedir '@(lsd|esd)'
+      return
+      ;;
+    # set game directory
+    --@(project-path|save-path))
+      _filedir -d
+      return
+      ;;
+    # add rtp directory
+    --rtp-path)
+      _filedir -d
+      return
+      ;;
+    # input recording/replaying
+    --@(record-input|replay-input))
+      _filedir
+      return
+      ;;
+    # argument required but no completions available
+    --@(battle-test|encoding|fps-limit|seed|start-position|start-party)|BattleTest|battletest)
+      return
+      ;;
+    # these have no argument and shall be used exclusively
+    -@(v|-version|h|-help))
+      return
+      ;;
+
+    # all others do not expect arguments, just move to next option
+    *)
+      COMPREPLY=($(compgen -W "$ouropts $rpgrtopts" -- $cur))
+      return
+      ;;
+  esac
+
+  case $cur in
+    # RPG_RT compatible options
+    B*|b*|H*|h*|T*|t*|W*|w*)
+      COMPREPLY=($(compgen -W "$rpgrtopts" -- $cur))
+      return
+      ;;
+    # all our options
+    -*)
+      COMPREPLY=($(compgen -W "$ouropts" -- $cur))
+      return
+      ;;
+  esac
+
+  return
+} &&
+complete -F _easyrpg-player easyrpg-player
+
+# eof
