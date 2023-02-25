@@ -14,6 +14,9 @@ Shelter 酒吧的店长，大姐头，白发红瞳，虽然看起来冷静镇定
 ### 出云見月 いずも みづき
 本作女主，社交障礙恢復中。
 
+![00751-2727678890-extremely delicate and beautiful thin girls, best quality, ultra-detailed, masterpiece, finely detail, highres, black short hair](https://user-images.githubusercontent.com/2507027/221355517-559a5f48-b6c5-4b8e-9f3b-57617e701422.png)
+
+
 ### 一之濑紫亜 いちのせ しあ
 Shelter 店员，紫色长发，个性开朗活泼，善良细心，是一个有很多朋友和社交活动的现充。
 喜欢热血动漫和射击类游戏。
@@ -24,6 +27,9 @@ Shelter 店员，紫色长发，个性开朗活泼，善良细心，是一个有
 ### 卡米拉 阿纳斯塔西娅
 Shelter 店员，某俄罗斯能源寡头家的小儿子，原本来说应该家境不错，学习成绩也顶尖，但是因为和家族的不可调和的矛盾，
 一路被父亲迫害追杀，去过很多国家，目前黑在日本。
+
+![kamila](https://user-images.githubusercontent.com/2507027/221355523-01f782c5-bedf-48a0-b594-fd4e5ecc5100.png)
+
 
 ### ...
 
