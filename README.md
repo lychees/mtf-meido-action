@@ -31,7 +31,7 @@ Shelter 店员，某俄罗斯能源寡头家的小儿子，原本来说应该家
 ![kamila](https://user-images.githubusercontent.com/2507027/221355523-01f782c5-bedf-48a0-b594-fd4e5ecc5100.png)
 
 
-### ...
+### 神谷雫
 
 ![rabbit](https://user-images.githubusercontent.com/2507027/221347683-19c05937-d16e-4d5a-aefe-a28adc834a11.png)
 
