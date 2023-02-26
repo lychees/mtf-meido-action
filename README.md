@@ -18,6 +18,7 @@ Shelter 酒吧的店长，大姐头，白发红瞳，虽然看起来冷静镇定
 
 
 ### 一之濑紫亜 いちのせ しあ
+声音来源：https://huggingface.co/spaces/skytnt/moe-tts TTS model7 新堂彩音
 Shelter 店员，紫色长发，个性开朗活泼，善良细心，是一个有很多朋友和社交活动的现充。
 喜欢热血动漫和射击类游戏。
 
