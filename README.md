@@ -1,6 +1,6 @@
 # mtf-bartender-action
 
-Yet another galgame.
+- [试玩地址](https://static-fr.xyn.design/easyrpg/easyrpg-player.html)
 
 ## 人设
 
