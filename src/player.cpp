@@ -281,6 +281,15 @@ void Player::Resume() {
 
 void Player::UpdateInput() {
 	// Input Logic:
+
+	if (Input::IsRawKeyTriggered(Input::Keys::N)) {
+		auto& ce = Game_Map::GetCommonEvents()[1];
+		Game_Map::GetInterpreter().Push(&ce);
+		Scene::PopUntil(Scene::Map);
+		Output::Debug("Nokia");
+		return;
+	}
+
 	if (Input::IsSystemTriggered(Input::TOGGLE_FPS)) {
 		DisplayUi->ToggleShowFps();
 	}

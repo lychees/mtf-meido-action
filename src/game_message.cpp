@@ -34,6 +34,7 @@
 
 #include <cctype>
 
+#include "game_map.h"
 #include "input.h"
 #include "sliding_puzzle.h"
 
