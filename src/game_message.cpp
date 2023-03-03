@@ -130,6 +130,17 @@ int Game_Message::WordWrap(StringView line, const int limit, const WordWrapCallb
 
 AsyncOp Game_Message::Update() {
 
+	
+	if (Nokia::On()) {
+		Output::Debug("Nokia On");
+		Nokia::Update();
+		if(!Nokia::On()) {
+			window->FinishMessageProcessing();
+		}
+		return {};
+	}
+	
+
 	if (TowerOfHanoi::On()) {
 		TowerOfHanoi::Update();
 		if (!TowerOfHanoi::On()) {

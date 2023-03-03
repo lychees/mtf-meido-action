@@ -79,6 +79,8 @@
 #include <lcf/scope_guard.h>
 #include "baseui.h"
 #include "game_clock.h"
+
+#include "sliding_puzzle.h"
 #if defined(HAVE_FLUIDSYNTH) || defined(HAVE_FLUIDLITE)
 #include "decoder_fluidsynth.h"
 #endif
@@ -283,11 +285,14 @@ void Player::UpdateInput() {
 	// Input Logic:
 
 	if (Input::IsRawKeyTriggered(Input::Keys::N)) {
-		auto& ce = Game_Map::GetCommonEvents()[1];
-		Game_Map::GetInterpreter().Push(&ce);
+
+		//lcf::rpg::EventCommand com; 
+		//com.string = ".nokia";
+		//Game_Map::GetInterpreter().CommandShowMessage(com);	
+		Nokia::Run();
 		Scene::PopUntil(Scene::Map);
-		Output::Debug("Nokia");
-		return;
+		Output::Debug("Nokia Start");
+		//return;
 	}
 
 	if (Input::IsSystemTriggered(Input::TOGGLE_FPS)) {

@@ -1,6 +1,7 @@
 #include "sliding_puzzle.h"
 #include "main_data.h"
 #include "game_pictures.h"
+#include "game_map.h"
 #include "game_system.h"
 #include "input.h"
 #include "output.h"
@@ -10,6 +11,8 @@
 #include <cstdlib>
 #include <stack>
 #include <numeric>
+
+#include "game_message.h"
 
 
 namespace SlidingPuzzle {
@@ -553,5 +556,65 @@ namespace MineSweeper {
 
 	bool On() {
 		return !mines.empty();
+	}
+}
+
+namespace Nokia {
+	using namespace std;
+	int root_num = 50;
+	vector<int> p;
+	bool isOn = false;
+
+	Game_Pictures::ShowParams getShowParams(string name, int x, int y, int magnify, int rect) {
+		Game_Pictures::ShowParams z = {};
+		z.name = name;
+		z.fixed_to_map = true;
+		if(rect) z.myRect = {0,0,rect*4+8,8};
+		z.use_transparent_color = true;
+		z.position_x = x;
+		z.position_y = x;
+		z.magnify = magnify;
+		return z;
+	}
+
+	bool ShowPictrue(string name, int x, int y, int magnify = 100, int rect = 0) {
+		Game_Pictures::ShowParams z = getShowParams(name, x, y, magnify, rect);
+		int id = root_num+p.size()+1;
+		p.push_back(id);
+		return Main_Data::game_pictures->Show(id, z);
+	}
+
+	void Run() {
+		if(!isOn) {
+			Output::Debug("~Run~");
+			//auto& ce = Game_Map::GetCommonEvents()[1];
+			//Game_Map::GetInterpreter().Push(&ce);
+			ShowPictrue("Nokia_Phone", 160, 120, 25);
+			ShowPictrue("Nokia_1", 163, 77, 25);
+			isOn = true;
+		}
+	}
+	
+	void Leave() {
+		if(isOn) {
+			Output::Debug("~Leave~");
+			//auto& ce = Game_Map::GetCommonEvents()[1];
+			//Game_Map::GetInterpreter().Push(&ce);
+			for(auto id : p) {
+				Main_Data::game_pictures->Erase(id);
+			}
+			p.clear();
+			isOn = false;
+		}
+	}
+
+	void Update() {
+		if (Input::IsTriggered(Input::CANCEL)) {
+			Leave();
+		}
+	}
+
+	bool On() {
+		return isOn;
 	}
 }

@@ -31,4 +31,10 @@ namespace MineSweeper {
 	bool On();
 }
 
+namespace Nokia {
+	void Run();
+	void Update();
+	bool On();
+	void Leave();
+}
 #endif

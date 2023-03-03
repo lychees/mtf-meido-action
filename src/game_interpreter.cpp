@@ -883,7 +883,13 @@ bool Game_Interpreter::CommandOptionGeneric(lcf::rpg::EventCommand const& com, i
 }
 
 bool isCommand(std::string cmd) {
-	if (cmd == ".towerOfHanoi") {
+	if (cmd == ".nokia") {
+		auto pm = PendingMessage();
+		pm.PushLine("Nokia");
+		pm.SetIsEventMessage(true);
+		Game_Message::SetPendingMessage(std::move(pm));
+		return true;
+	} else if (cmd == ".towerOfHanoi") {
 		TowerOfHanoi::NewGame();
 		auto pm = PendingMessage();
 		pm.PushLine("Puzzle");
@@ -912,7 +918,6 @@ bool isCommand(std::string cmd) {
 		Game_Message::SetPendingMessage(std::move(pm));
 		return true;
 	}
-
 
 	return false;
 }
