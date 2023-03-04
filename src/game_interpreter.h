@@ -18,6 +18,7 @@
 #ifndef EP_GAME_INTERPRETER_H
 #define EP_GAME_INTERPRETER_H
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -105,8 +106,6 @@ public:
 	/** @return true if wait command (time or key) is active. Used by 2k3 battle system */
 	bool IsWaitingForWaitCommand() const;
 
-	bool CommandShowMessage(lcf::rpg::EventCommand const& com);
-
 protected:
 	static constexpr int loop_limit = 10000;
 	static constexpr int call_stack_limit = 1000;
@@ -179,7 +178,7 @@ protected:
 
 	bool CommandOptionGeneric(lcf::rpg::EventCommand const& com, int option_sub_idx, std::initializer_list<Cmd> next);
 
-//	bool CommandShowMessage(lcf::rpg::EventCommand const& com);
+	bool CommandShowMessage(lcf::rpg::EventCommand const& com);
 	bool CommandMessageOptions(lcf::rpg::EventCommand const& com);
 	bool CommandChangeFaceGraphic(lcf::rpg::EventCommand const& com);
 	bool CommandShowChoices(lcf::rpg::EventCommand const& com);
