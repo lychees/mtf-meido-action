@@ -258,7 +258,7 @@ namespace {
 
 					Rect chRect;
 					if(resp.is_exfont) 	chRect = Font::exfont->GetSize(" ");
-					else 				chRect = Font::Tiny()->GetSize(resp.ch);
+					else 				chRect = Font::Default()->GetSize(resp.ch);
 
 					line.push_back({resp, chRect, color});
 					width += chRect.width;
@@ -362,7 +362,7 @@ namespace {
 					auto& glyph = line.first[j];
 					auto ret = glyph.data;
 					if(EP_UNLIKELY(!ret)) continue;
-					glyphOffset += Text::Draw(*text_img, glyphOffset, line.second, *Font::Tiny(), *currentTheme, glyph.color, ret.ch, ret.is_exfont).width;
+					glyphOffset += Text::Draw(*text_img, glyphOffset, line.second, *Font::Default(), *currentTheme, glyph.color, ret.ch, ret.is_exfont).width;
 				}
 			}
 			msg.renderGraphic = text_img;
