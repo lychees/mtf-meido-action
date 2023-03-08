@@ -455,7 +455,10 @@ namespace MineSweeper {
 		h = 8; w = 8; hw = h*w; mines.resize(hw); opened.resize(hw); marked.resize(hw); gameovermark = false;
 		vector<int> t; t.resize(hw);
 		iota(t.begin(),t.end(),0);
-		random_shuffle(t.begin(),t.end());
+    	random_device rd;
+    	mt19937 g(rd());
+    	shuffle(t.begin(), t.end(), g);
+
 		for (int i=0;i<10;++i) mines[t[i]] = 1;
 
 		for (int i=0;i<h;++i) {
@@ -594,7 +597,7 @@ namespace Nokia {
 			isOn = true;
 		}
 	}
-	
+
 	void Leave() {
 		if(isOn) {
 			Output::Debug("~Leave~");
