@@ -35,11 +35,11 @@ unsigned long DrawableNameTags::coordHash(int x, int y) {
 }
 
 void DrawableNameTags::buildTagGraphic(Tag* tag) {
-	Rect rect = Font::Tiny()->GetSize(tag->name);
+	Rect rect = Font::Default()->GetSize(tag->name);
 	tag->renderGraphic = Bitmap::Create(rect.width+1, rect.height+1);
 	Color shadowColor = Color(0, 0, 0, 255); // shadow color
-	Text::Draw(*tag->renderGraphic, 1, 1, *Font::Tiny(), shadowColor, tag->name); // draw black fallback shadow
-	Text::Draw(*tag->renderGraphic, 0, 0, *Font::Tiny(), (tag->system.length() && Game_Multiplayer::MyData::systemsync) ? *Cache::System(tag->system) : *Cache::SystemOrBlack(), 0, tag->name);
+	Text::Draw(*tag->renderGraphic, 1, 1, *Font::Default(), shadowColor, tag->name); // draw black fallback shadow
+	Text::Draw(*tag->renderGraphic, 0, 0, *Font::Default(), (tag->system.length() && Game_Multiplayer::MyData::systemsync) ? *Cache::System(tag->system) : *Cache::SystemOrBlack(), 0, tag->name);
 }
 
 DrawableNameTags::DrawableNameTags() : Drawable(Priority_Window, Drawable::Flags::Global) {
