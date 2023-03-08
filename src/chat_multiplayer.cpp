@@ -1,4 +1,6 @@
 #ifdef EMSCRIPTEN
+#include "main_data.h"
+#include "game_system.h"
 #include "chat_multiplayer.h"
 #include <memory>
 #include <emscripten/emscripten.h>
@@ -880,6 +882,7 @@ void Chat_Multiplayer::update() {
 }
 
 void Chat_Multiplayer::gotMessage(std::string name, std::string trip, std::string msg, std::string src) {
+	Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Cancel));
 	if(chatBox == nullptr) return;
 	addLogEntry(
 		(src=="G"?"G← ":"")+name,
