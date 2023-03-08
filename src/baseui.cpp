@@ -65,3 +65,11 @@ BitmapRef BaseUi::CaptureScreen() {
 void BaseUi::CleanDisplay() {
 	main_surface->Clear();
 }
+
+std::string BaseUi::getClipboardText() {
+	return "";
+}
+
+void BaseUi::setClipboardText(std::string text) {
+	//
+}
