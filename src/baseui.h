@@ -88,6 +88,12 @@ public:
 	BitmapRef CaptureScreen();
 
 	/**
+	 * Clipboard text content.
+	 */
+	virtual std::string getClipboardText();
+	virtual void setClipboardText(std::string text);
+
+	/**
 	 * Sets display title.
 	 *
 	 * @param title title string.

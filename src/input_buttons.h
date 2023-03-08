@@ -79,6 +79,19 @@ namespace Input {
 		FAST_FORWARD_PLUS,
 		TOGGLE_FULLSCREEN,
 		TOGGLE_ZOOM,
+		CHAT_FOCUS, // chat inputs
+		CHAT_UNFOCUS, // chat inputs
+		CHAT_UP, // chat inputs
+		CHAT_DOWN, // chat inputs
+		CHAT_LEFT, // chat inputs
+		CHAT_RIGHT, // chat inputs
+		CHAT_DEL_BACKWARD, // chat inputs
+		CHAT_DEL_FORWARD, // chat inputs
+		CHAT_SEND, // chat inputs
+		CHAT_TOGGLE_GLOBAL, // chat inputs
+		CHAT_COPY, // chat inputs
+		CHAT_PASTE, // chat inputs
+		CHAT_CTRL, // chat inputs
 		BUTTON_COUNT
 	};
 

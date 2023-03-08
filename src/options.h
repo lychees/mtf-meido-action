@@ -38,6 +38,13 @@ const int MENU_OFFSET_Y = (SCREEN_TARGET_HEIGHT - MENU_HEIGHT) / 2;
 #define MESSAGE_BOX_HEIGHT 80
 const int MESSAGE_BOX_OFFSET_X = (SCREEN_TARGET_WIDTH - MENU_WIDTH) / 2;
 
+/** ingame chat */
+#if USE_SDL==2
+    #define INGAME_CHAT // only supported with SDL2 renderer
+#endif
+#define CHAT_TARGET_WIDTH 160
+#define TOTAL_TARGET_WIDTH (SCREEN_TARGET_WIDTH + CHAT_TARGET_WIDTH)
+
 /** Working with hi resolutions. default 16 */
 #define TILE_SIZE 16
 
