@@ -19,6 +19,7 @@
 #include "player.h"
 #include "compiler.h"
 #include "game_multiplayer_my_data.h"
+#include "game_message.h"
 
 using namespace Game_Multiplayer;
 
@@ -883,6 +884,10 @@ void Chat_Multiplayer::update() {
 
 void Chat_Multiplayer::gotMessage(std::string name, std::string trip, std::string msg, std::string src) {
 	Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Cancel));
+	auto pm = PendingMessage();
+	pm.PushLine(msg);
+	pm.SetIsEventMessage(true);
+	Game_Message::SetPendingMessage(std::move(pm));
 	if(chatBox == nullptr) return;
 	addLogEntry(
 		(src=="G"?"G← ":"")+name,
