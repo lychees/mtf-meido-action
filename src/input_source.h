@@ -107,6 +107,10 @@ namespace Input {
 			return keystates;
 		}
 
+		const std::string& GetTextInput() const {
+			return textInput;
+		}
+
 		ButtonMappingArray& GetButtonMappings() { return button_mappings; }
 		const ButtonMappingArray& GetButtonMappings() const { return button_mappings; }
 
@@ -135,6 +139,7 @@ namespace Input {
 		KeyStatus keymask;
 		Point mouse_pos;
 		AnalogInput analog_input;
+		std::string textInput;
 
 		int last_written_frame = -1;
 	};
