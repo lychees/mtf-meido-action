@@ -440,6 +440,34 @@ add_library(${PROJECT_NAME} STATIC
 
 	src/sliding_puzzle.cpp
 	src/sliding_puzzle.h
+
+	src/game_multiplayer_connection.cpp
+	src/game_multiplayer_connection.h
+	src/game_multiplayer_js_export.cpp
+	src/game_multiplayer_js_export.h
+	src/game_multiplayer_js_import.cpp
+	src/game_multiplayer_js_import.h
+	src/game_multiplayer_main_loop.cpp
+	src/game_multiplayer_main_loop.h
+	src/game_multiplayer_my_data.h
+	src/game_multiplayer_my_data.cpp
+	src/game_multiplayer_nametags.cpp
+	src/game_multiplayer_nametags.h
+	src/game_multiplayer_other_player.cpp
+	src/game_multiplayer_other_player.h
+	src/game_multiplayer_receive_handler.cpp
+	src/game_multiplayer_receive_handler.h
+	src/game_multiplayer_rng.cpp
+	src/game_multiplayer_rng.h
+	src/game_multiplayer_senders.cpp
+	src/game_multiplayer_senders.h
+	src/game_multiplayer_settings_scene.cpp
+	src/game_multiplayer_settings_scene.h
+	src/game_multiplayer.h
+	src/chat_multiplayer.cpp
+	src/chat_multiplayer.h
+	src/nxjson.cpp
+	src/nxjson.h
 )
 
 # These are actually unused when building in CMake
@@ -1071,7 +1099,10 @@ if(${PLAYER_BUILD_EXECUTABLE} AND (${PLAYER_TARGET_PLATFORM} STREQUAL "SDL2" OR 
 		endif()
 
 		target_link_libraries(${EXE_NAME} "idbfs.js")
-
+		target_link_libraries(${EXE_NAME} websocket.js)
+		set_property(TARGET ${EXE_NAME} APPEND_STRING PROPERTY LINK_FLAGS " -s EXPORTED_FUNCTIONS=\'[\"_SwitchNpcSync\",\"_SetSwitchSync\",\"_SetSwitchSyncWhiteList\",\"_LogSwitchSyncWhiteList\",\"_SetSwitchSyncLogBlackList\",\"_SetWSHost\",\"_SetPlayersVolume\",\"_SlashCommandSetSprite\",\"_ChangeName\",\"_gotMessage\",\"_gotChatInfo\",\"_isChatOpen\",\"_updateTypeDisplayText\",\"_updateTypeDisplayCaret\",\"_trySendChat\",\"_main\"]\'")
+		set_property(TARGET ${EXE_NAME} APPEND_STRING PROPERTY LINK_FLAGS " -s EXPORTED_RUNTIME_METHODS=\'[\"ccall\",\"cwrap\",\"intArrayFromString\",\"ALLOC_NORMAL\",\"allocate\"]\'")
+		set_property(TARGET ${EXE_NAME} APPEND_STRING PROPERTY LINK_FLAGS " -s ASSERTIONS=1")
 		set_target_properties(${EXE_NAME} PROPERTIES OUTPUT_NAME "${PLAYER_JS_OUTPUT_NAME}")
 	endif()
 

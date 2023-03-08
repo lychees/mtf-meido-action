@@ -38,7 +38,8 @@ public:
 	enum Type {
 		Event,
 		Player,
-		Vehicle
+		Vehicle,
+		PlayerOther
 	};
 
 	static StringView TypeToStr(Type t);
@@ -1349,6 +1350,7 @@ inline StringView Game_Character::TypeToStr(Game_Character::Type type) {
 		case Player: return "Player";
 		case Vehicle: return "Vehicle";
 		case Event: return "Event";
+		case PlayerOther: return "PlayerOther";
 	}
 	return "UnknownCharacter";
 }

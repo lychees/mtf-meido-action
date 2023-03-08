@@ -62,6 +62,8 @@ public:
 	void ToggleFullscreen() override;
 	void ToggleZoom() override;
 	void UpdateDisplay() override;
+	std::string getClipboardText() override;
+	void setClipboardText(std::string text) override;
 	void SetTitle(const std::string &title) override;
 	bool ShowCursor(bool flag) override;
 	void ProcessEvents() override;

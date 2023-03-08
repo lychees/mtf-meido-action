@@ -535,6 +535,17 @@ void Sdl2Ui::UpdateDisplay() {
 	SDL_RenderPresent(sdl_renderer);
 }
 
+std::string Sdl2Ui::getClipboardText() {
+	char* cStr = SDL_GetClipboardText();
+	std::string str(cStr);
+	SDL_free(cStr);
+	return str;
+}
+
+void Sdl2Ui::setClipboardText(std::string text) {
+	SDL_SetClipboardText(text.c_str());
+}
+
 void Sdl2Ui::SetTitle(const std::string &title) {
 	SDL_SetWindowTitle(sdl_window, title.c_str());
 }

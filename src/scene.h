@@ -54,6 +54,7 @@ public:
 		Name,
 		Gameover,
 		Debug,
+		Multiplayer,
 		Logo,
 		Order,
 		GameBrowser,
@@ -231,7 +232,7 @@ public:
 
 	/**
 	 * Set number of frames to wait before start/continue the scene
-	 * 
+	 *
 	 * @frames number of frames to wait
 	 */
 	void SetDelayFrames(int frames);
@@ -242,14 +243,14 @@ public:
 	/** Decrement delay frames by 1 if we're waiting */
 	void UpdateDelayFrames();
 
-	/** 
+	/**
 	 * Pops the stack until the title screen and sets proper delay.
 	 *
 	 * @return false if there is no title scene in the stack, or we're already on the title scene
 	 */
 	static bool ReturnToTitleScene();
 
-	/** 
+	/**
 	 * Transfer drawables from the previous scene. This is called
 	 * when we do a scene change.
 	 *
