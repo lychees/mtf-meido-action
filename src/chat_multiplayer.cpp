@@ -362,7 +362,7 @@ namespace {
 					auto& glyph = line.first[j];
 					auto ret = glyph.data;
 					if(EP_UNLIKELY(!ret)) continue;
-					glyphOffset += Text::Draw(*text_img, glyphOffset, line.second, *Font::Default(), *currentTheme, glyph.color, ret.ch, ret.is_exfont).width;
+					glyphOffset += Text::Draw(*text_img, glyphOffset, line.second, *Font::Default(), *currentTheme, glyph.color, ret.ch, ret.is_exfont).x;
 				}
 			}
 			msg.renderGraphic = text_img;
