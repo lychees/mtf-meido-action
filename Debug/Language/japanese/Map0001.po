@@ -1,16 +1,20 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: GAME_NAME 1.0\n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
 "Language-Team: YOUR NAME <mail@your.address>\n"
-"Language: \n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-CreatedBy: LcfTrans"
+"X-CreatedBy: LcfTrans\n"
+"X-Generator: Poedit 3.2.2\n"
 
 #. ID 1, Page 1, Line 3, Pos (0,0)
 msgid "这个游戏正在开发中。请输入想要跳入的章节（1-4）："
-msgstr ""
+msgstr "このゲームは開発中です。飛び込みたい章を入力してください（1～4）。"
 
 #. ID 1, Page 2, Line 4, Pos (0,0)
 #. ID 1, Page 2, Line 68, Pos (0,0)
@@ -22,17 +26,19 @@ msgstr ""
 
 #. ID 1, Page 2, Line 8, Pos (0,0)
 msgid "东京都的夜晚总是繁华似锦。"
-msgstr ""
+msgstr "夜の東京はいつも賑やかです。"
 
 #. ID 1, Page 2, Line 9, Pos (0,0)
 msgid "新宿的街区则更是如此。"
-msgstr ""
+msgstr "特に新宿の界隈はそうです。"
 
 #. ID 1, Page 2, Line 10, Pos (0,0)
 msgid ""
 "即使是在这乍暖还寒的初春时景，淅淅沥沥的细雨还未完全褪去，空气中\n"
 "还伴随着淡淡的树叶与泥土气息的时候，这里的街肆依旧攘攘熙熙。"
 msgstr ""
+"まだ暖かかったり寒かったりする春先でも、霧雨がまだ完全に消えていない時や、空気が\n"
+"まだ雨が完全に消えておらず、葉や土の香りがかすかに漂う早春のこの時期でも、街は多くの人で賑わっています。"
 
 #. ID 1, Page 2, Line 12, Pos (0,0)
 msgid ""
@@ -40,10 +46,13 @@ msgid ""
 "班族、带着相机的异国游客、还是各式各样的机器人和随处可见的霓虹荧\n"
 "幕，所有的这一切似乎都在暗示着..."
 msgstr ""
+"遠くで見慣れない曲を演奏するギタリストも、2人組の女子高生も、急ぐ通勤客も、カメラを持った外国人観光客も、さまざまなロボットも、そこらじゅうにあるネオンも、です。\n"
+"女子高生、通勤ラッシュ、カメラを持った外国人観光客、様々なロボット、いたるところにあるネオンサイン。\n"
+"これらすべてが示唆するのは..."
 
 #. ID 1, Page 2, Line 15, Pos (0,0)
 msgid "这里就是\\c[11]世界的中心\\c[0]。"
-msgstr ""
+msgstr "ここに、\\c[11]世界の中心\\c[0]があります。"
 
 #. ID 1, Page 2, Line 16, Pos (0,0)
 msgid ""
@@ -140,9 +149,7 @@ msgid "她看起来神色匆忙，似乎有什么要紧的事情要处理。"
 msgstr ""
 
 #. ID 1, Page 2, Line 75, Pos (0,0)
-msgid ""
-"「你是今天入职的出云酱吧？果然是很可爱的孩子呢！」\n"
-""
+msgid "「你是今天入职的出云酱吧？果然是很可爱的孩子呢！」\n"
 msgstr ""
 
 #. ID 1, Page 2, Line 77, Pos (0,0)
@@ -150,16 +157,13 @@ msgid "她敏锐的观察了一眼藏在我口袋里一角露在外面的信封�
 msgstr ""
 
 #. ID 1, Page 2, Line 78, Pos (0,0)
-msgid ""
-"「我是小笠原里穂，Shelter 的店长，当然你也可以称呼我，大姐头。」\n"
-""
+msgid "「我是小笠原里穂，Shelter 的店长，当然你也可以称呼我，大姐头。」\n"
 msgstr ""
 
 #. ID 1, Page 2, Line 80, Pos (0,0)
 msgid ""
 "「啊，本来今天应该要安排入职培训的，可是正不巧呢我突然有急事不得\n"
 "不外出一下。」\n"
-""
 msgstr ""
 
 #. ID 1, Page 2, Line 85, Pos (0,0)
@@ -245,21 +249,15 @@ msgid "「哎呀呀，那当然是\\c[11]工作服\\c[0]呀！」"
 msgstr ""
 
 #. ID 1, Page 2, Line 131, Pos (0,0)
-msgid ""
-"「什么工作服？」\n"
-""
+msgid "「什么工作服？」\n"
 msgstr ""
 
 #. ID 1, Page 2, Line 133, Pos (0,0)
-msgid ""
-"「啊，它们没提起过嘛。。。来这里打工都是要穿女仆装的。。。」\n"
-""
+msgid "「啊，它们没提起过嘛。。。来这里打工都是要穿女仆装的。。。」\n"
 msgstr ""
 
 #. ID 1, Page 2, Line 135, Pos (0,0)
-msgid ""
-"「真是伤脑筋啊。。。」\n"
-""
+msgid "「真是伤脑筋啊。。。」\n"
 msgstr ""
 
 #. ID 1, Page 2, Line 138, Pos (0,0)
@@ -300,9 +298,7 @@ msgid ""
 msgstr ""
 
 #. ID 1, Page 3, Line 19, Pos (0,0)
-msgid ""
-"「这一排都是女仆装啦，出云酱的话... 我推荐的是这件！」\n"
-""
+msgid "「这一排都是女仆装啦，出云酱的话... 我推荐的是这件！」\n"
 msgstr ""
 
 #. ID 1, Page 3, Line 21, Pos (0,0)
@@ -312,21 +308,15 @@ msgid ""
 msgstr ""
 
 #. ID 1, Page 3, Line 23, Pos (0,0)
-msgid ""
-"「这件衣服呀，其实从用料上来说是...」\n"
-""
+msgid "「这件衣服呀，其实从用料上来说是...」\n"
 msgstr ""
 
 #. ID 1, Page 3, Line 26, Pos (0,0)
-msgid ""
-"叮叮叮叮~~~~\n"
-""
+msgid "叮叮叮叮~~~~\n"
 msgstr ""
 
 #. ID 1, Page 3, Line 28, Pos (0,0)
-msgid ""
-"「哎呀，不好，主人在召唤我了，失陪一下，抱歉！」\n"
-""
+msgid "「哎呀，不好，主人在召唤我了，失陪一下，抱歉！」\n"
 msgstr ""
 
 #. ID 1, Page 3, Line 32, Pos (0,0)
@@ -489,9 +479,7 @@ msgid "「MOJITO。」"
 msgstr ""
 
 #. ID 1, Page 4, Line 18, Pos (0,0)
-msgid ""
-"墨迹.. 多？\n"
-""
+msgid "墨迹.. 多？\n"
 msgstr ""
 
 #. ID 1, Page 4, Line 20, Pos (0,0)
@@ -1171,4 +1159,3 @@ msgstr ""
 #. ID 1, Page 6, Line 65, Pos (0,0)
 msgid "我就这样看着镜子，像希腊神话中的纳西瑟斯。"
 msgstr ""
-
