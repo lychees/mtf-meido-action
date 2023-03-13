@@ -1,0 +1,1156 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: GAME_NAME 1.0\n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: YOUR NAME <mail@your.address>\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-CreatedBy: LcfTrans\n"
+"X-Generator: Poedit 3.2.2\n"
+
+#. ID 1, Page 1, Line 3, Pos (0,0)
+msgid "这个游戏正在开发中。请输入想要跳入的章节（1-4）："
+msgstr "This game is currently in development. Please enter the chapter (1-4) you want to jump into:"
+
+#. ID 1, Page 2, Line 4, Pos (0,0)
+#. ID 1, Page 2, Line 68, Pos (0,0)
+#. ID 1, Page 4, Line 120, Pos (0,0)
+#. ID 1, Page 4, Line 159, Pos (0,0)
+#. ID 1, Page 5, Line 29, Pos (0,0)
+msgid "..."
+msgstr ""
+
+#. ID 1, Page 2, Line 8, Pos (0,0)
+msgid "东京都的夜晚总是繁华似锦。"
+msgstr ""
+
+#. ID 1, Page 2, Line 9, Pos (0,0)
+msgid "新宿的街区则更是如此。"
+msgstr ""
+
+#. ID 1, Page 2, Line 10, Pos (0,0)
+msgid ""
+"即使是在这乍暖还寒的初春时景，淅淅沥沥的细雨还未完全褪去，空气中\n"
+"还伴随着淡淡的树叶与泥土气息的时候，这里的街肆依旧攘攘熙熙。"
+msgstr ""
+
+#. ID 1, Page 2, Line 12, Pos (0,0)
+msgid ""
+"无论是远处弹奏陌生歌曲的吉他手、两两结伴的女高中生、匆忙路过的上\n"
+"班族、带着相机的异国游客、还是各式各样的机器人和随处可见的霓虹荧\n"
+"幕，所有的这一切似乎都在暗示着..."
+msgstr ""
+
+#. ID 1, Page 2, Line 15, Pos (0,0)
+msgid "这里就是\\c[11]世界的中心\\c[0]。"
+msgstr ""
+
+#. ID 1, Page 2, Line 16, Pos (0,0)
+msgid ""
+"信号灯忽然开始闪烁，一时间八方向的人群同时开始了运动。\n"
+"我迷失在周围湍急的人流里，感到些许有点喘不过气。"
+msgstr ""
+
+#. ID 1, Page 2, Line 22, Pos (0,0)
+msgid ""
+"自\\c[11]那时\\c[0]起不知已经过了多久，我终于在朋友的鼓励下踏出了\n"
+"自己的房间。相隔一年零四个月（也许更久），我第一次走在街头，才发\n"
+"觉现实世界对我来说已是如此陌生。"
+msgstr ""
+
+#. ID 1, Page 2, Line 27, Pos (0,0)
+msgid ""
+"「你这样整天待在家里，会把自己的身体和精神都憋坏的，我们都很担心\n"
+"你啊！这封介绍信，是我认识的朋友的朋友的朋友经营的酒吧，你拿着可\n"
+"以去试试看？它们现在很缺少人手的样子。」"
+msgstr ""
+
+#. ID 1, Page 2, Line 30, Pos (0,0)
+msgid "「还有记得出发前，要剪一下你的刘海哦...」"
+msgstr ""
+
+#. ID 1, Page 2, Line 34, Pos (0,0)
+msgid ""
+"啊啊啊... 不行不行... 绝对不行... 就这样晕倒在街上会给人添麻烦的\n"
+"！我拍了拍脸，勉强的重新打起精神。"
+msgstr ""
+
+#. ID 1, Page 2, Line 36, Pos (0,0)
+msgid ""
+"我摸了下藏在口袋里的介绍信，我又回想起，昨天朋友在手机里叮嘱我的\n"
+"那些话。啊，这年头，会有人看手信这样复古的东西吗？\n"
+"而且话说回来，像我这样的 Neet，真的能够胜任这项工作吗？"
+msgstr ""
+
+#. ID 1, Page 2, Line 39, Pos (0,0)
+msgid "不过能有一个借口暂时先逃出那个家，或许也是一个不坏的主意。"
+msgstr ""
+
+#. ID 1, Page 2, Line 40, Pos (0,0)
+msgid "我不确定..."
+msgstr ""
+
+#. ID 1, Page 2, Line 46, Pos (0,0)
+msgid ""
+"不知转过了多少个街巷，来到了一处看起来人迹罕至的小巷子里。\n"
+"这里的环境要比刚才的街道安静许多，如果路牌没有提醒这里还在新宿的\n"
+"话，\n"
+"倒是看起来像是巣鸭那里的昭和时代的老年公寓。"
+msgstr ""
+
+#. ID 1, Page 2, Line 50, Pos (0,0)
+msgid ""
+"我努力的阅读着地图，光是想找到酒吧的准确位置，看起来就是在解谜题\n"
+"了，\n"
+"那绝非易事。"
+msgstr ""
+
+#. ID 1, Page 2, Line 58, Pos (0,0)
+msgid ""
+"我小心着按着指引走上了公寓的三楼，\n"
+"如果不是门口那扇小小的霓虹招牌的提醒，我真的以为自己又迷了路。"
+msgstr ""
+
+#. ID 1, Page 2, Line 60, Pos (0,0)
+msgid ""
+"我伸出右手，作出敲门的手势，呆呆的望了会眼前的木质门牌 \n"
+"———— \\c[11]Shelter\\c[0]。"
+msgstr ""
+
+#. ID 1, Page 2, Line 62, Pos (0,0)
+msgid "我陷入了沉思。"
+msgstr ""
+
+#. ID 1, Page 2, Line 64, Pos (0,0)
+msgid "门忽然没有征兆地开了，在我踌躇之时。"
+msgstr ""
+
+#. ID 1, Page 2, Line 67, Pos (0,0)
+msgid "「哎呀呀，你是...」"
+msgstr ""
+
+#. ID 1, Page 2, Line 69, Pos (0,0)
+msgid ""
+"在我正要准备敲门的时候，从屋子里走出来一位白发赤瞳，长\n"
+"发及肩，身穿笔挺的西装和红色衬衣，看起来比我要年长十来岁的姐姐。"
+msgstr ""
+
+#. ID 1, Page 2, Line 71, Pos (0,0)
+msgid "她看起来神色匆忙，似乎有什么要紧的事情要处理。"
+msgstr ""
+
+#. ID 1, Page 2, Line 75, Pos (0,0)
+msgid "「你是今天入职的出云酱吧？果然是很可爱的孩子呢！」\n"
+msgstr ""
+
+#. ID 1, Page 2, Line 77, Pos (0,0)
+msgid "她敏锐的观察了一眼藏在我口袋里一角露在外面的信封，说道。"
+msgstr ""
+
+#. ID 1, Page 2, Line 78, Pos (0,0)
+msgid "「我是小笠原里穂，Shelter 的店长，当然你也可以称呼我，大姐头。」\n"
+msgstr ""
+
+#. ID 1, Page 2, Line 80, Pos (0,0)
+msgid ""
+"「啊，本来今天应该要安排入职培训的，可是正不巧呢我突然有急事不得\n"
+"不外出一下。」\n"
+msgstr ""
+
+#. ID 1, Page 2, Line 85, Pos (0,0)
+msgid "「紫亚。」"
+msgstr ""
+
+#. ID 1, Page 2, Line 89, Pos (0,0)
+msgid "「嗨...」"
+msgstr ""
+
+#. ID 1, Page 2, Line 91, Pos (0,0)
+msgid "「大姐头，找紫亚什么事？」"
+msgstr ""
+
+#. ID 1, Page 2, Line 94, Pos (0,0)
+msgid ""
+"「紫亚，这位是刚才我提到的今天准备入职的出云同学，不巧我现在有十\n"
+"分要紧的事务要离开店里一下。」"
+msgstr ""
+
+#. ID 1, Page 2, Line 96, Pos (0,0)
+msgid "「麻烦你带她熟悉一下酒吧的日常事务吧...」"
+msgstr ""
+
+#. ID 1, Page 2, Line 100, Pos (0,0)
+msgid "「啊，好...」"
+msgstr ""
+
+#. ID 1, Page 2, Line 104, Pos (0,0)
+msgid "「那么，拜托了。」"
+msgstr ""
+
+#. ID 1, Page 2, Line 105, Pos (0,0)
+msgid "「我现在，必须去处理\\c[11]那件事\\c[0]\\。。。」"
+msgstr ""
+
+#. ID 1, Page 2, Line 108, Pos (0,0)
+msgid "说罢，店长遂匆忙得跑开了。。。"
+msgstr ""
+
+#. ID 1, Page 2, Line 109, Pos (0,0)
+msgid "我回过头..."
+msgstr ""
+
+#. ID 1, Page 2, Line 111, Pos (0,0)
+msgid "眼前这位女仆装，长头发的姐姐，看起来就是今天的搭档紫亚了。"
+msgstr ""
+
+#. ID 1, Page 2, Line 112, Pos (0,0)
+msgid "虽然看起来是可爱的女孩子，但是说话的嗓音却像是男孩子的样子，"
+msgstr ""
+
+#. ID 1, Page 2, Line 113, Pos (0,0)
+msgid "并不像是有特别的练习过伪声，也没有在刻意压低自己的声音..."
+msgstr ""
+
+#. ID 1, Page 2, Line 118, Pos (0,0)
+msgid "这样子半吊子的家伙，真的没关系吗？"
+msgstr ""
+
+#. ID 1, Page 2, Line 119, Pos (0,0)
+msgid "但在我进一步地胡思乱想以前，紫亚就热情的一把拉住了我的手，"
+msgstr ""
+
+#. ID 1, Page 2, Line 126, Pos (0,0)
+msgid "「啊，果然是比照片里还要可爱的妹妹呢？」"
+msgstr ""
+
+#. ID 1, Page 2, Line 127, Pos (0,0)
+msgid "什么，xxx 那个家伙，把我的照片都已经提前发过去了吗？"
+msgstr ""
+
+#. ID 1, Page 2, Line 128, Pos (0,0)
+msgid "「那么，今天乃有带\\c[11]那件东西\\c[0]来吗？」"
+msgstr ""
+
+#. ID 1, Page 2, Line 129, Pos (0,0)
+msgid "「那件...东西？」"
+msgstr ""
+
+#. ID 1, Page 2, Line 130, Pos (0,0)
+msgid "「哎呀呀，那当然是\\c[11]工作服\\c[0]呀！」"
+msgstr ""
+
+#. ID 1, Page 2, Line 131, Pos (0,0)
+msgid "「什么工作服？」\n"
+msgstr ""
+
+#. ID 1, Page 2, Line 133, Pos (0,0)
+msgid "「啊，它们没提起过嘛。。。来这里打工都是要穿女仆装的。。。」\n"
+msgstr ""
+
+#. ID 1, Page 2, Line 135, Pos (0,0)
+msgid "「真是伤脑筋啊。。。」\n"
+msgstr ""
+
+#. ID 1, Page 2, Line 138, Pos (0,0)
+msgid ""
+"女仆装啊... 他当然有和我提起过...\n"
+"但是... 那种东西..."
+msgstr ""
+
+#. ID 1, Page 2, Line 140, Pos (0,0)
+msgid "我并没有..."
+msgstr ""
+
+#. ID 1, Page 2, Line 141, Pos (0,0)
+#. ID 1, Page 4, Line 64, Pos (0,0)
+msgid "。。。"
+msgstr ""
+
+#. ID 1, Page 3, Line 4, Pos (0,0)
+msgid "那么先到里屋里，挑选一件合适出云的裙子吧~！"
+msgstr ""
+
+#. ID 1, Page 3, Line 10, Pos (0,0)
+msgid ""
+"我被她不由分说地拉进里屋，相比外屋较为昏暗的设计，里屋的光线和布\n"
+"局都更加的温馨。映入眼帘的是挂在迷你衣柜里的一排少女服饰... 有 \n"
+"JK 制服、也有各种风格的女仆装... 间或也有一些 lo 裙。"
+msgstr ""
+
+#. ID 1, Page 3, Line 14, Pos (0,0)
+msgid "嗯，即使是我，也是认识它们其中一些的名字的。"
+msgstr ""
+
+#. ID 1, Page 3, Line 15, Pos (0,0)
+msgid ""
+"我的目光投向那些衣服所在地方，她们中的每一件都被平常只有干洗店才\n"
+"会提供的那种薄膜覆盖，状况看起来都保护的十分不错，看起来平时一定\n"
+"是有专人负责打理。"
+msgstr ""
+
+#. ID 1, Page 3, Line 19, Pos (0,0)
+msgid "「这一排都是女仆装啦，出云酱的话... 我推荐的是这件！」\n"
+msgstr ""
+
+#. ID 1, Page 3, Line 21, Pos (0,0)
+msgid ""
+"紫亚拉开衣柜的一帘，指着在角落里的那一件和洋折衷\n"
+"主义风格、大正年代设计感的女仆装对我说道。"
+msgstr ""
+
+#. ID 1, Page 3, Line 23, Pos (0,0)
+msgid "「这件衣服呀，其实从用料上来说是...」\n"
+msgstr ""
+
+#. ID 1, Page 3, Line 26, Pos (0,0)
+msgid "叮叮叮叮~~~~\n"
+msgstr ""
+
+#. ID 1, Page 3, Line 28, Pos (0,0)
+msgid "「哎呀，不好，主人在召唤我了，失陪一下，抱歉！」\n"
+msgstr ""
+
+#. ID 1, Page 3, Line 32, Pos (0,0)
+msgid ""
+"可正当紫亚准备向我介绍时，突然从外屋传来一阵清脆的铃音，那大概是\n"
+"客人召唤员工的声音吧。主人... 大概是紫亚对店里客人的称呼吧... 大\n"
+"家可真是敬业啊..."
+msgstr ""
+
+#. ID 1, Page 3, Line 35, Pos (0,0)
+msgid "紫亚从屋外探出脑袋，做了最后的一番叮嘱。"
+msgstr ""
+
+#. ID 1, Page 3, Line 36, Pos (0,0)
+msgid ""
+"「哎呀呀，抱歉抱歉！今天外面似乎有聚会所以格外热闹的样子，平常都\n"
+"不会有那么多的客人的啦！对了，制服鞋的话，在那里。」"
+msgstr ""
+
+#. ID 1, Page 3, Line 39, Pos (0,0)
+msgid "「では、また！」"
+msgstr ""
+
+#. ID 1, Page 3, Line 40, Pos (0,0)
+msgid "她指了一下角落里的一个盒子，随后又立刻消失在了我的视野里。"
+msgstr ""
+
+#. ID 1, Page 3, Line 41, Pos (0,0)
+msgid "留下我一个人，安全地待在里屋的隐蔽空间里。"
+msgstr ""
+
+#. ID 1, Page 3, Line 42, Pos (0,0)
+msgid "而我却犹豫了起来。"
+msgstr ""
+
+#. ID 1, Page 3, Line 43, Pos (0,0)
+msgid "真的要穿这件吗？"
+msgstr ""
+
+#. ID 1, Page 3, Line 44, Pos (0,0)
+msgid "还是说..."
+msgstr ""
+
+#. ID 1, Page 3, Line 45, Pos (0,0)
+msgid "果然还是..."
+msgstr ""
+
+#. ID 1, Page 3, Line 46, Pos (0,0)
+msgid "啊啊啊啊，不想那么多了..."
+msgstr ""
+
+#. ID 1, Page 3, Line 47, Pos (0,0)
+msgid "至少要先帮忙分担一下工作量才行啊。"
+msgstr ""
+
+#. ID 1, Page 3, Line 48, Pos (0,0)
+msgid ""
+"这样想着，我才意识到，哦，这好像并不像我平时的样子啊？原来我也是\n"
+"这么敬业的家伙吗？"
+msgstr ""
+
+#. ID 1, Page 3, Line 50, Pos (0,0)
+msgid ""
+"不过，老板是会每日结算发钱的吧... 那么拿人钱财，替人消灾... 还是\n"
+"应该要做到的..."
+msgstr ""
+
+#. ID 1, Page 3, Line 55, Pos (0,0)
+msgid "我鼓足了勇气，换上了那件衣服..."
+msgstr ""
+
+#. ID 1, Page 3, Line 60, Pos (0,0)
+msgid "镜中出现了一个陌生的身影..."
+msgstr ""
+
+#. ID 1, Page 3, Line 61, Pos (0,0)
+msgid "眼前的家伙，真的是我吗？"
+msgstr ""
+
+#. ID 1, Page 3, Line 66, Pos (0,0)
+msgid "那个人，看起来似曾相识。"
+msgstr ""
+
+#. ID 1, Page 3, Line 67, Pos (0,0)
+msgid "是在哪里见过呢。"
+msgstr ""
+
+#. ID 1, Page 3, Line 68, Pos (0,0)
+msgid "想不起来。"
+msgstr ""
+
+#. ID 1, Page 3, Line 69, Pos (0,0)
+msgid ""
+"我努力的搜寻着记忆，可以脑袋似乎对此产生了抗拒，无论怎么用力的回\n"
+"忆，总是在就快要找到什么线索的时候，思绪就随着那些末梢信号的\n"
+"衰退，而被中断了。"
+msgstr ""
+
+#. ID 1, Page 3, Line 72, Pos (0,0)
+msgid ""
+"记忆里的那些空洞，如同搅拌机中，不均匀的果肉碎块和脆弱的泡沫那样\n"
+"，令我焦躁不安。"
+msgstr ""
+
+#. ID 1, Page 3, Line 74, Pos (0,0)
+msgid "以前的我，可都是过目不忘的。"
+msgstr ""
+
+#. ID 1, Page 3, Line 81, Pos (0,0)
+msgid "虽然这的确令我难过，但是眼下似乎还不是考虑这些事情的时候。"
+msgstr ""
+
+#. ID 1, Page 3, Line 82, Pos (0,0)
+msgid ""
+"我走近紫亚刚才指向的鞋柜，找到了一双包装好的、黑色、37 码、没有\n"
+"多余装饰图案的制服鞋，小心翼翼的朝着外屋的方向走去。"
+msgstr ""
+
+#. ID 1, Page 4, Line 4, Pos (0,0)
+#. ID 1, Page 7, Line 4, Pos (0,0)
+msgid ""
+"掀开帘幕，今天酒吧的客人看起来格外的多，狭小的空间已经被沾满了，\n"
+"紫亚从一个桌子挪动到另一个桌子，陪着客人们聊天，似乎并没有富裕的\n"
+"时间再留给我。"
+msgstr ""
+
+#. ID 1, Page 4, Line 7, Pos (0,0)
+#. ID 1, Page 7, Line 7, Pos (0,0)
+msgid ""
+"我一个人走到吧台的位置，看起来像是一个木偶，大概那个角落是我现在\n"
+"应该待的地方。"
+msgstr ""
+
+#. ID 1, Page 4, Line 9, Pos (0,0)
+#. ID 1, Page 7, Line 9, Pos (0,0)
+msgid "虽然这里环境嘈杂，光线昏暗，但是气氛上，我并不讨厌。"
+msgstr ""
+
+#. ID 1, Page 4, Line 10, Pos (0,0)
+#. ID 1, Page 7, Line 10, Pos (0,0)
+msgid ""
+"眼下暂时没有我什么工作，只要在这里当一个看板娘就好了吧？这样看来\n"
+"的话，那这可真是一份性价比还不错的工作。紫亚和其它客人们似乎说到\n"
+"开心的地方，大家哈哈大笑起来，也许她是真的喜欢扮演这个角色吧？"
+msgstr ""
+
+#. ID 1, Page 4, Line 13, Pos (0,0)
+#. ID 1, Page 7, Line 13, Pos (0,0)
+msgid "这个时候，酒店来了一位新的客人。"
+msgstr ""
+
+#. ID 1, Page 4, Line 14, Pos (0,0)
+#. ID 1, Page 7, Line 14, Pos (0,0)
+msgid "他快步走到了我的面前。"
+msgstr ""
+
+#. ID 1, Page 4, Line 16, Pos (0,0)
+#. ID 1, Page 4, Line 39, Pos (0,0)
+msgid "「MOJITO。」"
+msgstr ""
+
+#. ID 1, Page 4, Line 18, Pos (0,0)
+msgid "墨迹.. 多？\n"
+msgstr ""
+
+#. ID 1, Page 4, Line 20, Pos (0,0)
+msgid ""
+"似乎是一种鸡尾酒的名字，我看了一眼吧台的酒水单，似乎确实有这种饮\n"
+"料。"
+msgstr ""
+
+#. ID 1, Page 4, Line 22, Pos (0,0)
+msgid "但是... 第一天入职的我... 怎么会做这种东西..."
+msgstr ""
+
+#. ID 1, Page 4, Line 28, Pos (0,0)
+msgid ""
+"我的表情一定很慌张吧... 明显西装男子略显不悦，似乎已经判断了我听\n"
+"不懂英文..."
+msgstr ""
+
+#. ID 1, Page 4, Line 32, Pos (0,0)
+msgid "「啊啊啊，好久不见，今天先来杯什么呢？」"
+msgstr ""
+
+#. ID 1, Page 4, Line 33, Pos (0,0)
+msgid ""
+"还好，就在我快要陷入慌乱，手足无措之时。紫亚连忙来到吧台帮我解了\n"
+"围。"
+msgstr ""
+
+#. ID 1, Page 4, Line 42, Pos (0,0)
+msgid "「啊啊啊，好的。」"
+msgstr ""
+
+#. ID 1, Page 4, Line 44, Pos (0,0)
+msgid "紫亚熟练的从酒柜里去出了相关的素材，开始调酒。"
+msgstr ""
+
+#. ID 1, Page 4, Line 46, Pos (0,0)
+msgid "「这位是你们新的店员吗？看起来英文不太好的样子。」"
+msgstr ""
+
+#. ID 1, Page 4, Line 47, Pos (0,0)
+msgid "紫亚只好尴尬的陪笑。"
+msgstr ""
+
+#. ID 1, Page 4, Line 49, Pos (0,0)
+msgid "我不敢作声... 毕竟这全都是我的错。"
+msgstr ""
+
+#. ID 1, Page 4, Line 50, Pos (0,0)
+msgid ""
+"想不到第一次接待客人就搞砸了，果然这份工作也并不是那么简单的，我\n"
+"应该做更多的功课。"
+msgstr ""
+
+#. ID 1, Page 4, Line 52, Pos (0,0)
+msgid "客人回到了座位上。"
+msgstr ""
+
+#. ID 1, Page 4, Line 53, Pos (0,0)
+msgid ""
+"一边品尝着鸡尾酒，一边交集的看着左腕，看起来是某种名贵的款式的手\n"
+"表？"
+msgstr ""
+
+#. ID 1, Page 4, Line 55, Pos (0,0)
+msgid "我并不懂这些..."
+msgstr ""
+
+#. ID 1, Page 4, Line 58, Pos (0,0)
+msgid "紫亚也回到了吧台，客人们渐渐离开，紫亚逐个向他们打了招呼。"
+msgstr ""
+
+#. ID 1, Page 4, Line 59, Pos (0,0)
+msgid "不一会就只剩下那个外国客人而已了。"
+msgstr ""
+
+#. ID 1, Page 4, Line 60, Pos (0,0)
+msgid "紫亚拿出手机，戴上了耳机，开始玩起了手机上的迷你乐动方块。"
+msgstr ""
+
+#. ID 1, Page 4, Line 61, Pos (0,0)
+msgid "看起来是一款音乐游戏，我也对此完全不懂..."
+msgstr ""
+
+#. ID 1, Page 4, Line 62, Pos (0,0)
+msgid "鸡尾酒，手表，音游... 怎么一个一个，全都是我不懂的东西。"
+msgstr ""
+
+#. ID 1, Page 4, Line 63, Pos (0,0)
+msgid "我只好一个人看着酒水单发呆... 说好的入职培训呢..."
+msgstr ""
+
+#. ID 1, Page 4, Line 72, Pos (0,0)
+msgid ""
+"时间不知过去了多久，那位客人在座位上越发焦躁进而幽怨，食指在桌子\n"
+"上，发出嗒嗒嗒的节拍声，饮料也早已见底。"
+msgstr ""
+
+#. ID 1, Page 4, Line 74, Pos (0,0)
+msgid "这边酒水单被我来来回回看了好几遍。"
+msgstr ""
+
+#. ID 1, Page 4, Line 75, Pos (0,0)
+msgid "紫亚的音游也不知道换了几面曲子。"
+msgstr ""
+
+#. ID 1, Page 4, Line 78, Pos (0,0)
+msgid ""
+"直到突然另一位同样风格的，只是西装更加笔挺，个子更高的男士，进了\n"
+"酒店。"
+msgstr ""
+
+#. ID 1, Page 4, Line 84, Pos (0,0)
+msgid ""
+"看出来是久等后的宽慰，他先是站起身来，露出拥抱的姿势，可表情又随\n"
+"即从舒展变成愤怒。"
+msgstr ""
+
+#. ID 1, Page 4, Line 86, Pos (0,0)
+msgid "最后变成上去踢了那个人一脚... 又敲了一下脑袋。"
+msgstr ""
+
+#. ID 1, Page 4, Line 87, Pos (0,0)
+msgid ""
+"两个人随后用标准的伦敦英文，交流着什么。我能听辨出，高个子的男士\n"
+"是在解释，因为不可预料的突然的工作，自己因为不可抗力而迟到。"
+msgstr ""
+
+#. ID 1, Page 4, Line 89, Pos (0,0)
+msgid "果然高管一个一个都不可靠啊。"
+msgstr ""
+
+#. ID 1, Page 4, Line 90, Pos (0,0)
+msgid "我为什么要说都呢..."
+msgstr ""
+
+#. ID 1, Page 4, Line 95, Pos (0,0)
+msgid "随后发生了令我震惊的一幕。"
+msgstr ""
+
+#. ID 1, Page 4, Line 96, Pos (0,0)
+msgid "两个人一起手拉手进了里屋。"
+msgstr ""
+
+#. ID 1, Page 4, Line 97, Pos (0,0)
+msgid "我惊恐的望着紫亚，原来那不是员工专属的空间啊。"
+msgstr ""
+
+#. ID 1, Page 4, Line 98, Pos (0,0)
+msgid ""
+"紫亚朝着我连忙解释。。。里屋是只要办理 VIP 就可以随意出入的地方\n"
+"，有些裙子甚至还是客人们寄放的。"
+msgstr ""
+
+#. ID 1, Page 4, Line 100, Pos (0,0)
+msgid "我的希望落了空。"
+msgstr ""
+
+#. ID 1, Page 4, Line 101, Pos (0,0)
+msgid "过了一会儿，两个人从里屋出来，其中一人化了淡妆，还换上了裙子..."
+msgstr ""
+
+#. ID 1, Page 4, Line 102, Pos (0,0)
+msgid "虽然是那种日常款的大妈风格的。。。至少在我的审美下是这样。"
+msgstr ""
+
+#. ID 1, Page 4, Line 103, Pos (0,0)
+msgid "两个人旁若无人的接吻起来..."
+msgstr ""
+
+#. ID 1, Page 4, Line 104, Pos (0,0)
+msgid "明明十几分钟之前它们还在家暴的。"
+msgstr ""
+
+#. ID 1, Page 4, Line 105, Pos (0,0)
+msgid "随后高个子的家伙给了一个公主抱... 两个人就这样离开了 Shelter..."
+msgstr ""
+
+#. ID 1, Page 4, Line 106, Pos (0,0)
+msgid "Shelter 里只剩下我和紫亚。"
+msgstr ""
+
+#. ID 1, Page 4, Line 107, Pos (0,0)
+msgid "紫亚对着我露出了尴尬的微笑，拍了拍我的肩膀。"
+msgstr ""
+
+#. ID 1, Page 4, Line 108, Pos (0,0)
+msgid "随后很久都没有新的客人。"
+msgstr ""
+
+#. ID 1, Page 4, Line 111, Pos (0,0)
+msgid "紫亚伸了个懒腰。"
+msgstr ""
+
+#. ID 1, Page 4, Line 112, Pos (0,0)
+msgid "そろそろ，到了该打烊的时候了吧。"
+msgstr ""
+
+#. ID 1, Page 4, Line 113, Pos (0,0)
+msgid "我回到了里屋，换掉了衣服..."
+msgstr ""
+
+#. ID 1, Page 4, Line 114, Pos (0,0)
+msgid "不知为何，我感到稍稍有一些失落..."
+msgstr ""
+
+#. ID 1, Page 4, Line 115, Pos (0,0)
+msgid "回到吧台，可是却来了一位新的客人。"
+msgstr ""
+
+#. ID 1, Page 4, Line 117, Pos (0,0)
+msgid "看起来是住在附近的国中生？身后还背着巨大的书包。"
+msgstr ""
+
+#. ID 1, Page 4, Line 118, Pos (0,0)
+msgid "未成年人，是不可以喝酒的吧？"
+msgstr ""
+
+#. ID 1, Page 4, Line 119, Pos (0,0)
+msgid "以及，明明已经这么晚了啊... 今天也不是双休日。"
+msgstr ""
+
+#. ID 1, Page 4, Line 121, Pos (0,0)
+msgid "在座位上，那个少年，如坐针毡。"
+msgstr ""
+
+#. ID 1, Page 4, Line 126, Pos (0,0)
+msgid "过了好久，才慢慢的走向前台。"
+msgstr ""
+
+#. ID 1, Page 4, Line 128, Pos (0,0)
+msgid "点了一杯软饮... 然后开始问了一些紫亚关于性别认同的问题。"
+msgstr ""
+
+#. ID 1, Page 4, Line 129, Pos (0,0)
+msgid ""
+"自云自己很小的时候就觉得自己应该是女生，可是直到青春期来临之前，\n"
+"才变得越发焦虑不安起来。"
+msgstr ""
+
+#. ID 1, Page 4, Line 131, Pos (0,0)
+msgid "希望我们可以给一些有用的建议..."
+msgstr ""
+
+#. ID 1, Page 4, Line 133, Pos (0,0)
+msgid "这样啊..."
+msgstr ""
+
+#. ID 1, Page 4, Line 134, Pos (0,0)
+msgid "这样就不难解释了。"
+msgstr ""
+
+#. ID 1, Page 4, Line 135, Pos (0,0)
+msgid "为何要挑选一个临近打烊的时间再专程跑过来呢..."
+msgstr ""
+
+#. ID 1, Page 4, Line 136, Pos (0,0)
+msgid "因为这种隐秘的愿望，其实是不希望被任何人知道的吧..."
+msgstr ""
+
+#. ID 1, Page 4, Line 137, Pos (0,0)
+msgid "可这种事情，旁人的建议真的是有用的吗？"
+msgstr ""
+
+#. ID 1, Page 4, Line 138, Pos (0,0)
+msgid "毕竟，每个人的情况，都是如此的不同。"
+msgstr ""
+
+#. ID 1, Page 4, Line 139, Pos (0,0)
+msgid "另外给未成年孩子说科普那些... 真的好吗？"
+msgstr ""
+
+#. ID 1, Page 4, Line 140, Pos (0,0)
+msgid "尽管如此，紫亚还是拿来了手机，详细的对少年展开了说明。"
+msgstr ""
+
+#. ID 1, Page 4, Line 141, Pos (0,0)
+msgid "并且也指导了一些护肤的方案，至少可以先从这里做起。"
+msgstr ""
+
+#. ID 1, Page 4, Line 142, Pos (0,0)
+msgid ""
+"少年从刚才开始绷紧的面庞逐渐舒展开了，露出了如释重负的神情，连忙\n"
+"向紫亚道谢。"
+msgstr ""
+
+#. ID 1, Page 4, Line 144, Pos (0,0)
+msgid "随后背着书包离开了店里，离开之前，还再次向我们鞠了躬。"
+msgstr ""
+
+#. ID 1, Page 4, Line 146, Pos (0,0)
+msgid "紫亚换上了常服，将酒吧里的垃圾一一进行了分类。"
+msgstr ""
+
+#. ID 1, Page 4, Line 147, Pos (0,0)
+msgid "今天是合法的投弃日，错过今天的话，又要等到 3 天之后。"
+msgstr ""
+
+#. ID 1, Page 4, Line 148, Pos (0,0)
+msgid "我也上去帮忙。"
+msgstr ""
+
+#. ID 1, Page 4, Line 153, Pos (0,0)
+msgid ""
+"紫亚左手右手各拎了一袋黑色的垃圾袋，我两只手拎了一个，一起走出了 \n"
+"Shelter，随后紫亚从包里拿出了钥匙，锁上了门。"
+msgstr ""
+
+#. ID 1, Page 4, Line 155, Pos (0,0)
+msgid "这样，今天的工作就算结束了吧。"
+msgstr ""
+
+#. ID 1, Page 4, Line 160, Pos (0,0)
+msgid "垃圾投弃点，就在不远处。"
+msgstr ""
+
+#. ID 1, Page 4, Line 161, Pos (0,0)
+msgid "「唔，这袋是可燃垃圾吧，那就丢到那个桶里。」"
+msgstr ""
+
+#. ID 1, Page 4, Line 162, Pos (0,0)
+msgid "最后一袋垃圾也处理好了。"
+msgstr ""
+
+#. ID 1, Page 4, Line 163, Pos (0,0)
+msgid ""
+"「出云酱要去乘坐早晨第一班地铁的吧，时间还有富余的样子。我的话，\n"
+"家就住在这里附近的说，不过我们可以一起走到前面的路口。」"
+msgstr ""
+
+#. ID 1, Page 4, Line 165, Pos (0,0)
+msgid ""
+"我们一起走过了附近的两个 block，我想问些什么，可是话到嘴边却都没\n"
+"有说。"
+msgstr ""
+
+#. ID 1, Page 4, Line 167, Pos (0,0)
+msgid "到了即将要分别的时候。"
+msgstr ""
+
+#. ID 1, Page 4, Line 168, Pos (0,0)
+msgid "「啊啊啊，似乎我忘记了什么。」"
+msgstr ""
+
+#. ID 1, Page 4, Line 169, Pos (0,0)
+msgid "「啊，想起来了。」"
+msgstr ""
+
+#. ID 1, Page 4, Line 170, Pos (0,0)
+msgid "紫亚从包里拿出一本小册子。"
+msgstr ""
+
+#. ID 1, Page 4, Line 171, Pos (0,0)
+msgid ""
+"「这个是大姐头今天特地嘱咐给我的东西，小册子是一些工作上的 tips\n"
+"，和一些店里女仆的寄语和以前活动的照片。」"
+msgstr ""
+
+#. ID 1, Page 4, Line 173, Pos (0,0)
+msgid "「以及，今日份的工钱也夹在里面了。」"
+msgstr ""
+
+#. ID 1, Page 4, Line 174, Pos (0,0)
+msgid "我收好了工作指南。"
+msgstr ""
+
+#. ID 1, Page 4, Line 175, Pos (0,0)
+msgid "「这是我的 Twitter 和 Line 账户。」"
+msgstr ""
+
+#. ID 1, Page 4, Line 176, Pos (0,0)
+msgid ""
+"虽然我也曾经用过这些社交软体，但是并没有发过状态，昵称是乱码，就\n"
+"连头像也是灰色的。"
+msgstr ""
+
+#. ID 1, Page 4, Line 178, Pos (0,0)
+msgid ""
+"我还是加了紫亚，紫亚熟练的给我加了备注，然后发来了打招呼的表情包\n"
+"。"
+msgstr ""
+
+#. ID 1, Page 4, Line 180, Pos (0,0)
+msgid "「如果可以的话，请换上头像吧，我帮你拍也可以！」"
+msgstr ""
+
+#. ID 1, Page 4, Line 182, Pos (0,0)
+msgid "「那么，明晚再见啦。」"
+msgstr ""
+
+#. ID 1, Page 4, Line 183, Pos (0,0)
+msgid "紫亚渐渐走远了。"
+msgstr ""
+
+#. ID 1, Page 4, Line 185, Pos (0,0)
+msgid "「喵。」"
+msgstr ""
+
+#. ID 1, Page 4, Line 186, Pos (0,0)
+msgid "唔，我是听到了什么声音么。我转过头，看向身后空无一人的漆黑街道。"
+msgstr ""
+
+#. ID 1, Page 4, Line 187, Pos (0,0)
+msgid "「是猫吗？」"
+msgstr ""
+
+#. ID 1, Page 4, Line 188, Pos (0,0)
+msgid ""
+"但我什么也没看见，等待了一阵，猫叫也没有再出现。兴许是附近的房子\n"
+"里传来的吧，天色愈来愈暗，已经到了黎明前最漆黑的一段时间了。"
+msgstr ""
+
+#. ID 1, Page 4, Line 190, Pos (0,0)
+msgid "这种时候还是不要在外面逗留比较好，这样想着，我头也不回地离开了。"
+msgstr ""
+
+#. ID 1, Page 5, Line 4, Pos (0,0)
+msgid "天还没亮，我一个人回到地铁站。"
+msgstr ""
+
+#. ID 1, Page 5, Line 8, Pos (0,0)
+msgid ""
+"站台里依然灯火通明，报幕声和铁轨的摩擦声也自顾自的发声，并没有为\n"
+"了映衬夜晚的静谧而降低它们的分贝。"
+msgstr ""
+
+#. ID 1, Page 5, Line 10, Pos (0,0)
+msgid "整个站台此刻只有我一个人。"
+msgstr ""
+
+#. ID 1, Page 5, Line 14, Pos (0,0)
+msgid "慢慢回到出租屋，周围的超市还未关门。"
+msgstr ""
+
+#. ID 1, Page 5, Line 15, Pos (0,0)
+msgid "一路上，小型挖掘机已经开始了它们维护路面的作业。"
+msgstr ""
+
+#. ID 1, Page 5, Line 16, Pos (0,0)
+msgid "洒水车、垃圾车也都开始了各自的工作。"
+msgstr ""
+
+#. ID 1, Page 5, Line 17, Pos (0,0)
+msgid "新的一天快要开始了吧，而我的一天却要结束了。"
+msgstr ""
+
+#. ID 1, Page 5, Line 22, Pos (0,0)
+msgid "躺在床上，紫亚忽然向我发来了留言。"
+msgstr ""
+
+#. ID 1, Page 5, Line 23, Pos (0,0)
+msgid "原来是一个鸡尾酒制作方法的网站链接。"
+msgstr ""
+
+#. ID 1, Page 5, Line 24, Pos (0,0)
+msgid "明天再看吧？今天就到这里好了。"
+msgstr ""
+
+#. ID 1, Page 5, Line 25, Pos (0,0)
+msgid "结果今天睡得比以往都更加安甜。"
+msgstr ""
+
+#. ID 1, Page 5, Line 26, Pos (0,0)
+msgid "也许是今天的身体已经太累了吧。"
+msgstr ""
+
+#. ID 1, Page 5, Line 27, Pos (0,0)
+msgid "大脑一片空白。"
+msgstr ""
+
+#. ID 1, Page 5, Line 28, Pos (0,0)
+msgid "慢慢的，意识也进入了梦乡。"
+msgstr ""
+
+#. ID 1, Page 6, Line 3, Pos (0,0)
+msgid "「出云酱！出云酱！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 4, Pos (0,0)
+msgid "一名小女孩向我蹦跳着挥手。"
+msgstr ""
+
+#. ID 1, Page 6, Line 5, Pos (0,0)
+msgid "「藤原酱！还有仗助！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 6, Pos (0,0)
+msgid "我高兴地向他们跑过去，儿童运动鞋一路踩着树叶。"
+msgstr ""
+
+#. ID 1, Page 6, Line 7, Pos (0,0)
+msgid "「出云也来了，我们一起来玩躲避球吧！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 8, Pos (0,0)
+msgid "「好！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 9, Pos (0,0)
+#. ID 1, Page 6, Line 38, Pos (0,0)
+msgid "「好——」"
+msgstr ""
+
+#. ID 1, Page 6, Line 10, Pos (0,0)
+msgid "「好耶！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 11, Pos (0,0)
+msgid "我跟随他们一起扯大嗓门欢呼起来。"
+msgstr ""
+
+#. ID 1, Page 6, Line 12, Pos (0,0)
+msgid "「诶，对了，还有大姐姐...」"
+msgstr ""
+
+#. ID 1, Page 6, Line 13, Pos (0,0)
+msgid "一个小男孩这时有些怯生生地说道。"
+msgstr ""
+
+#. ID 1, Page 6, Line 14, Pos (0,0)
+msgid "对了！大姐姐！"
+msgstr ""
+
+#. ID 1, Page 6, Line 15, Pos (0,0)
+msgid "我这时才环顾四周，看见了坐在一旁的大姐姐。"
+msgstr ""
+
+#. ID 1, Page 6, Line 16, Pos (0,0)
+msgid "「大姐姐！大姐姐！一起来玩躲避球哇。」"
+msgstr ""
+
+#. ID 1, Page 6, Line 17, Pos (0,0)
+msgid "小朋友们又开始吵闹起来。"
+msgstr ""
+
+#. ID 1, Page 6, Line 18, Pos (0,0)
+msgid "（欢笑声)"
+msgstr ""
+
+#. ID 1, Page 6, Line 19, Pos (0,0)
+msgid "「啊哈！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 20, Pos (0,0)
+msgid "大姐姐在看着我呢！"
+msgstr ""
+
+#. ID 1, Page 6, Line 21, Pos (0,0)
+msgid ""
+"这样想着，我超级卖力地投出球，稳稳地击中了一个因为微胖而躲闪不及\n"
+"的大个子男孩。"
+msgstr ""
+
+#. ID 1, Page 6, Line 23, Pos (0,0)
+msgid "「出云好厉害！好厉害！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 24, Pos (0,0)
+msgid "同队的小孩子们开始欢呼起来。"
+msgstr ""
+
+#. ID 1, Page 6, Line 25, Pos (0,0)
+msgid ""
+"我却不安地瞟向大姐姐那边，直到看见她也在欢呼，这才得意洋洋地挺起\n"
+"胸膛来。"
+msgstr ""
+
+#. ID 1, Page 6, Line 27, Pos (0,0)
+msgid "「啊呀！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 28, Pos (0,0)
+msgid "正在得意忘形的我却没发现对方的还击，自己也被重重挨了一下。"
+msgstr ""
+
+#. ID 1, Page 6, Line 29, Pos (0,0)
+msgid "「可恶！你给我等着！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 30, Pos (0,0)
+msgid "我气急败坏地嚷嚷，退到了场外。"
+msgstr ""
+
+#. ID 1, Page 6, Line 31, Pos (0,0)
+msgid "啊，天渐渐黑了下来，朋友们都被家长叫回家了呢。"
+msgstr ""
+
+#. ID 1, Page 6, Line 32, Pos (0,0)
+msgid ""
+"人数不够了，我们只能玩些更简单的游戏，可是大家渐渐地也觉得无聊，\n"
+"最后演变成了几名小朋友蹲在一起发呆。"
+msgstr ""
+
+#. ID 1, Page 6, Line 34, Pos (0,0)
+msgid ""
+"大姐姐还是在一旁笑眯眯地看着，又不时地抬起头仰望被晚霞晕染的天空\n"
+"。"
+msgstr ""
+
+#. ID 1, Page 6, Line 36, Pos (0,0)
+msgid "「仗助桑！回家吃饭了哦！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 37, Pos (0,0)
+msgid "「藤原酱！妈妈接你回家了。」"
+msgstr ""
+
+#. ID 1, Page 6, Line 39, Pos (0,0)
+msgid "「出云酱，大姐姐，拜拜——」"
+msgstr ""
+
+#. ID 1, Page 6, Line 40, Pos (0,0)
+msgid ""
+"最后的两名小朋友也回去了，四周一下子变得空荡荡的，我也忽然变得有\n"
+"点茫然不知所措。"
+msgstr ""
+
+#. ID 1, Page 6, Line 42, Pos (0,0)
+msgid "这时，大姐姐看向了我，凑了过来。"
+msgstr ""
+
+#. ID 1, Page 6, Line 43, Pos (0,0)
+msgid "出云酱，要不要去，我家呢？"
+msgstr ""
+
+#. ID 1, Page 6, Line 47, Pos (0,0)
+msgid "大姐姐带我进了她的房间。"
+msgstr ""
+
+#. ID 1, Page 6, Line 48, Pos (0,0)
+msgid "「姐姐房间里可是珍藏了很多糖果的！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 49, Pos (0,0)
+msgid "「呐，如果出云酱愿意穿上这件裙子，姐姐就给出云酱吃糖哦！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 50, Pos (0,0)
+msgid "糖果！好——"
+msgstr ""
+
+#. ID 1, Page 6, Line 51, Pos (0,0)
+#. ID 1, Page 6, Line 56, Pos (0,0)
+#. ID 1, Page 6, Line 66, Pos (0,0)
+msgid "「...」"
+msgstr ""
+
+#. ID 1, Page 6, Line 55, Pos (0,0)
+msgid "「出云酱真可爱呢！」"
+msgstr ""
+
+#. ID 1, Page 6, Line 57, Pos (0,0)
+msgid ""
+"换上裙子，原本脑袋里还在想着甜蜜蜜的糖果报酬，在我看向镜子的时候\n"
+"，我却呆住\n"
+"了。"
+msgstr ""
+
+#. ID 1, Page 6, Line 60, Pos (0,0)
+msgid "「这是我吗？」"
+msgstr ""
+
+#. ID 1, Page 6, Line 61, Pos (0,0)
+msgid ""
+"精致又幼小的脸蛋，天真灿烂的眼神，恬静优雅的长裙在这具身体上天衣\n"
+"无缝。"
+msgstr ""
+
+#. ID 1, Page 6, Line 63, Pos (0,0)
+msgid "我看着镜子里近乎完美的女孩，呆滞，战栗，但又移不开视线。"
+msgstr ""
+
+#. ID 1, Page 6, Line 64, Pos (0,0)
+msgid "我伸手触摸镜面，镜子里的女孩也顺从地伸出手来贴上我。"
+msgstr ""
+
+#. ID 1, Page 6, Line 65, Pos (0,0)
+msgid "我就这样看着镜子，像希腊神话中的纳西瑟斯。"
+msgstr ""
