@@ -1,6 +1,10 @@
+
+
 # 木桶饭妹抖行动
 
 - [试玩地址](https://static-fr.xyn.design/easyrpg/easyrpg-player.html)
+
+[toc]
 
 出雲見月是一名 Non-binary 大學生，長期壓抑的它因為得不到父母和學校的理解，而逐漸變得孤僻。
 某一天，在朋友的幫助下，出雲終於決定走出房間，到位於新宿的跨性別友好酒吧 Shelter 打工。
@@ -40,6 +44,14 @@ Shelter 店员，某俄罗斯能源寡头家的小儿子，原本来说应该家
 ### 神谷雫
 
 ![rabbit](https://user-images.githubusercontent.com/2507027/221347683-19c05937-d16e-4d5a-aefe-a28adc834a11.png)
+
+## 待办事项
+
+### 扩展机能
+
+- [] 单张图片 fadeout/show 时特效
+- [] 对 SE 的额外控制（例如跳过对话时，voice 中断）
+- [] 鼠标的支持（maniacs 虽然看起来提供了 api 但是所有的逻辑似乎都需要自己写）
 
 
 ## Ref
