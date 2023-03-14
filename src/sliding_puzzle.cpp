@@ -567,12 +567,18 @@ namespace Nokia {
 	int offset = 50;
 	vector<int> p;
 	bool isOn = false;
+	int cursor = 0;
+	int cursor_x0 = 160;
+	int cursor_y0 = 50;
 
 	Game_Pictures::ShowParams getShowParams(string name, int x, int y, int magnify, int rect) {
 		Game_Pictures::ShowParams z = {};
 		z.name = name;
 		z.fixed_to_map = true;
-		if(rect) z.myRect = {0,0,rect*4+8,8};
+		if(rect) {
+			z.myRect = {0,0,50,40};
+			z.top_trans = 50;
+		}
 		z.use_transparent_color = true;
 		z.position_x = x;
 		z.position_y = y;
@@ -586,6 +592,7 @@ namespace Nokia {
 		z.position_y = y;
 		z.duration = duration;
 		z.magnify = magnify;
+		z.top_trans = 50;
 		return z;
 	}
 
@@ -601,10 +608,11 @@ namespace Nokia {
 
 	void Run() {
 		if(!isOn) {
-			Output::Debug("~Run~");
 			//auto& ce = Game_Map::GetCommonEvents()[1];
 			//Game_Map::GetInterpreter().Push(&ce);
+			cursor = 0;
 			ShowPicture("Nokia_Phone", 200, 200, 50);
+			ShowPicture("black", cursor_x0, cursor_y0, 100, 1);
 			ShowPicture("Nokia_1", 205, 115, 50);
 			isOn = true;
 		}
@@ -615,22 +623,23 @@ namespace Nokia {
 			Output::Debug("~Leave~");
 			//auto& ce = Game_Map::GetCommonEvents()[1];
 			//Game_Map::GetInterpreter().Push(&ce);
-			for(auto id : p) {
-				Main_Data::game_pictures->Erase(id);
-			}
+			for(auto id : p) Main_Data::game_pictures->Erase(id);
 			p.clear();
 			isOn = false;
 		}
 	}
 
 	void Move(int d) {
+		cursor += d; if (cursor < 0) cursor = 0;
+		int x = cursor % 3, y = cursor / 3;
+		MovePicture(52, x*48+cursor_x0, y*40+cursor_y0);
 	}
 
 	void Update() {
 		if (Input::IsTriggered(Input::CANCEL)) {
 			Leave();
 		} else if (Input::IsTriggered(Input::DECISION)) {
-			Main_Data::game_pictures->Erase(52);
+			Main_Data::game_pictures->Erase(53);
 		} if (Input::IsTriggered(Input::LEFT)) {
 			Move(-1);
 		} else if (Input::IsTriggered(Input::RIGHT)) {

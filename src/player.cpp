@@ -284,14 +284,12 @@ void Player::Resume() {
 void Player::UpdateInput() {
 	// Input Logic:
 
-	if (Input::IsRawKeyTriggered(Input::Keys::N)) {
-
-		//lcf::rpg::EventCommand com; 
+	if (Input::IsRawKeyTriggered(Input::Keys::Q)) {
+		//lcf::rpg::EventCommand com;
 		//com.string = ".nokia";
-		//Game_Map::GetInterpreter().CommandShowMessage(com);	
+		//Game_Map::GetInterpreter().CommandShowMessage(com);
 		Nokia::Run();
 		Scene::PopUntil(Scene::Map);
-		Output::Debug("Nokia Start");
 		//return;
 	}
 
