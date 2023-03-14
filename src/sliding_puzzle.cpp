@@ -564,7 +564,7 @@ namespace MineSweeper {
 
 namespace Nokia {
 	using namespace std;
-	int root_num = 50;
+	int offset = 50;
 	vector<int> p;
 	bool isOn = false;
 
@@ -575,7 +575,7 @@ namespace Nokia {
 		if(rect) z.myRect = {0,0,rect*4+8,8};
 		z.use_transparent_color = true;
 		z.position_x = x;
-		z.position_y = x;
+		z.position_y = y;
 		z.magnify = magnify;
 		return z;
 	}
@@ -589,14 +589,14 @@ namespace Nokia {
 		return z;
 	}
 
-	bool ShowPictrue(string name, int x, int y, int magnify = 100, int rect = 0) {
-		int id = root_num+p.size()+1;
+	bool ShowPicture(string name, int x, int y, int magnify = 100, int rect = 0) {
+		int id = offset + p.size() + 1;
 		p.push_back(id);
 		return Main_Data::game_pictures->Show(id, getShowParams(name, x, y, magnify, rect));
 	}
 
-	bool MovePictrue(int id, int x, int y, int magnify = 100, int duration = 1) {
-		return Main_Data::game_pictures->Show(id, getMoveParams(x, y, magnify, duration));
+	void MovePicture(int id, int x, int y, int magnify = 100, int duration = 1) {
+		Main_Data::game_pictures->Move(id, getMoveParams(x, y, magnify, duration));
 	}
 
 	void Run() {
@@ -604,8 +604,8 @@ namespace Nokia {
 			Output::Debug("~Run~");
 			//auto& ce = Game_Map::GetCommonEvents()[1];
 			//Game_Map::GetInterpreter().Push(&ce);
-			ShowPictrue("Nokia_Phone", 160, 120, 25);
-			ShowPictrue("Nokia_1", 163, 77, 25);
+			ShowPicture("Nokia_Phone", 200, 200, 50);
+			ShowPicture("Nokia_1", 205, 115, 50);
 			isOn = true;
 		}
 	}
@@ -623,14 +623,27 @@ namespace Nokia {
 		}
 	}
 
+	void Move(int d) {
+	}
+
 	void Update() {
 		if (Input::IsTriggered(Input::CANCEL)) {
 			Leave();
+		} else if (Input::IsTriggered(Input::DECISION)) {
+			Main_Data::game_pictures->Erase(52);
+		} if (Input::IsTriggered(Input::LEFT)) {
+			Move(-1);
+		} else if (Input::IsTriggered(Input::RIGHT)) {
+			Move(1);
+		} else if (Input::IsTriggered(Input::UP)) {
+			Move(-3);
+		} else if (Input::IsTriggered(Input::DOWN)) {
+			Move(3);
 		}
 	}
 
 	bool On() {
 		return isOn;
 	}
-	
+
 }
