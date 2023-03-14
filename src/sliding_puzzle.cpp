@@ -571,7 +571,12 @@ namespace Nokia {
 	int cursor_x0 = 160;
 	int cursor_y0 = 50;
 
-	Game_Pictures::ShowParams getShowParams(string name, int x, int y, int magnify, int rect) {
+	int screen_x0 = 205;
+	int screen_y0 = 115;
+
+	int mode = 0;
+
+	Game_Pictures::ShowParams getShowParams(string name, int x, int y, int magnify, int rect = 0) {
 		Game_Pictures::ShowParams z = {};
 		z.name = name;
 		z.fixed_to_map = true;
@@ -610,7 +615,7 @@ namespace Nokia {
 		if(!isOn) {
 			//auto& ce = Game_Map::GetCommonEvents()[1];
 			//Game_Map::GetInterpreter().Push(&ce);
-			cursor = 0;
+			cursor = 0; mode = 0;
 			ShowPicture("Nokia_Phone", 200, 200, 50);
 			ShowPicture("black", cursor_x0, cursor_y0, 100, 1);
 			ShowPicture("Nokia_1", 205, 115, 50);
@@ -639,7 +644,30 @@ namespace Nokia {
 		if (Input::IsTriggered(Input::CANCEL)) {
 			Leave();
 		} else if (Input::IsTriggered(Input::DECISION)) {
-			Main_Data::game_pictures->Erase(53);
+			if (mode == 0) {
+				++mode;
+				Main_Data::game_pictures->Show(53, getShowParams("Nokia_2", screen_x0, screen_y0, 50));
+			} else if (mode == 1) {
+				++mode;
+				Main_Data::game_pictures->Show(53, getShowParams("Nokia_3", screen_x0, screen_y0, 50));
+			} else if (mode == 2) {
+				++mode;
+				Main_Data::game_pictures->Erase(53);
+			} else if (mode == 3) {
+				if (cursor == 0) {
+					Leave();
+					MineSweeper::NewGame();
+				} else if (cursor == 1) {
+					Leave();
+					SlidingPuzzle2048::NewGame();
+				} else if (cursor == 2) {
+					Leave();
+					TowerOfHanoi::NewGame();
+				} else if (cursor == 3) {
+					Leave();
+					SlidingPuzzle::NewGame("AliceDUTCHIE256", 4, 3);
+				}
+			}
 		} if (Input::IsTriggered(Input::LEFT)) {
 			Move(-1);
 		} else if (Input::IsTriggered(Input::RIGHT)) {
