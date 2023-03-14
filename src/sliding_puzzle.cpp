@@ -580,11 +580,23 @@ namespace Nokia {
 		return z;
 	}
 
+	Game_Pictures::MoveParams getMoveParams(int x, int y, int magnify, int duration) {
+		Game_Pictures::MoveParams z = {};
+		z.position_x = x;
+		z.position_y = y;
+		z.duration = duration;
+		z.magnify = magnify;
+		return z;
+	}
+
 	bool ShowPictrue(string name, int x, int y, int magnify = 100, int rect = 0) {
-		Game_Pictures::ShowParams z = getShowParams(name, x, y, magnify, rect);
 		int id = root_num+p.size()+1;
 		p.push_back(id);
-		return Main_Data::game_pictures->Show(id, z);
+		return Main_Data::game_pictures->Show(id, getShowParams(name, x, y, magnify, rect));
+	}
+
+	bool MovePictrue(int id, int x, int y, int magnify = 100, int duration = 1) {
+		return Main_Data::game_pictures->Show(id, getMoveParams(x, y, magnify, duration));
 	}
 
 	void Run() {
@@ -620,4 +632,5 @@ namespace Nokia {
 	bool On() {
 		return isOn;
 	}
+	
 }
