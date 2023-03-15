@@ -1,7 +1,7 @@
 
 #ifdef EMSCRIPTEN
-#include "chat_multiplayer.h"
 #include "game_multiplayer_js_import.h"
+#include "chat_multiplayer.h"
 #include <emscripten/emscripten.h>
 #include <emscripten/websocket.h>
 

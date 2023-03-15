@@ -1,14 +1,13 @@
 #ifdef EMSCRIPTEN
-#include "chat_multiplayer.h"
 #include "game_multiplayer_js_export.h"
+#include "chat_multiplayer.h"
 #include "game_multiplayer_my_data.h"
 #include "game_multiplayer_senders.h"
 #include "game_multiplayer_connection.h"
-#include "chat_multiplayer.h"
 #include "game_multiplayer_player_tracker.h"
-#include "game_player.h"
-#include "scene.h"
-#include "main_data.h"
+#include "../game_player.h"
+#include "../scene.h"
+#include "../main_data.h"
 
 using namespace Game_Multiplayer;
 

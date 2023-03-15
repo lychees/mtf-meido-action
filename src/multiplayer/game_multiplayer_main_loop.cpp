@@ -1,34 +1,33 @@
 #ifdef EMSCRIPTEN
-#include "chat_multiplayer.h"
 #include "game_multiplayer_main_loop.h"
+#include "chat_multiplayer.h"
 #include "game_multiplayer_other_player.h"
 #include "game_multiplayer_senders.h"
 #include "game_multiplayer_js_export.h"
 #include "game_multiplayer_nametags.h"
 #include "game_multiplayer_my_data.h"
 #include "game_multiplayer_connection.h"
+#include "nxjson.h"
 #include <map>
 #include <memory>
 #include <queue>
 #include <set>
 
-#include "chat_multiplayer.h"
-#include "output.h"
-#include "game_player.h"
-#include "sprite_character.h"
-#include "window_base.h"
-#include "drawable_mgr.h"
-#include "scene.h"
-#include "bitmap.h"
-#include "font.h"
-#include "input.h"
-#include "nxjson.h"
-#include "cache.h"
-#include "game_screen.h"
-#include "game_variables.h"
-#include "game_switches.h"
-#include "game_map.h"
-#include "player.h"
+#include "../output.h"
+#include "../game_player.h"
+#include "../sprite_character.h"
+#include "../window_base.h"
+#include "../drawable_mgr.h"
+#include "../scene.h"
+#include "../bitmap.h"
+#include "../font.h"
+#include "../input.h"
+#include "../cache.h"
+#include "../game_screen.h"
+#include "../game_variables.h"
+#include "../game_switches.h"
+#include "../game_map.h"
+#include "../player.h"
 
 namespace Game_Multiplayer {
 
