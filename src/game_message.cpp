@@ -131,6 +131,7 @@ int Game_Message::WordWrap(StringView line, const int limit, const WordWrapCallb
 AsyncOp Game_Message::Update() {
 
 	if (Nokia::On()) {
+		window->SetOpacity(0);
 		Nokia::Update();
 		if(!Nokia::On()) {
 			window->FinishMessageProcessing();

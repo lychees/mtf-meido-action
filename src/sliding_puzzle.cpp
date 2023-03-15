@@ -569,7 +569,7 @@ namespace Nokia {
 	bool isOn = false;
 	int cursor = 0;
 	int cursor_x0 = 160;
-	int cursor_y0 = 50;
+	int cursor_y0 = 52;
 
 	int screen_x0 = 205;
 	int screen_y0 = 115;
@@ -613,6 +613,10 @@ namespace Nokia {
 
 	void Run() {
 		if(!isOn) {
+			auto pm = PendingMessage();
+			pm.PushLine("Nokia");
+			pm.SetIsEventMessage(true);
+			Game_Message::SetPendingMessage(std::move(pm));
 			//auto& ce = Game_Map::GetCommonEvents()[1];
 			//Game_Map::GetInterpreter().Push(&ce);
 			cursor = 0; mode = 0;
@@ -637,7 +641,7 @@ namespace Nokia {
 	void Move(int d) {
 		cursor += d; if (cursor < 0) cursor = 0;
 		int x = cursor % 3, y = cursor / 3;
-		MovePicture(52, x*48+cursor_x0, y*40+cursor_y0);
+		MovePicture(52, x*48+cursor_x0, y*39+cursor_y0);
 	}
 
 	void Update() {
