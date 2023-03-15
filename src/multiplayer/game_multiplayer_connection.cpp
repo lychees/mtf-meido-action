@@ -7,9 +7,9 @@
 #include "game_multiplayer_other_player.h"
 #include "game_multiplayer_my_data.h"
 #include "game_multiplayer_player_tracker.h"
-#include "game_map.h"
-#include "drawable_mgr.h"
-#include "player.h"
+#include "../game_map.h"
+#include "../drawable_mgr.h"
+#include "../player.h"
 
 namespace Game_Multiplayer {
 
