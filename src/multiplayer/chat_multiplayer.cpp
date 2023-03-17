@@ -1,25 +1,27 @@
 #ifdef EMSCRIPTEN
-#include "main_data.h"
-#include "game_system.h"
+
 #include "chat_multiplayer.h"
 #include <memory>
 #include <emscripten/emscripten.h>
 #include <vector>
 #include <utility>
 #include <regex>
-#include "window_base.h"
-#include "scene.h"
-#include "bitmap.h"
-#include "output.h"
-#include "drawable_mgr.h"
-#include "font.h"
-#include "cache.h"
-#include "input.h"
-#include "utils.h"
-#include "player.h"
-#include "compiler.h"
+#include "../main_data.h"
+#include "../game_system.h"
+#include "../window_base.h"
+#include "../scene.h"
+#include "../bitmap.h"
+#include "../output.h"
+#include "../drawable_mgr.h"
+#include "../font.h"
+#include "../cache.h"
+#include "../input.h"
+#include "../utils.h"
+#include "../player.h"
+#include "../compiler.h"
+#include "../game_message.h"
 #include "game_multiplayer_my_data.h"
-#include "game_message.h"
+
 
 using namespace Game_Multiplayer;
 

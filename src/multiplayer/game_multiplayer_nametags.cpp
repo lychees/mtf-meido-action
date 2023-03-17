@@ -7,22 +7,23 @@
 #include <set>
 
 #include "chat_multiplayer.h"
-#include "output.h"
-#include "game_player.h"
-#include "sprite_character.h"
-#include "window_base.h"
-#include "drawable_mgr.h"
-#include "scene.h"
-#include "bitmap.h"
-#include "font.h"
-#include "input.h"
 #include "nxjson.h"
-#include "cache.h"
-#include "game_screen.h"
-#include "game_variables.h"
-#include "game_switches.h"
-#include "game_map.h"
-#include "player.h"
+
+#include "../output.h"
+#include "../game_player.h"
+#include "../sprite_character.h"
+#include "../window_base.h"
+#include "../drawable_mgr.h"
+#include "../scene.h"
+#include "../bitmap.h"
+#include "../font.h"
+#include "../input.h"
+#include "../cache.h"
+#include "../game_screen.h"
+#include "../game_variables.h"
+#include "../game_switches.h"
+#include "../game_map.h"
+#include "../player.h"
 
 unsigned long DrawableNameTags::coordHash(int x, int y) {
 	// uniquely map integers to whole numbers
