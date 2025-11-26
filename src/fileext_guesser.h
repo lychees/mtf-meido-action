@@ -18,6 +18,7 @@
 #ifndef EP_FILEEXTGUESSER_H
 #define EP_FILEEXTGUESSER_H
 
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -40,7 +41,7 @@ namespace FileExtGuesser {
 		 * @param suffix The suffix (e.g., 'lmu')
 		 * @return The joined filename (e.g., 'Map0001.lmu', OR 'Map0001.xyz')
 		 */
-		std::string MakeFilename(StringView prefix, StringView suffix);
+		std::string MakeFilename(std::string_view prefix, std::string_view suffix);
 
 		std::unordered_map<std::string, std::string> extMap;
 	};

@@ -19,7 +19,9 @@
 #define EP_GAME_CHARACTER_H
 
 // Headers
+#include <cstdint>
 #include <string>
+#include <unordered_set>
 #include "color.h"
 #include "flash.h"
 #include <lcf/rpg/moveroute.h>
@@ -38,16 +40,15 @@ public:
 	enum Type {
 		Event,
 		Player,
-		Vehicle,
-		PlayerOther
+		Vehicle
 	};
 
-	static StringView TypeToStr(Type t);
+	static std::string_view TypeToStr(Type t);
 
-	/**
-	 * Destructor.
-	 */
-	virtual ~Game_Character();
+	virtual ~Game_Character() = default;
+	Game_Character(Game_Character&&) = default;
+	Game_Character& operator=(const Game_Character&) = default;
+	Game_Character& operator=(Game_Character&&) = default;
 
 	/** @return the type of character this is */
 	Type GetType() const;
@@ -240,6 +241,18 @@ public:
 	 * @param finished true: forced move route finished, false: not finished
 	 */
 	void SetMoveRouteFinished(bool finished);
+
+	/**
+	 * @return How often the current move action failed.
+	 */
+	int GetMoveFailureCount() const;
+
+	/**
+	 * Sets how often the current move action failed.
+	 *
+	 * @param count amount
+	 */
+	void SetMoveFailureCount(int count);
 
 	/**
 	 * Gets sprite name. Usually the name of the graphic file.
@@ -586,6 +599,26 @@ public:
 	virtual bool MakeWay(int from_x, int from_y, int to_x, int to_y);
 
 	/**
+	 * Like CheckWay, but allows ignoring all events in the check,
+	 * or only some events specified by event id.
+	 *
+	 * @param from_x See CheckWay.
+	 * @param from_y See CheckWay.
+	 * @param to_x See CheckWay.
+	 * @param to_y See Checkway.
+	 * @param ignore_all_events (Optional) If true, only consider map collision
+	 *   and completely ignore any events in the way.
+	 * @param ignore_some_events_by_id (Optional) If specified, all events with
+	 *   ids found in this list will be ignored in the collision check.
+	 * @return true See CheckWay.
+	 */
+	virtual bool CheckWay(int from_x, int from_y, int to_x, int to_y,
+		bool ignore_all_events, Span<int> ignore_some_events_by_id);
+
+	/** Short version of CheckWay. **/
+	virtual bool CheckWay(int from_x, int from_y, int to_x, int to_y);
+
+	/**
 	 * Turns the character 90 Degree to the left.
 	 */
 	void Turn90DegreeLeft();
@@ -606,11 +639,17 @@ public:
 	 */
 	void Turn90DegreeLeftOrRight();
 
-	/** @return the direction we would need to face the hero. */
-	int GetDirectionToHero();
+	/**
+	 * @param target Target character
+	 * @return the direction we would need to face the target
+	 */
+	int GetDirectionToCharacter(const Game_Character& target);
 
-	/** @return the direction we would need to face away from hero. */
-	int GetDirectionAwayHero();
+	/**
+	 * @param target Target character
+	 * @return the direction we would need to face away from the target.
+	 */
+	int GetDirectionAwayCharacter(const Game_Character& target);
 
 	/**
 	 * @param dir input direction
@@ -639,14 +678,14 @@ public:
 	void TurnRandom();
 
 	/**
-	 * Character looks towards the hero.
+	 * @param target character looks towards this target.
 	 */
-	void TurnTowardHero();
+	void TurnTowardCharacter(const Game_Character& target);
 
 	/**
-	 * Character looks away from the hero.
+	 * @param target character looks away from this target.
 	 */
-	void TurnAwayFromHero();
+	void TurnAwayFromCharacter(const Game_Character& target);
 
 	/**
 	 * Character waits for 20 frames more.
@@ -666,33 +705,47 @@ public:
 	 */
 	void CancelMoveRoute();
 
+	/** Argument struct for more complex find operations */
+	struct CalculateMoveRouteArgs {
+		int32_t dest_x = 0;
+		int32_t dest_y = 0;
+		int32_t steps_max = std::numeric_limits<int32_t>::max();
+		int32_t search_max = std::numeric_limits<int32_t>::max();
+		bool allow_diagonal = false;
+		bool debug_print = false;
+		bool skip_when_failed = false;
+		Span<int> event_id_ignore_list;
+		int frequency = 3;
+	};
+
+	bool CalculateMoveRoute(const CalculateMoveRouteArgs& args);
+
 	/** @return height of active jump in pixels */
 	int GetJumpHeight() const;
 
 	/**
 	 * Gets sprite x coordinate transformed to screen coordinate in pixels.
 	 *
-	 * @param apply_shift When true the coordinate is shifted by the map width (for looping maps)
 	 * @return screen x coordinate in pixels.
 	 */
-	virtual int GetScreenX(bool apply_shift = false) const;
+	virtual int GetScreenX() const;
 
 	/**
 	 * Gets sprite y coordinate transformed to screen coordinate in pixels.
 	 *
-	 * @param apply_shift When true the coordinate is shifted by the map height (for looping maps)
 	 * @param apply_jump Apply jump height modifier if character is jumping
 	 * @return screen y coordinate in pixels.
 	 */
-	virtual int GetScreenY(bool apply_shift = false, bool apply_jump = true) const;
+	virtual int GetScreenY(bool apply_jump = true) const;
 
 	/**
-	 * Gets screen z coordinate in pixels.
+	 * Gets screen z coordinate
 	 *
-	 * @param apply_shift Forwarded to GetScreenY
-	 * @return screen z coordinate in pixels.
+	 * @param x_offset Offset to apply to the X coordinate
+	 * @param y_offset Offset to apply to the Y coordinate
+	 * @return screen z coordinate
 	 */
-	virtual Drawable::Z_t GetScreenZ(bool apply_shift = false) const;
+	virtual Drawable::Z_t GetScreenZ(int x_offset, int y_offset) const;
 
 	/**
 	 * Gets tile graphic ID.
@@ -743,8 +796,17 @@ public:
 	 */
 	void SetAnimationType(AnimType anim_type);
 
-	int DistanceXfromPlayer() const;
-	int DistanceYfromPlayer() const;
+	/**
+	 * @param target Target to calculate distance of
+	 * @return X distance to target
+	 */
+	int GetDistanceXfromCharacter(const Game_Character& target) const;
+
+	/**
+	 * @param target Target to calculate distance of
+	 * @return Y distance to target
+	 */
+	int GetDistanceYfromCharacter(const Game_Character& target) const;
 
 	/**
 	 * Tests if the character is currently on the tile at x/y or moving
@@ -857,6 +919,7 @@ public:
 	static int ReverseDir(int dir);
 
 	static Game_Character* GetCharacter(int character_id, int event_id);
+	static Game_Character& GetPlayer();
 
 	static constexpr int GetDxFromDirection(int dir);
 	static constexpr int GetDyFromDirection(int dir);
@@ -864,9 +927,9 @@ public:
 protected:
 	explicit Game_Character(Type type, lcf::rpg::SaveMapEventBase* d);
 	/** Check for and fix incorrect data after loading save game */
-	void SanitizeData(StringView name);
+	void SanitizeData(std::string_view name);
 	/** Check for and fix incorrect move route data after loading save game */
-	void SanitizeMoveRoute(StringView name, const lcf::rpg::MoveRoute& mr, int32_t& idx, StringView chunk_name);
+	void SanitizeMoveRoute(std::string_view name, const lcf::rpg::MoveRoute& mr, int32_t& idx, std::string_view chunk_name);
 	void Update();
 	virtual void UpdateAnimation();
 	virtual void UpdateNextMovementAction() = 0;
@@ -1037,6 +1100,14 @@ inline bool Game_Character::IsMoveRouteFinished() const {
 
 inline void Game_Character::SetMoveRouteFinished(bool finished) {
 	data()->move_route_finished = finished;
+}
+
+inline int Game_Character::GetMoveFailureCount() const {
+	return data()->easyrpg_move_failure_count;
+}
+
+inline void Game_Character::SetMoveFailureCount(int count) {
+	data()->easyrpg_move_failure_count = count;
 }
 
 inline const std::string& Game_Character::GetSpriteName() const {
@@ -1323,7 +1394,9 @@ inline Game_CharacterDataStorage<T>::Game_CharacterDataStorage(Game_CharacterDat
 template <typename T>
 inline Game_CharacterDataStorage<T>& Game_CharacterDataStorage<T>::operator=(Game_CharacterDataStorage&& o) noexcept
 {
-	static_cast<Game_Character*>(this) = std::move(o);
+	auto* base = static_cast<Game_Character*>(this);
+	*base = std::move(o);
+
 	if (this != &o) {
 		_data = std::move(o._data);
 		Game_Character::_data = &this->_data;
@@ -1345,12 +1418,11 @@ inline bool Game_Character::IsDirectionDiagonal(int d) {
 	return d >= UpRight;
 }
 
-inline StringView Game_Character::TypeToStr(Game_Character::Type type) {
+inline std::string_view Game_Character::TypeToStr(Game_Character::Type type) {
 	switch (type) {
 		case Player: return "Player";
 		case Vehicle: return "Vehicle";
 		case Event: return "Event";
-		case PlayerOther: return "PlayerOther";
 	}
 	return "UnknownCharacter";
 }

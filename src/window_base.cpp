@@ -37,6 +37,10 @@ Window_Base::Window_Base(int x, int y, int width, int height, Drawable::Flags fl
 	SetHeight(height);
 	SetStretch(Main_Data::game_system->GetMessageStretch() == lcf::rpg::System::Stretch_stretch);
 	SetZ(Priority_Window);
+
+	if (Player::IsRPG2k()) {
+		SetBackgroundPreserveTransparentColor(true);
+	}
 }
 
 bool Window_Base::InitMovement(int old_x, int old_y, int new_x, int new_y, int duration) {
@@ -62,7 +66,7 @@ bool Window_Base::IsMovementActive() {
 void Window_Base::Update() {
 	Window::Update();
 	if (IsSystemGraphicUpdateAllowed()) {
-		SetWindowskin(Cache::SystemOrBlack());
+		SetWindowskin(Cache::SystemOrBlack(GetBackgroundPreserveTransparentColor()));
 		SetStretch(Main_Data::game_system->GetMessageStretch() == lcf::rpg::System::Stretch_stretch);
 	}
 	UpdateMovement();
@@ -102,7 +106,7 @@ void Window_Base::OnFaceReady(FileRequestResult* result, int face_index, int cx,
 
 // All these functions assume that the input is valid
 
-void Window_Base::DrawFace(StringView face_name, int face_index, int cx, int cy, bool flip) {
+void Window_Base::DrawFace(std::string_view face_name, int face_index, int cx, int cy, bool flip) {
 	if (face_name.empty()) { return; }
 
 	FileRequestAsync* request = AsyncHandler::RequestFile("FaceSet", face_name);
@@ -213,7 +217,7 @@ void Window_Base::DrawActorSp(const Game_Battler& actor, int cx, int cy, int dig
 }
 
 void Window_Base::DrawActorParameter(const Game_Battler& actor, int cx, int cy, int type) const {
-	StringView name;
+	std::string_view name;
 	int value;
 
 	switch (type) {
@@ -245,7 +249,7 @@ void Window_Base::DrawActorParameter(const Game_Battler& actor, int cx, int cy, 
 }
 
 void Window_Base::DrawEquipmentType(const Game_Actor& actor, int cx, int cy, int type) const {
-	StringView name;
+	std::string_view name;
 
 	switch (type) {
 	case 0:
@@ -292,7 +296,7 @@ void Window_Base::DrawCurrencyValue(int money, int cx, int cy) const {
 	std::stringstream gold;
 	gold << money;
 
-	Rect gold_text_size = Font::Default()->GetSize(lcf::Data::terms.gold);
+	Rect gold_text_size = Text::GetSize(*Font::Default(), lcf::Data::terms.gold);
 	contents->TextDraw(cx, cy, 1, lcf::Data::terms.gold, Text::AlignRight);
 
 	contents->TextDraw(cx - gold_text_size.width, cy, Font::ColorDefault, gold.str(), Text::AlignRight);

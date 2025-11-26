@@ -16,12 +16,11 @@
  */
 
 // Headers
-#include <iomanip>
-#include <sstream>
 #include "window_gamelist.h"
-#include "game_party.h"
+#include "filefinder.h"
 #include "bitmap.h"
 #include "font.h"
+#include "system.h"
 
 Window_GameList::Window_GameList(int ix, int iy, int iwidth, int iheight) :
 	Window_Selectable(ix, iy, iwidth, iheight) {
@@ -34,41 +33,70 @@ bool Window_GameList::Refresh(FilesystemView filesystem_base, bool show_dotdot) 
 		return false;
 	}
 
-	game_directories.clear();
+	game_entries.clear();
 
 	this->show_dotdot = show_dotdot;
 
-	auto files = base_fs.ListDirectory();
+#ifndef USE_CUSTOM_FILEBUF
+	// Calling "Create" while iterating over the directory list appears to corrupt
+	// the file entries probably because of a reallocation due to caching new entries.
+	// Create a copy of the entries instead to workaround this issue.
+	DirectoryTree::DirectoryListType files = *base_fs.ListDirectory();
+#else
+	DirectoryTree::DirectoryListType* files = base_fs.ListDirectory();
+#endif
 
 	// Find valid game diectories
+#ifndef USE_CUSTOM_FILEBUF
+	for (auto& dir : files) {
+#else
 	for (auto& dir : *files) {
+#endif
 		assert(!dir.second.name.empty() && "VFS BUG: Empty filename in the folder");
 
-		if (StringView(dir.second.name).ends_with(".save")) {
+#ifdef EMSCRIPTEN
+		if (dir.second.name == "Save") {
+			continue;
+		}
+#endif
+
+		if (EndsWith(dir.second.name, ".save")) {
 			continue;
 		}
 		if (dir.second.type == DirectoryTree::FileType::Regular) {
-			auto sv = StringView(dir.second.name);
-			if (sv.ends_with(".zip") || sv.ends_with(".easyrpg")) {
-				game_directories.emplace_back(dir.second.name);
+			if (FileFinder::IsSupportedArchiveExtension(dir.second.name)) {
+				// The type is only determined on platforms with fast file IO (Windows and UNIX systems)
+				// A platform is considered "fast" when it does not require our custom IO buffer
+#ifndef USE_CUSTOM_FILEBUF
+				auto fs = base_fs.Create(dir.second.name);
+				game_entries.push_back({ dir.second.name, FileFinder::GetProjectType(fs) });
+#else
+				game_entries.push_back({ dir.second.name, FileFinder::ProjectType::Unknown });
+#endif
 			}
 		} else if (dir.second.type == DirectoryTree::FileType::Directory) {
-			game_directories.emplace_back(dir.second.name);
+#ifndef USE_CUSTOM_FILEBUF
+			auto fs = base_fs.Create(dir.second.name);
+			game_entries.push_back({ dir.second.name, FileFinder::GetProjectType(fs) });
+#else
+			game_entries.push_back({ dir.second.name, FileFinder::ProjectType::Unknown });
+#endif
 		}
 	}
 
 	// Sort game list in place
-	std::sort(game_directories.begin(), game_directories.end(),
-			  [](const std::string& s, const std::string& s2) {
-				  return strcmp(Utils::LowerCase(s).c_str(), Utils::LowerCase(s2).c_str()) <= 0;
+	std::sort(game_entries.begin(), game_entries.end(),
+			  [](const FileFinder::GameEntry &ge1, const FileFinder::GameEntry &ge2) {
+				  return strcmp(Utils::LowerCase(ge1.dir_name).c_str(),
+								Utils::LowerCase(ge2.dir_name).c_str()) <= 0;
 			  });
 
 	if (show_dotdot) {
-		game_directories.insert(game_directories.begin(), "..");
+		game_entries.insert(game_entries.begin(), { "..", FileFinder::ProjectType::Unknown });
 	}
 
 	if (HasValidEntry()) {
-		item_max = game_directories.size();
+		item_max = game_entries.size();
 
 		CreateContents();
 
@@ -87,7 +115,7 @@ bool Window_GameList::Refresh(FilesystemView filesystem_base, bool show_dotdot) 
 			DrawItem(0);
 		}
 
-		DrawErrorText();
+		DrawErrorText(show_dotdot);
 	}
 
 	return true;
@@ -97,51 +125,71 @@ void Window_GameList::DrawItem(int index) {
 	Rect rect = GetItemRect(index);
 	contents->ClearRect(rect);
 
-	std::string text;
+	auto& ge = game_entries[index];
 
-	if (HasValidEntry()) {
-		text = game_directories[index];
+#ifndef USE_CUSTOM_FILEBUF
+	auto color = Font::ColorDefault;
+	if (ge.type == FileFinder::ProjectType::Unknown) {
+		color = Font::ColorHeal;
+	} else if (ge.type > FileFinder::ProjectType::Supported) {
+		color = Font::ColorKnockout;
 	}
+#else
+	auto color = Font::ColorDefault;
+#endif
 
-	contents->TextDraw(rect.x, rect.y, Font::ColorDefault, game_directories[index]);
+	contents->TextDraw(rect.x, rect.y, color, ge.dir_name);
+
+	if (ge.type > FileFinder::ProjectType::Supported) {
+		auto notice = fmt::format("{}", FileFinder::kProjectType.tag(ge.type));
+		contents->TextDraw(rect.width, rect.y, color, notice, Text::AlignRight);
+	}
 }
 
-void Window_GameList::DrawErrorText() {
+void Window_GameList::DrawErrorText(bool show_dotdot) {
 	std::vector<std::string> error_msg = {
 #ifdef EMSCRIPTEN
 		"Did you type in a wrong URL?",
 		"",
-		"If you followed a link and stranded here",
-		"please notify us (see About page)."
+		"If you think this is an error, contact the owner",
+		"of this website.",
+		"",
+		"Technical information: index.json was not found.",
+		"",
+		"Ensure through the dev tools of your browser that",
+		"the file is at the correct location.",
 #else
-		"Games must be in a direct subdirectory",
-		"and must have the files RPG_RT.ldb and",
-		"RPG_RT.lmt in their main directory.",
+		"With EasyRPG Player you can play games created",
+		"with RPG Maker 2000 and RPG Maker 2003.",
 		"",
-		"This engine only supports RPG Maker 2000",
-		"and 2003 games.",
+		"These games have an RPG_RT.ldb and they can be",
+		"extracted or in ZIP archives.",
 		"",
-		"RPG Maker XP, VX, VX Ace and MV are NOT",
-		"supported."
+		"Newer engines such as RPG Maker XP, VX, MV and MZ",
+		"are not supported."
 #endif
 	};
 
+	int y = (show_dotdot ? 4 + 14 : 0);
+
 #ifdef EMSCRIPTEN
-	contents->TextDraw(0, 0, Font::ColorKnockout, "The game was not found.");
+	contents->TextDraw(0, y, Font::ColorKnockout, "The game was not found.");
 #else
-	contents->TextDraw(0, 4 + 14, Font::ColorKnockout, "No games found in the current directory.");
+	contents->TextDraw(0, y, Font::ColorKnockout, "No games found in the current directory.");
 #endif
 
+	y += 14 * 2;
 	for (size_t i = 0; i < error_msg.size(); ++i) {
-		contents->TextDraw(0, 4 + 14 * (i + 3), Font::ColorCritical, error_msg[i]);
+		contents->TextDraw(0, y + 14 * i, Font::ColorCritical, error_msg[i]);
 	}
 }
 
 bool Window_GameList::HasValidEntry() {
 	size_t minval = show_dotdot ? 1 : 0;
-	return game_directories.size() > minval;
+	return game_entries.size() > minval;
 }
 
-std::pair<FilesystemView, std::string> Window_GameList::GetGameFilesystem() const {
-	return { base_fs.Create(game_directories[GetIndex()]), game_directories[GetIndex()] };
+FileFinder::FsEntry Window_GameList::GetFilesystemEntry() const {
+	const auto& entry = game_entries[GetIndex()];
+	return { base_fs.Create(entry.dir_name), entry.type };
 }

@@ -18,8 +18,11 @@
 // Headers
 #include "baseui.h"
 #include "bitmap.h"
+#include "player.h"
 
-#if USE_SDL==2
+#if USE_SDL==3
+#  include "platform/sdl/sdl3_ui.h"
+#elif USE_SDL==2
 #  include "platform/sdl/sdl2_ui.h"
 #elif USE_SDL==1
 #  include "platform/sdl/sdl_ui.h"
@@ -35,8 +38,10 @@
 
 std::shared_ptr<BaseUi> DisplayUi;
 
-std::shared_ptr<BaseUi> BaseUi::CreateUi(long width, long height, const Game_ConfigVideo& cfg) {
-#if USE_SDL==2
+std::shared_ptr<BaseUi> BaseUi::CreateUi(long width, long height, const Game_Config& cfg) {
+#if USE_SDL==3
+	return std::make_shared<Sdl3Ui>(width, height, cfg);
+#elif USE_SDL==2
 	return std::make_shared<Sdl2Ui>(width, height, cfg);
 #elif USE_SDL==1
 	return std::make_shared<SdlUi>(width, height, cfg);
@@ -47,29 +52,71 @@ std::shared_ptr<BaseUi> BaseUi::CreateUi(long width, long height, const Game_Con
 #endif
 }
 
-BaseUi::BaseUi(const Game_ConfigVideo& cfg)
+BaseUi::BaseUi(const Game_Config& cfg)
 {
 	keys.reset();
 
-	show_fps = cfg.show_fps.Get();
-	fps_render_window = cfg.fps_render_window.Get();
-	fps_limit = cfg.fps_limit.Get();
+	vcfg = cfg.video;
+
+	auto fps_limit = vcfg.fps_limit.Get();
 	frame_limit = (fps_limit == 0 ? Game_Clock::duration(0) : Game_Clock::TimeStepFromFps(fps_limit));
-	scaling_mode = cfg.scaling_mode.Get();
 }
 
 BitmapRef BaseUi::CaptureScreen() {
-	return Bitmap::Create(*main_surface, main_surface->GetRect());
+	BitmapRef capture = Bitmap::Create(main_surface->width(), main_surface->height(), false);
+	capture->BlitFast(0, 0, *main_surface, main_surface->GetRect(), Opacity::Opaque());
+	return capture;
 }
 
 void BaseUi::CleanDisplay() {
 	main_surface->Clear();
 }
 
-std::string BaseUi::getClipboardText() {
-	return "";
+void BaseUi::SetGameResolution(ConfigEnum::GameResolution resolution) {
+	vcfg.game_resolution.Set(resolution);
 }
 
-void BaseUi::setClipboardText(std::string text) {
-	//
+Game_ConfigVideo BaseUi::GetConfig() const {
+	Game_ConfigVideo cfg = vcfg;
+
+	cfg.Hide();
+
+	vGetConfig(cfg);
+
+	Rect metrics = GetWindowMetrics();
+	cfg.window_x.Set(metrics.x);
+	cfg.window_y.Set(metrics.y);
+	cfg.window_width.Set(metrics.width);
+	cfg.window_height.Set(metrics.height);
+
+	if (!cfg.fullscreen.IsOptionVisible()) {
+		cfg.fps.RemoveFromValidSet(ConfigEnum::ShowFps::Overlay);
+	}
+
+	if (cfg.vsync.IsOptionVisible()
+			&& cfg.vsync.Get()) {
+		cfg.fps_limit.SetLocked(true);
+		cfg.fps_limit.SetDescription("This option requires V-Sync to be disabled");
+	}
+
+	if (cfg.fullscreen.IsOptionVisible()
+			&& cfg.fullscreen.Get()) {
+		cfg.window_zoom.SetLocked(true);
+		cfg.window_zoom.SetDescription("This option requires to be in windowed mode");
+	}
+
+	if (Player::has_custom_resolution) {
+		cfg.game_resolution.SetLocked(true);
+		cfg.game_resolution.SetDescription("This game uses a custom resolution");
+	}
+
+	return cfg;
+}
+
+bool BaseUi::ChangeDisplaySurfaceResolution(int new_width, int new_height) {
+	if (new_width == current_display_mode.width && new_height == current_display_mode.height) {
+		return true;
+	}
+
+	return vChangeDisplaySurfaceResolution(new_width, new_height);
 }

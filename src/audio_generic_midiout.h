@@ -20,8 +20,8 @@
 
 #include <memory>
 #include "system.h"
+#include "audio_decoder_midi.h"
 
-class AudioDecoderMidi;
 namespace Filesystem_Stream {
 	class InputStream;
 }
@@ -52,7 +52,7 @@ public:
 	void StartThread();
 	void StopThread();
 	void ThreadFunction();
-	bool IsInitialized() const;
+	bool IsInitialized(std::string& status_message) const;
 
 	static bool IsSupported(Filesystem_Stream::InputStream& stream);
 private:
@@ -62,8 +62,6 @@ private:
 	std::thread midi_thread;
 	bool thread_started = false;
 	std::atomic_bool stop_thread;
-
-	int midi_output_stuck = 0;
 };
 
 #else
@@ -81,7 +79,7 @@ public:
 
 	void StartThread() {};
 	void StopThread() {};
-	bool IsInitialized() const {
+	bool IsInitialized(std::string&) const {
 		return false;
 	}
 

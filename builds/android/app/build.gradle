@@ -1,0 +1,87 @@
+apply plugin: 'com.android.application'
+android {
+    namespace "org.easyrpg.player"
+    ndkVersion '21.4.7075529'
+    assetPacks = [":assets"]
+    defaultConfig {
+        applicationId "org.easyrpg.player"
+        compileSdk 36
+        minSdkVersion 21
+        targetSdkVersion 36
+        versionName VERSION_NAME
+        versionCode Integer.parseInt(VERSION_CODE)
+    }
+    signingConfigs {
+        release {
+            storeFile file(RELEASE_STORE_FILE)
+            storePassword RELEASE_STORE_PASSWORD
+            keyAlias RELEASE_KEY_ALIAS
+            keyPassword RELEASE_KEY_PASSWORD
+        }
+    }
+    buildTypes {
+        debug {
+            ndk {
+                abiFilters = []
+                abiFilters.addAll(ABI_FILTERS_DEBUG.split(','))
+            }
+        }
+        release {
+            ndk {
+                abiFilters = []
+                abiFilters.addAll(ABI_FILTERS_RELEASE.split(','))
+            }
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
+            signingConfig signingConfigs.release
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path "../../../CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+	lint {
+		abortOnError false
+		disable 'MissingTranslation'
+	}
+	defaultConfig {
+        externalNativeBuild {
+            cmake {
+                arguments "-DPLAYER_GRADLE_BUILD=ON",
+                        "-DBUILD_SHARED_LIBS=ON",
+                        "-DPLAYER_ENABLE_TESTS=OFF"
+
+                if (project.hasProperty("toolchainDirs") && project.toolchainDirs) {
+                    arguments.add('-DPLAYER_ANDROID_TOOLCHAIN_PATH=' + project.toolchainDirs)
+                } else if (System.getenv('EASYRPG_BUILDSCRIPTS')) {
+                    arguments.add('-DPLAYER_ANDROID_TOOLCHAIN_PATH=' + System.getenv('EASYRPG_BUILDSCRIPTS') + '/android')
+                }
+
+                if (project.hasProperty("cmakeOptions")) {
+                    arguments.addAll(project.cmakeOptions.split(" "))
+                }
+            }
+        }
+    }
+}
+
+allprojects {
+    repositories {
+        maven {
+            url 'https://maven.google.com'
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation "androidx.activity:activity:1.10.1"
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    implementation 'androidx.recyclerview:recyclerview:1.4.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
+    implementation 'androidx.documentfile:documentfile:1.0.1'
+    implementation 'org.ini4j:ini4j:0.5.4'
+}

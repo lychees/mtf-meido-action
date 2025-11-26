@@ -23,23 +23,26 @@
 #endif
 
 #include <lcf/data.h>
-#include "dynrpg.h"
+#include "game_dynrpg.h"
 #include "filefinder.h"
 #include "game_actor.h"
 #include "game_map.h"
 #include "game_party.h"
 #include "game_switches.h"
 #include "game_variables.h"
+#include "game_strings.h"
 #include "game_party.h"
 #include "game_actors.h"
 #include "game_system.h"
 #include "game_targets.h"
 #include "game_screen.h"
 #include "game_pictures.h"
+#include "game_windows.h"
 #include <lcf/lsd/reader.h>
 #include "output.h"
 #include "player.h"
 #include "scene_save.h"
+#include "translation.h"
 #include "version.h"
 
 Scene_Save::Scene_Save() :
@@ -76,7 +79,7 @@ std::string Scene_Save::GetSaveFilename(const FilesystemView& fs, int slot_id) {
 bool Scene_Save::Save(const FilesystemView& fs, int slot_id, bool prepare_save) {
 	const auto filename = GetSaveFilename(fs, slot_id);
 	Output::Debug("Saving to {}", filename);
-	
+
 	auto save_stream = FileFinder::Save().OpenOutputStream(filename);
 
 	if (!save_stream) {
@@ -124,7 +127,10 @@ bool Scene_Save::Save(std::ostream& os, int slot_id, bool prepare_save) {
 	Game_Map::PrepareSave(save);
 
 	if (prepare_save) {
-		lcf::LSD_Reader::PrepareSave(save, PLAYER_SAVEGAME_VERSION);
+		// When a translation is loaded always store in Unicode to prevent data loss
+		int codepage = Tr::HasActiveTranslation() ? 65001 : 0;
+
+		lcf::LSD_Reader::PrepareSave(save, PLAYER_SAVEGAME_VERSION, codepage);
 		Main_Data::game_system->IncSaveCount();
 	}
 
@@ -132,11 +138,12 @@ bool Scene_Save::Save(std::ostream& os, int slot_id, bool prepare_save) {
 	save.system = Main_Data::game_system->GetSaveData();
 	save.system.switches = Main_Data::game_switches->GetData();
 	save.system.variables = Main_Data::game_variables->GetData();
+	save.system.maniac_strings = Main_Data::game_strings->GetLcfData();
 	save.inventory = Main_Data::game_party->GetSaveData();
 	save.actors = Main_Data::game_actors->GetSaveData();
-
 	save.screen = Main_Data::game_screen->GetSaveData();
 	save.pictures = Main_Data::game_pictures->GetSaveData();
+	save.easyrpg_data.windows = Main_Data::game_windows->GetSaveData();
 
 	save.system.scene = Scene::instance ? Scene::rpgRtSceneFromSceneType(Scene::instance->type) : -1;
 
@@ -149,15 +156,9 @@ bool Scene_Save::Save(std::ostream& os, int slot_id, bool prepare_save) {
 	auto lcf_engine = Player::IsRPG2k3() ? lcf::EngineVersion::e2k3 : lcf::EngineVersion::e2k;
 	bool res = lcf::LSD_Reader::Save(os, save, lcf_engine, Player::encoding);
 
-	DynRpg::Save(slot_id);
+	Main_Data::game_dynrpg->Save(slot_id);
 
-#ifdef EMSCRIPTEN
-	// Save changed file system
-	EM_ASM({
-		FS.syncfs(function(err) {
-		});
-	});
-#endif
+	AsyncHandler::SaveFilesystem();
 
 	return res;
 }

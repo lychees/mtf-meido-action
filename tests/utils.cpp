@@ -47,7 +47,7 @@ TEST_CASE("StrICmp") {
 	}
 
 	SUBCASE("sv") {
-		testStrICmp<StringView>();
+		testStrICmp<std::string_view>();
 	}
 }
 
@@ -91,6 +91,16 @@ TEST_CASE("TrimWhitespace") {
 		REQUIRE(Utils::TrimWhitespace("    ") == "");
 		REQUIRE(Utils::TrimWhitespace("T ex t") == "T ex t");
 	}
+}
+
+TEST_CASE("StringIsAscii") {
+	REQUIRE(Utils::StringIsAscii("Hello"));
+	REQUIRE(Utils::StringIsAscii("Hello World"));
+	REQUIRE(Utils::StringIsAscii(""));
+
+	REQUIRE_FALSE(Utils::StringIsAscii("Holerö"));
+	REQUIRE_FALSE(Utils::StringIsAscii("こんにちは"));
+	REQUIRE_FALSE(Utils::StringIsAscii("　")); // Full-Width-Space
 }
 
 TEST_SUITE_END();

@@ -33,7 +33,8 @@ class WildMidiDecoder : public MidiDecoder {
 public:
 	~WildMidiDecoder();
 
-	static bool Initialize(std::string& error_message);
+	static bool Initialize(std::string& status_message);
+	static void ResetState();
 
 	// Audio Decoder interface
 	bool Open(std::vector<uint8_t>& data) override;

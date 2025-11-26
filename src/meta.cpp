@@ -68,23 +68,27 @@ std::string crc32file(std::string file_name) {
 }
 
 
-Meta::Meta(StringView meta_file) {
-	ini = std::make_unique<lcf::INIReader>(ToString(meta_file));
+Meta::Meta(std::string_view meta_file) {
+	auto is = FileFinder::Game().OpenInputStream(meta_file);
+	if (!is) {
+		return;
+	}
+
+	ini = std::make_unique<lcf::INIReader>(is);
 
 	// Cache per-game lookups
 	if (!Empty()) {
-		std::string version = ini->GetString(MTINI_EASY_RPG_SECTION, MTINI_FILE_FORMAT_VERSION, "");
+		auto version = ini->GetString(MTINI_EASY_RPG_SECTION, MTINI_FILE_FORMAT_VERSION, "");
 		if (version == "1") {
 			IdentifyCanonName(TREEMAP_NAME, DATABASE_NAME);
 		} else {
 			Output::Warning("Metadata error in {}, format property {}:{} is missing or invalid: '{}'", meta_file, MTINI_EASY_RPG_SECTION, MTINI_FILE_FORMAT_VERSION, version);
-			ini = nullptr;
+			ini.reset();
 		}
 	}
-
 }
 
-void Meta::ReInitForNonStandardExtensions(StringView file1, StringView file2) {
+void Meta::ReInitForNonStandardExtensions(std::string_view file1, std::string_view file2) {
 	if (!Empty()) {
 		if (canon_ini_lookup.empty()) {
 			IdentifyCanonName(file1, file2);
@@ -106,7 +110,7 @@ int Meta::GetPivotMap() const {
 
 std::string Meta::GetParentGame() const {
 	if (!Empty()) {
-		return ini->GetString(canon_ini_lookup, MTINI_IMPORT_SAVE_PARENT, "");
+		return std::string(ini->GetString(canon_ini_lookup, MTINI_IMPORT_SAVE_PARENT, ""));
 	}
 
 	return "";
@@ -130,7 +134,7 @@ std::vector<std::string> Meta::GetImportChildPaths(const FilesystemView& parent_
 	return res;
 }
 
-std::vector<Meta::FileItem> Meta::SearchImportPaths(const FilesystemView& parent_fs, StringView child_path) const {
+std::vector<Meta::FileItem> Meta::SearchImportPaths(const FilesystemView& parent_fs, std::string_view child_path) const {
 	if (!Empty()) {
 		int pivotMapId = GetPivotMap();
 		auto parent = GetParentGame();
@@ -141,26 +145,28 @@ std::vector<Meta::FileItem> Meta::SearchImportPaths(const FilesystemView& parent
 }
 
 
-std::vector<Meta::FileItem> Meta::BuildImportCandidateList(const FilesystemView& parent_fs, StringView child_path, StringView parent_game_name, int pivot_map_id) const {
+std::vector<Meta::FileItem> Meta::BuildImportCandidateList(const FilesystemView& parent_fs, std::string_view child_path, std::string_view parent_game_name, int pivot_map_id) const {
 	// Scan each folder, looking for an ini file
 	// For now, this only works with "standard" folder layouts, since we need Game files + Save files
 	std::vector<Meta::FileItem> res;
-#if 0
-	FIXME
+
 	// Try to read the game name. Note that we assume the games all have the same encoding (and use Player::encoding)
-	auto child_full_path = child_path;
-	auto child_tree = FileFinder::CreateDirectoryTree(child_full_path);
 	bool is_match = false;
-	if (child_tree != nullptr) {
-		// Try to match the parent game name
-		std::string lmtPath = child_tree->FindFile(TREEMAP_NAME);
+
+	// NOTE: FindFile doesn't work outside the root of the FileSystemView, so we use Exists() and pass a relative path.
+	//       This will likely only work on Native filesystems; the Exists(".") attempts to sanity check this.
+	auto child_tree = parent_fs.Subtree(child_path);
+	if (child_tree.Exists(".")) {
+		// Try to match the parent game name.
+		std::string lmtPath = child_tree.GetSubPath() + "/" + TREEMAP_NAME;
 		std::string crcLMT = crc32file(lmtPath);
 		std::string crcLDB = "*";
+
 		if (parent_game_name.find(crcLMT)==0) {
 			if (parent_game_name == crcLMT + "/" + crcLDB) {
 				is_match = true;
 			} else {
-				std::string ldbPath = child_tree->FindFile(DATABASE_NAME);
+				std::string ldbPath = child_tree.GetSubPath() + "/" + DATABASE_NAME;
 				crcLDB = crc32file(ldbPath);
 				if (parent_game_name == crcLMT + "/" + crcLDB) {
 					is_match = true;
@@ -177,13 +183,13 @@ std::vector<Meta::FileItem> Meta::BuildImportCandidateList(const FilesystemView&
 
 			// Check for an existing, non-corrupt file with the right mapID
 			// Note that corruptness is checked later (in window_savefile.cpp)
-			std::string file = child_tree->FindFile(ss.str());
-			if (!file.empty()) {
-				std::unique_ptr<lcf::rpg::Save> savegame = lcf::LSD_Reader::Load(file, Player::encoding);
+			if (child_tree.Exists(ss.str())) {
+				auto filePath= child_tree.GetSubPath() + "/" + ss.str();
+				std::unique_ptr<lcf::rpg::Save> savegame = lcf::LSD_Reader::Load(filePath, Player::encoding);
 				if (savegame != nullptr) {
 					if (savegame->party_location.map_id == pivot_map_id || pivot_map_id==0) {
 						FileItem item;
-						item.full_path = file;
+						item.full_path = filePath;
 						item.short_path = FileFinder::MakeCanonical(child_path, 1);
 						item.file_id = saveId + 1;
 						res.push_back(item);
@@ -192,29 +198,28 @@ std::vector<Meta::FileItem> Meta::BuildImportCandidateList(const FilesystemView&
 			}
 		}
 	}
-#endif
 	return res;
 }
 
 std::string Meta::GetLdbAlias() const {
 	if (!Empty()) {
-		return ini->GetString(canon_ini_lookup, MTINI_FILEXT_LDB_ALIAS, "");
+		return std::string(ini->GetString(canon_ini_lookup, MTINI_FILEXT_LDB_ALIAS, ""));
 	}
 	return "";
 }
 
 std::string Meta::GetLmtAlias() const {
-        if (!Empty()) {
-                return ini->GetString(canon_ini_lookup, MTINI_FILEXT_LMT_ALIAS, "");
-        }
-        return "";
+	if (!Empty()) {
+		return std::string(ini->GetString(canon_ini_lookup, MTINI_FILEXT_LMT_ALIAS, ""));
+	}
+	return "";
 }
 
 std::string Meta::GetLmuAlias() const {
-        if (!Empty()) {
-                return ini->GetString(canon_ini_lookup, MTINI_FILEXT_LMU_ALIAS, "");
-        }
-        return "";
+	if (!Empty()) {
+		return std::string(ini->GetString(canon_ini_lookup, MTINI_FILEXT_LMU_ALIAS, ""));
+	}
+	return "";
 }
 
 
@@ -247,15 +252,15 @@ std::string Meta::GetExVocabTranslateTitleText() const {
 	return GetExVocab(MTINI_EXVOCAB_TRANSLATE_TITLE_KEY, MTINI_EXVOCAB_TRANSLATE_TITLE_VALUE);
 }
 
-std::string Meta::GetExVocab(StringView term, StringView def_value) const {
+std::string Meta::GetExVocab(std::string_view term, std::string_view def_value) const {
 	if (!Empty()) {
-		return ini->GetString(canon_ini_lookup, ToString(term), ToString(def_value));
+		return std::string(ini->GetString(canon_ini_lookup, term, def_value));
 	}
 
 	return ToString(def_value);
 }
 
-void Meta::IdentifyCanonName(StringView lmtFile, StringView ldbFile) {
+void Meta::IdentifyCanonName(std::string_view lmtFile, std::string_view ldbFile) {
 	// Calculate the lookup based on the LMT/LDB hashes, preferring to use LMT only if possible.
 	// This requires a mandatory field, for which we will use "Name".
 	if (!Empty()) {

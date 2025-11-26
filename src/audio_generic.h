@@ -21,9 +21,8 @@
 #include "audio.h"
 #include "audio_secache.h"
 #include "audio_decoder_base.h"
+#include "audio_generic_midiout.h"
 #include <memory>
-
-class GenericAudioMidiOut;
 
 /**
  * A software implementation for handling EasyRPG Audio utilizing the
@@ -41,10 +40,10 @@ class GenericAudioMidiOut;
  */
 class GenericAudio : public AudioInterface {
 public:
-	GenericAudio();
+	GenericAudio(const Game_ConfigAudio& cfg);
 	virtual ~GenericAudio() = default;
 
-	void BGM_Play(Filesystem_Stream::InputStream stream, int volume, int pitch, int fadein) override;
+	void BGM_Play(Filesystem_Stream::InputStream stream, int volume, int pitch, int fadein, int balance) override;
 	void BGM_Pause() override;
 	void BGM_Resume() override;
 	void BGM_Stop() override;
@@ -54,9 +53,16 @@ public:
 	void BGM_Fade(int fade) override;
 	void BGM_Volume(int volume) override;
 	void BGM_Pitch(int pitch) override;
-	void SE_Play(std::unique_ptr<AudioSeCache> se, int volume, int pitch) override;
+	void BGM_Balance(int balance) override;
+	std::string BGM_GetType() const override;
+
+	void SE_Play(std::unique_ptr<AudioSeCache> se, int volume, int pitch, int balance) override;
 	void SE_Stop() override;
 	virtual void Update() override;
+
+	void vGetConfig(Game_ConfigAudio&) const override {}
+
+	GenericAudioMidiOut* CreateAndGetMidiOut() override;
 
 	void SetFormat(int frequency, AudioDecoder::Format format, int channels);
 
@@ -69,6 +75,7 @@ private:
 	struct BgmChannel {
 		int id;
 		std::unique_ptr<AudioDecoderBase> decoder;
+		GenericAudio* instance = nullptr;
 		bool paused;
 		bool stopped;
 		bool midi_out_used = false;
@@ -78,11 +85,13 @@ private:
 		void SetFade(int fade);
 		void SetVolume(int volume);
 		void SetPitch(int pitch);
+		void SetBalance(int balance);
 		bool IsUsed() const;
 	};
 	struct SeChannel {
 		int id;
 		std::unique_ptr<AudioDecoderBase> decoder;
+		GenericAudio* instance = nullptr;
 		bool paused;
 		bool stopped;
 	};
@@ -93,23 +102,22 @@ private:
 	};
 	Format output_format = {};
 
-	bool PlayOnChannel(BgmChannel& chan, Filesystem_Stream::InputStream stream, int volume, int pitch, int fadein);
-	bool PlayOnChannel(SeChannel& chan, std::unique_ptr<AudioSeCache> se, int volume, int pitch);
+	bool PlayOnChannel(BgmChannel& chan, Filesystem_Stream::InputStream stream, int volume, int pitch, int fadein, int balance);
+	bool PlayOnChannel(SeChannel& chan, std::unique_ptr<AudioSeCache> se, int volume, int pitch, int balance);
 
 	static constexpr unsigned nr_of_se_channels = 31;
 	static constexpr unsigned nr_of_bgm_channels = 2;
 
-	static BgmChannel BGM_Channels[nr_of_bgm_channels];
-	static SeChannel SE_Channels[nr_of_se_channels];
-	static bool BGM_PlayedOnceIndicator;
-	static bool Muted;
+	BgmChannel BGM_Channels[nr_of_bgm_channels];
+	SeChannel SE_Channels[nr_of_se_channels];
+	mutable bool BGM_PlayedOnceIndicator;
 
-	static std::vector<int16_t> sample_buffer;
-	static std::vector<uint8_t> scrap_buffer;
-	static unsigned scrap_buffer_size;
-	static std::vector<float> mixer_buffer;
+	std::vector<int16_t> sample_buffer = {};
+	std::vector<uint8_t> scrap_buffer = {};
+	unsigned scrap_buffer_size = 0;
+	std::vector<float> mixer_buffer = {};
 
-	static std::unique_ptr<GenericAudioMidiOut> midi_thread;
+	std::unique_ptr<GenericAudioMidiOut> midi_thread;
 };
 
 #endif

@@ -40,7 +40,7 @@
 #include "rand.h"
 #include "autobattle.h"
 #include "enemyai.h"
-#include "battle_message.h"
+#include "game_message_terms.h"
 #include "feature.h"
 
 Scene_Battle_Rpg2k::Scene_Battle_Rpg2k(const BattleArgs& args) :
@@ -59,12 +59,12 @@ void Scene_Battle_Rpg2k::Start() {
 void Scene_Battle_Rpg2k::CreateUi() {
 	Scene_Battle::CreateUi();
 
-	status_window.reset(new Window_BattleStatus(0, (SCREEN_TARGET_HEIGHT-80), SCREEN_TARGET_WIDTH - option_command_mov, 80));
+	status_window.reset(new Window_BattleStatus(Player::menu_offset_x, (Player::screen_height - Player::menu_offset_y - 80), MENU_WIDTH - option_command_mov, 80));
 
 	CreateBattleTargetWindow();
 	CreateBattleCommandWindow();
 
-	battle_message_window.reset(new Window_BattleMessage(0, (SCREEN_TARGET_HEIGHT - 80), SCREEN_TARGET_WIDTH, 80));
+	battle_message_window.reset(new Window_BattleMessage(Player::menu_offset_x, (Player::screen_height - Player::menu_offset_y - 80), MENU_WIDTH, 80));
 
 	if (!IsEscapeAllowed()) {
 		auto it = std::find(battle_options.begin(), battle_options.end(), Escape);
@@ -73,7 +73,7 @@ void Scene_Battle_Rpg2k::CreateUi() {
 		}
 	}
 
-	SetCommandWindows(0);
+	SetCommandWindowsX();
 
 	ResetWindows(true);
 	battle_message_window->SetVisible(true);
@@ -104,7 +104,8 @@ void Scene_Battle_Rpg2k::CreateBattleTargetWindow() {
 	auto commands = GetEnemyTargetNames();
 	target_window.reset(new Window_Command(std::move(commands), 136, 4));
 	target_window->SetHeight(80);
-	target_window->SetY(SCREEN_TARGET_HEIGHT-80);
+	target_window->SetX(Player::menu_offset_x);
+	target_window->SetY(Player::screen_height - Player::menu_offset_y - 80);
 	// Above other windows
 	target_window->SetZ(Priority_Window + 10);
 }
@@ -135,10 +136,9 @@ void Scene_Battle_Rpg2k::CreateBattleCommandWindow() {
 		ToString(lcf::Data::terms.command_item)
 	};
 
-	command_window.reset(new Window_Command(std::move(commands), 76));
+	command_window.reset(new Window_Command(std::move(commands), option_command_mov));
 	command_window->SetHeight(80);
-	command_window->SetX(SCREEN_TARGET_WIDTH - option_command_mov);
-	command_window->SetY(SCREEN_TARGET_HEIGHT-80);
+	command_window->SetY(Player::screen_height - Player::menu_offset_y - 80);
 }
 
 void Scene_Battle_Rpg2k::RefreshCommandWindow() {
@@ -188,7 +188,7 @@ bool Scene_Battle_Rpg2k::UpdateBattleState() {
 	return true;
 }
 
-void Scene_Battle_Rpg2k::Update() {
+void Scene_Battle_Rpg2k::vUpdate() {
 	const auto process_scene = UpdateBattleState();
 
 	while (process_scene) {
@@ -202,6 +202,12 @@ void Scene_Battle_Rpg2k::Update() {
 		}
 
 		if (Game_Message::IsMessageActive() || Game_Battle::GetInterpreter().IsRunning()) {
+			break;
+		}
+
+		// this is checked separately because we want normal events to be processed
+		// just not sub-events called by maniacs battle hooks.
+		if (state != State_Victory && state != State_Defeat && Game_Battle::ManiacProcessSubEvents()) {
 			break;
 		}
 
@@ -394,7 +400,12 @@ void Scene_Battle_Rpg2k::ResetWindows(bool make_invisible) {
 	help_window->SetVisible(false);
 }
 
-void Scene_Battle_Rpg2k::SetCommandWindows(int x) {
+void Scene_Battle_Rpg2k::SetCommandWindowsX() {
+	int x = Player::menu_offset_x;
+	if (Player::screen_width >= battle_menu_offset_x) {
+		x = std::max<int>((Player::screen_width - battle_menu_offset_x) / 2, 0);
+	}
+
 	options_window->SetX(x);
 	x += options_window->GetWidth();
 	status_window->SetX(x);
@@ -403,6 +414,11 @@ void Scene_Battle_Rpg2k::SetCommandWindows(int x) {
 }
 
 void Scene_Battle_Rpg2k::MoveCommandWindows(int x, int frames) {
+	if (Player::screen_width >= battle_menu_offset_x) {
+		// Do not animate as they fit on the screen in widescreen mode
+		return;
+	}
+
 	options_window->InitMovement(options_window->GetX(), options_window->GetY(),
 			x, options_window->GetY(), frames);
 
@@ -454,11 +470,13 @@ Scene_Battle_Rpg2k::SceneActionReturn Scene_Battle_Rpg2k::ProcessSceneActionFigh
 		status_window->Refresh();
 
 		if (previous_state == State_SelectCommand) {
-			MoveCommandWindows(0, 8);
+			MoveCommandWindows(Player::menu_offset_x, 8);
 		} else {
-			SetCommandWindows(0);
+			SetCommandWindowsX();
 		}
 		SetSceneActionSubState(eWaitForInput);
+		// Prevent that DECISION from a closed message triggers a battle option in eWaitForInput
+		Input::ResetTriggerKeys();
 		return SceneActionReturn::eContinueThisFrame;
 	}
 
@@ -486,6 +504,15 @@ Scene_Battle_Rpg2k::SceneActionReturn Scene_Battle_Rpg2k::ProcessSceneActionFigh
 							Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
 							SetState(State_Escape);
 						}
+						break;
+					case Win: // Win
+						for (Game_Enemy* enemy : Main_Data::game_enemyparty->GetEnemies()) {
+							enemy->Kill();
+						}
+						SetState(State_Victory);
+						break;
+					case Lose: // Lose
+						SetState(State_Defeat);
 						break;
 				}
 			}
@@ -523,7 +550,7 @@ Scene_Battle_Rpg2k::SceneActionReturn Scene_Battle_Rpg2k::ProcessSceneActionComm
 			command_window->SetIndex(0);
 		}
 
-		MoveCommandWindows(-options_window->GetWidth(), 8);
+		MoveCommandWindows(Player::menu_offset_x - options_window->GetWidth(), 8);
 		SetSceneActionSubState(eWaitForInput);
 		return SceneActionReturn::eContinueThisFrame;
 	}
@@ -639,7 +666,7 @@ Scene_Battle_Rpg2k::SceneActionReturn Scene_Battle_Rpg2k::ProcessSceneActionSkil
 		ResetWindows(true);
 
 		skill_window->SetActive(true);
-		skill_window->SetActor(active_actor->GetId());
+		skill_window->SetActor(*active_actor);
 		if (previous_state == State_SelectCommand) {
 			skill_window->RestoreActorIndex(actor_index - 1);
 		}
@@ -832,7 +859,7 @@ Scene_Battle_Rpg2k::SceneActionReturn Scene_Battle_Rpg2k::ProcessSceneActionVict
 		std::vector<int> drops;
 		Main_Data::game_enemyparty->GenerateDrops(drops);
 
-		auto pm = PendingMessage();
+		PendingMessage pm(Game_Message::CommandCodeInserter);
 		pm.SetEnableFace(false);
 
 		pm.SetWordWrapped(Feature::HasPlaceholders());
@@ -855,9 +882,11 @@ Scene_Battle_Rpg2k::SceneActionReturn Scene_Battle_Rpg2k::ProcessSceneActionVict
 
 		pm.PushPageEnd();
 
-		for (auto& ally: ally_battlers) {
-			Game_Actor* actor = static_cast<Game_Actor*>(ally);
-			actor->ChangeExp(actor->GetExp() + exp, &pm);
+		for (int i = 0; i < static_cast<int>(ally_battlers.size()); ++i) {
+			Game_Actor* actor = static_cast<Game_Actor*>(ally_battlers[i]);
+			int exp_gain = exp;
+			RuntimePatches::EXPlus::ModifyExpGain(*actor, exp_gain);
+			actor->ChangeExp(actor->GetExp() + exp_gain, &pm);
 		}
 		Main_Data::game_party->GainGold(money);
 		for (auto& item: drops) {
@@ -889,7 +918,7 @@ Scene_Battle_Rpg2k::SceneActionReturn Scene_Battle_Rpg2k::ProcessSceneActionDefe
 		Main_Data::game_system->SetMessagePosition(2);
 		Main_Data::game_system->SetMessageTransparent(false);
 
-		auto pm = PendingMessage();
+		PendingMessage pm(Game_Message::CommandCodeInserter);
 		pm.SetEnableFace(false);
 
 		pm.SetWordWrapped(Feature::HasPlaceholders());
@@ -1050,7 +1079,7 @@ Scene_Battle_Rpg2k::BattleActionReturn Scene_Battle_Rpg2k::ProcessBattleActionBe
 		}
 
 		if (pri_state != nullptr) {
-			StringView msg = pri_was_healed
+			std::string_view msg = pri_was_healed
 				? pri_state->message_recovery
 				: pri_state->message_affected;
 
@@ -1197,6 +1226,12 @@ Scene_Battle_Rpg2k::BattleActionReturn Scene_Battle_Rpg2k::ProcessBattleActionAn
 }
 
 Scene_Battle_Rpg2k::BattleActionReturn Scene_Battle_Rpg2k::ProcessBattleActionExecute(Game_BattleAlgorithm::AlgorithmBase* action) {
+	if (!action->IsCurrentTargetValid()) {
+		// FIXME: Pick a new target instead of ending the action
+		SetBattleActionState(BattleActionState_Finished);
+		return BattleActionReturn::eContinue;
+	}
+
 	action->Execute();
 	if (action->GetType() == Game_BattleAlgorithm::Type::Normal
 			|| action->GetType() == Game_BattleAlgorithm::Type::Skill
@@ -1816,6 +1851,10 @@ void Scene_Battle_Rpg2k::CreateEnemyActions() {
 	}
 
 	for (auto* enemy : Main_Data::game_enemyparty->GetEnemies()) {
+		if (enemy->IsHidden()) {
+			continue;
+		}
+
 		if (!EnemyAi::SetStateRestrictedAction(*enemy)) {
 			if (enemy->GetEnemyAi() == -1) {
 				enemyai_algos[default_enemyai_algo]->SetEnemyAiAction(*enemy);
@@ -1917,62 +1956,24 @@ bool Scene_Battle_Rpg2k::CheckWait() {
 }
 
 void Scene_Battle_Rpg2k::PushExperienceGainedMessage(PendingMessage& pm, int exp) {
-	if (Feature::HasPlaceholders()) {
-		pm.PushLine(
-			Utils::ReplacePlaceholders(
-				lcf::Data::terms.exp_received,
-				Utils::MakeArray('V', 'U'),
-				Utils::MakeSvArray(std::to_string(exp), lcf::Data::terms.exp_short)
-			) + Player::escape_symbol + "."
-		);
-	}
-	else {
-		std::stringstream ss;
-		ss << exp << lcf::Data::terms.exp_received << Player::escape_symbol << ".";
-		pm.PushLine(ss.str());
-	}
+	pm.PushLine(
+		PartyMessage::GetExperienceGainedMessage(exp)
+		+ Player::escape_symbol + ".");
 }
 
 void Scene_Battle_Rpg2k::PushGoldReceivedMessage(PendingMessage& pm, int money) {
+	pm.PushLine(
+		PartyMessage::GetGoldReceivedMessage(money)
+		+ Player::escape_symbol + ".");
 
-	if (Feature::HasPlaceholders()) {
-		pm.PushLine(
-			Utils::ReplacePlaceholders(
-				lcf::Data::terms.gold_recieved_a,
-				Utils::MakeArray('V', 'U'),
-				Utils::MakeSvArray(std::to_string(money), lcf::Data::terms.gold)
-			) + Player::escape_symbol + "."
-		);
-	}
-	else {
-		std::stringstream ss;
-		ss << lcf::Data::terms.gold_recieved_a << " " << money << lcf::Data::terms.gold << lcf::Data::terms.gold_recieved_b << Player::escape_symbol << ".";
-		pm.PushLine(ss.str());
-	}
 }
 
 void Scene_Battle_Rpg2k::PushItemRecievedMessages(PendingMessage& pm, std::vector<int> drops) {
-	std::stringstream ss;
-
 	for (std::vector<int>::iterator it = drops.begin(); it != drops.end(); ++it) {
 		const lcf::rpg::Item* item = lcf::ReaderUtil::GetElement(lcf::Data::items, *it);
-		// No Output::Warning needed here, reported later when the item is added
-		StringView item_name = item ? StringView(item->name) : StringView("??? BAD ITEM ???");
-
-		if (Feature::HasPlaceholders()) {
-			pm.PushLine(
-				Utils::ReplacePlaceholders(
-					lcf::Data::terms.item_recieved,
-					Utils::MakeArray('S'),
-					Utils::MakeSvArray(item_name)
-				) + Player::escape_symbol + "."
-			);
-		}
-		else {
-			ss.str("");
-			ss << item_name << lcf::Data::terms.item_recieved << Player::escape_symbol << ".";
-			pm.PushLine(ss.str());
-		}
+		pm.PushLine(
+			PartyMessage::GetItemReceivedMessage(item)
+			+ Player::escape_symbol + ".");
 	}
 }
 

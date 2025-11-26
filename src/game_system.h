@@ -80,26 +80,6 @@ public:
 
 	using AtbMode = lcf::rpg::SaveSystem::AtbMode;
 
-	class Target {
-	public:
-		int map_id;
-		int x;
-		int y;
-		int switch_id;
-		Target()
-			: map_id(0),
-			  x(0),
-			  y(0),
-			  switch_id(0)
-		{}
-		Target(int map_id, int x, int y, int switch_id)
-			: map_id(map_id),
-			  x(x),
-			  y(y),
-			  switch_id(switch_id)
-		{}
-	};
-
 	/**
 	 * Initializes Game System.
 	 */
@@ -132,6 +112,15 @@ public:
 	void BgmFade(int duration, bool clear_current_music = false);
 
 	/**
+	 * Returns whether a Bgm track played once.
+	 * For RPG_RT compatibility always returns false for WAV files.
+	 * Use Audio().BGM_PlayedOnce() if this is not desired.
+	 *
+	 * @return Whether Bgm played once
+	 */
+	bool BgmPlayedOnce();
+
+	/**
 	 * Plays a Sound.
 	 *
 	 * @param se sound data.
@@ -147,7 +136,7 @@ public:
 	void SePlay(const lcf::rpg::Animation& animation);
 
 	/** @return system graphic filename.  */
-	StringView GetSystemName();
+	std::string_view GetSystemName();
 
 	/** @return message stretch style */
 	lcf::rpg::System::Stretch GetMessageStretch();
@@ -170,7 +159,7 @@ public:
 	void ResetSystemGraphic();
 
 	/** @return the system2 graphic name */
-	StringView GetSystem2Name();
+	std::string_view GetSystem2Name();
 
 	/** @return true if the game has a configured system graphic */
 	bool HasSystemGraphic();
@@ -226,48 +215,6 @@ public:
 	 */
 	void SetTransition(int which, int transition);
 
-	/**
-	 * Sets a teleport target.
-	 *
-	 * @param map_id the destination map.
-	 * @param x the destination X coordinate.
-	 * @param y the destination Y coordinate.
-	 * @param switch_id the switch ID.
-	 */
-	void AddTeleportTarget(int map_id, int x, int y, int switch_id);
-
-	/**
-	 * Removes a teleport target.
-	 *
-	 * @param map_id the map for which the target was used.
-	 */
-	void RemoveTeleportTarget(int map_id);
-
-	/**
-	 * Finds a teleport target.
-	 *
-	 * @param map_id the map for which to obtain the target.
-	 * @return: pointer to a Target structure, or NULL.
-	 */
-	Target* GetTeleportTarget(int map_id);
-
-	/**
-	 * Sets an escape  target.
-	 *
-	 * @param map_id the destination map.
-	 * @param x the destination X coordinate.
-	 * @param y the destination Y coordinate.
-	 * @param switch_id the switch ID.
-	 */
-	void SetEscapeTarget(int map_id, int x, int y, int switch_id);
-
-	/**
-	 * Finds an escape target.
-	 *
-	 * @return pointer to a Target structure, or NULL.
-	 */
-	Target* GetEscapeTarget();
-
 	bool GetAllowTeleport();
 	void SetAllowTeleport(bool allow);
 	bool GetAllowEscape();
@@ -301,12 +248,12 @@ public:
 	 * @return true when the file is supposed to Stop playback.
 	 *         false otherwise and a handle to the file is returned in found_stream
 	 */
-	static bool IsStopFilename(StringView name, Filesystem_Stream::InputStream (*find_func) (StringView), Filesystem_Stream::InputStream& found_stream);
+	static bool IsStopFilename(std::string_view name, Filesystem_Stream::InputStream (*find_func) (std::string_view), Filesystem_Stream::InputStream& found_stream);
 
-	static bool IsStopMusicFilename(StringView name, Filesystem_Stream::InputStream& found_stream);
-	static bool IsStopMusicFilename(StringView name);
-	static bool IsStopSoundFilename(StringView name, Filesystem_Stream::InputStream& found_stream);
-	static bool IsStopSoundFilename(StringView name);
+	static bool IsStopMusicFilename(std::string_view name, Filesystem_Stream::InputStream& found_stream);
+	static bool IsStopMusicFilename(std::string_view name);
+	static bool IsStopSoundFilename(std::string_view name, Filesystem_Stream::InputStream& found_stream);
+	static bool IsStopSoundFilename(std::string_view name);
 
 	/** @return current atb mode */
 	AtbMode GetAtbMode();
@@ -366,7 +313,7 @@ public:
 	void ClearMessageFace();
 
 	/** @return name of file that contains the face. */
-	StringView GetMessageFaceName();
+	std::string_view GetMessageFaceName();
 
 	/**
 	 * Set FaceSet graphic file containing the face.
@@ -485,10 +432,17 @@ public:
 
 	/** @return the RpgRt event message active flag */
 	bool GetMessageEventMessageActive();
+
+	/** @return Whether the game was loaded from a savegame in the current frame */
+	bool IsLoadedThisFrame() const;
+
 private:
+	std::string InelukiReadLink(Filesystem_Stream::InputStream& stream);
+
 	void OnBgmReady(FileRequestResult* result);
 	void OnBgmInelukiReady(FileRequestResult* result);
 	void OnSeReady(FileRequestResult* result, lcf::rpg::Sound se, bool stop_sounds);
+	void OnSeInelukiReady(FileRequestResult* result, lcf::rpg::Sound se);
 	void OnChangeSystemGraphicReady(FileRequestResult* result);
 private:
 	lcf::rpg::SaveSystem data;
@@ -498,6 +452,7 @@ private:
 	std::map<std::string, FileRequestBinding> se_request_ids;
 	Color bg_color = Color{ 0, 0, 0, 255 };
 	bool bgm_pending = false;
+	int loaded_frame_count = 0;
 };
 
 inline bool Game_System::HasSystemGraphic() {
@@ -508,12 +463,12 @@ inline bool Game_System::HasSystem2Graphic() {
 	return !GetSystem2Name().empty();
 }
 
-inline bool Game_System::IsStopMusicFilename(StringView name) {
+inline bool Game_System::IsStopMusicFilename(std::string_view name) {
 	Filesystem_Stream::InputStream s;
 	return IsStopMusicFilename(name, s);
 }
 
-inline bool Game_System::IsStopSoundFilename(StringView name) {
+inline bool Game_System::IsStopSoundFilename(std::string_view name) {
 	Filesystem_Stream::InputStream s;
 	return IsStopSoundFilename(name, s);
 }
@@ -523,7 +478,7 @@ inline void Game_System::ClearMessageFace() {
 	SetMessageFaceIndex(0);
 }
 
-inline StringView Game_System::GetMessageFaceName() {
+inline std::string_view Game_System::GetMessageFaceName() {
 	return data.face_name;
 }
 
@@ -591,6 +546,10 @@ inline bool Game_System::GetMessageEventMessageActive() {
 	return data.event_message_active;
 }
 
+inline bool Game_System::IsLoadedThisFrame() const {
+	return loaded_frame_count != 0 && loaded_frame_count + 1 == data.frame_count;
+}
+
 inline Game_System::AtbMode Game_System::GetAtbMode() {
 	return static_cast<Game_System::AtbMode>(data.atb_mode);
 }
@@ -655,7 +614,7 @@ inline void Game_System::IncSaveCount() {
 	++data.save_count;
 }
 
-inline StringView Game_System::GetSystem2Name() {
+inline std::string_view Game_System::GetSystem2Name() {
 	return dbsys->system2_name;
 }
 

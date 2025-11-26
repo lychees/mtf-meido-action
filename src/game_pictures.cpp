@@ -23,6 +23,7 @@
 #include "game_map.h"
 #include "game_pictures.h"
 #include "game_screen.h"
+#include "game_windows.h"
 #include "player.h"
 #include "main_data.h"
 #include "scene.h"
@@ -50,6 +51,7 @@ void SyncCurrentToFinish(lcf::rpg::SavePicture& data) {
 	data.current_blue = data.finish_blue;
 	data.current_sat = data.finish_sat;
 	data.current_magnify = data.finish_magnify;
+	data.maniac_current_magnify_height = data.maniac_finish_magnify_height;
 	data.current_top_trans = data.finish_top_trans;
 	data.current_bot_trans = data.finish_bot_trans;
 	if (do_effect) {
@@ -112,6 +114,11 @@ std::vector<lcf::rpg::SavePicture> Game_Pictures::GetSaveData() const {
 		if (Player::IsRPG2k3E()) {
 			data.frames = frame_counter;
 		}
+		if (!Player::IsPatchManiac()) {
+			// Default the values so they are not stored in the savegame
+			data.maniac_current_magnify_height = 100;
+			data.maniac_finish_magnify_height = 100;
+		}
 		save.push_back(std::move(data));
 	}
 
@@ -142,7 +149,7 @@ Game_Pictures::Picture& Game_Pictures::GetPicture(int id) {
 	if (EP_UNLIKELY(id > static_cast<int>(pictures.size()))) {
 		pictures.reserve(id);
 		while (static_cast<int>(pictures.size()) < id) {
-			pictures.emplace_back(pictures.size() + 1);
+			pictures.emplace_back(static_cast<int>(pictures.size()) + 1);
 		}
 	}
 	return pictures[id - 1];
@@ -205,6 +212,11 @@ bool Game_Pictures::Picture::Show(const ShowParams& params) {
 	data.spritesheet_speed = params.spritesheet_speed;
 	data.map_layer = params.map_layer;
 	data.battle_layer = params.battle_layer;
+
+	if (data.map_layer == 0 && data.battle_layer == 0) {
+		data.map_layer = 7;
+	}
+
 	data.flags.erase_on_map_change = (params.flags & 1) == 1;
 	data.flags.erase_on_battle_end = (params.flags & 2) == 2;
 	data.flags.affected_by_tint = (params.flags & 16) == 16;
@@ -230,6 +242,7 @@ bool Game_Pictures::Picture::Show(const ShowParams& params) {
 	data.easyrpg_flip = params.flip_x ? lcf::rpg::SavePicture::EasyRpgFlip_x : 0;
 	data.easyrpg_flip |= params.flip_y ? lcf::rpg::SavePicture::EasyRpgFlip_y : 0;
 	data.easyrpg_blend_mode = params.blend_mode;
+	data.easyrpg_type = lcf::rpg::SavePicture::EasyRpgType_default;
 
 	// Not saved as the coordinate system is directly transformed to "center"
 	origin = params.origin;
@@ -240,15 +253,7 @@ bool Game_Pictures::Picture::Show(const ShowParams& params) {
 bool Game_Pictures::Show(int id, const ShowParams& params) {
 	auto& pic = GetPicture(id);
 	if (pic.Show(params)) {
-		if (pic.sprite && !pic.data.name.empty()) {
-			// When the name is empty the current image buffer is reused by ShowPicture command (Used by Yume2kki)
-			// In all other cases hide the current image until replaced while doing an Async load
-			pic.sprite->SetVisible(false);
-		}
 		RequestPictureSprite(pic);
-		// if (!params.myRect.IsEmpty()) {
-			pic.sprite->myRect = params.myRect;
-		// }
 		return true;
 	}
 	return false;
@@ -263,6 +268,10 @@ void Game_Pictures::Picture::Move(const MoveParams& params) {
 	} else {
 		data.time_left = params.duration * DEFAULT_FPS / 10;
 	}
+
+	// Not saved as the coordinate system is directly transformed to "center"
+	origin = params.origin;
+	ApplyOrigin(true);
 
 	// Note that data.effect_mode doesn't necessarily reflect the
 	// last effect set. Possible states are:
@@ -303,10 +312,6 @@ void Game_Pictures::Picture::Move(const MoveParams& params) {
 	data.easyrpg_flip = params.flip_x ? lcf::rpg::SavePicture::EasyRpgFlip_x : 0;
 	data.easyrpg_flip |= params.flip_y ? lcf::rpg::SavePicture::EasyRpgFlip_y : 0;
 	data.easyrpg_blend_mode = params.blend_mode;
-
-	// Not saved as the coordinate system is directly transformed to "center"
-	origin = params.origin;
-	ApplyOrigin(true);
 }
 
 void Game_Pictures::Move(int id, const MoveParams& params) {
@@ -319,6 +324,10 @@ void Game_Pictures::Picture::Erase() {
 	data.name.clear();
 	if (sprite) {
 		sprite->SetBitmap(nullptr);
+	}
+	if (IsWindowAttached()) {
+		data.easyrpg_type = lcf::rpg::SavePicture::EasyRpgType_default;
+		Main_Data::game_windows->Erase(data.ID);
 	}
 }
 
@@ -338,6 +347,12 @@ void Game_Pictures::EraseAll() {
 bool Game_Pictures::Picture::Exists() const {
 	// Incompatible with the Yume2kki edge-case that uses empty filenames
 	return !data.name.empty();
+}
+
+void Game_Pictures::Picture::CreateSprite() {
+	if (!sprite) {
+		sprite = std::make_unique<Sprite_Picture>(data.ID, Drawable::Flags::Shared);
+	}
 }
 
 bool Game_Pictures::Picture::IsRequestPending() const {
@@ -375,16 +390,13 @@ void Game_Pictures::OnPictureSpriteReady(FileRequestResult*, int id) {
 	auto* pic = GetPicturePtr(id);
 	if (EP_LIKELY(pic)) {
 		pic->request_id = nullptr;
-		if (!pic->sprite) {
-			sprites.emplace_back(pic->data.ID, Drawable::Flags::Shared);
-			pic->sprite = &sprites.back();
-		}
+		pic->CreateSprite();
 		pic->OnPictureSpriteReady();
 	}
 }
 
 void Game_Pictures::Picture::ApplyOrigin(bool is_move) {
-	if (origin == 0) {
+	if (origin == 0 || !sprite || !sprite->GetBitmap()) {
 		return;
 	}
 
@@ -399,8 +411,8 @@ void Game_Pictures::Picture::ApplyOrigin(bool is_move) {
 		y = data.current_y;
 	}
 
-	double width = sprite->GetWidth();
-	double height = sprite->GetHeight();
+	double width = sprite->GetFrameWidth();
+	double height = sprite->GetFrameHeight();
 
 	switch (origin) {
 		case 1:
@@ -476,12 +488,31 @@ void Game_Pictures::OnMapScrolled(int dx, int dy) {
 	}
 }
 
+void Game_Pictures::Picture::AttachWindow(const Window_Base& window) {
+	data.easyrpg_type = lcf::rpg::SavePicture::EasyRpgType_window;
+
+	CreateSprite();
+
+	auto bmp = std::make_shared<Bitmap>(window.GetWidth(), window.GetHeight(), data.use_transparent_color);
+	bmp->SetId(fmt::format("Window:addr={},w={},h={}", (void*)&window, window.GetWidth(), window.GetHeight()));
+
+	sprite->SetBitmap(bmp);
+	sprite->OnPictureShow();
+	sprite->SetVisible(true);
+
+	ApplyOrigin(false);
+}
+
+bool Game_Pictures::Picture::IsWindowAttached() const {
+	return data.easyrpg_type == lcf::rpg::SavePicture::EasyRpgType_window;
+}
+
 void Game_Pictures::Picture::Update(bool is_battle) {
 	if ((is_battle && !IsOnBattle()) || (!is_battle && !IsOnMap())) {
 		return;
 	}
 
-	if (Player::IsRPG2k3E()) {
+	if (Player::IsRPG2k3ECommands()) {
 		++data.frames;
 	}
 
@@ -507,6 +538,7 @@ void Game_Pictures::Picture::Update(bool is_battle) {
 		data.current_blue = interpolate(data.current_blue, data.finish_blue);
 		data.current_sat = interpolate(data.current_sat, data.finish_sat);
 		data.current_magnify = interpolate(data.current_magnify, data.finish_magnify);
+		data.maniac_current_magnify_height = interpolate(data.maniac_current_magnify_height, data.maniac_finish_magnify_height);
 		data.current_top_trans = interpolate(data.current_top_trans, data.finish_top_trans);
 		data.current_bot_trans = interpolate(data.current_bot_trans, data.finish_bot_trans);
 	}
@@ -547,7 +579,7 @@ void Game_Pictures::Picture::Update(bool is_battle) {
 	}
 
 	// RPG Maker 2k3 1.12: Animated spritesheets
-	if (Player::IsRPG2k3E()
+	if (Player::IsRPG2k3ECommands()
 			&& data.spritesheet_speed > 0
 			&& data.frames > data.spritesheet_speed)
 	{
@@ -574,7 +606,8 @@ Game_Pictures::ShowParams Game_Pictures::Picture::GetShowParams() const {
 	Game_Pictures::ShowParams params;
 	params.position_x = static_cast<int>(data.finish_x);
 	params.position_y = static_cast<int>(data.finish_y);
-	params.magnify = data.finish_magnify;
+	params.magnify_width = data.finish_magnify;
+	params.magnify_height = data.maniac_finish_magnify_height;
 	params.top_trans = data.finish_top_trans;
 	params.bottom_trans = data.finish_bot_trans;
 	params.red = data.finish_red;
@@ -604,7 +637,8 @@ void Game_Pictures::Picture::SetNonEffectParams(const Params& params, bool set_p
 		data.finish_x = params.position_x;
 		data.finish_y = params.position_y;
 	}
-	data.finish_magnify = params.magnify;
+	data.finish_magnify = params.magnify_width;
+	data.maniac_finish_magnify_height = params.magnify_height;
 	data.finish_top_trans = params.top_trans;
 	data.finish_bot_trans = params.bottom_trans;
 	data.finish_red = params.red;

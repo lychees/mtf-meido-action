@@ -29,7 +29,7 @@ static unsigned long xmp_vio_read_impl(void* ptr, unsigned long size, unsigned l
 	char* ptrc = reinterpret_cast<char*>(ptr);
 	for (unsigned long i = 0; i < count; ++i) {
 		f->read(reinterpret_cast<char*>(ptrc + i * size), size);
-		if (f->gcount() != size) {
+		if (f->gcount() != static_cast<std::streamsize>(size)) {
 			return i;
 		}
 	}
@@ -87,7 +87,7 @@ bool XMPDecoder::Open(Filesystem_Stream::InputStream stream) {
 
 	int player_interpolation = 0;
 	int player_effects = 0;
-#if defined(PSP) || defined(__3DS__) || defined(GEKKO)
+#if defined(PSP) || defined(__3DS__) || defined(__wii__)
 	// disable filtering and use low quality interpolation
 	player_interpolation = XMP_INTERP_NEAREST;
 #else

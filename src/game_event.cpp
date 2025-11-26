@@ -48,7 +48,7 @@ Game_Event::Game_Event(int map_id, const lcf::rpg::Event* event) :
 }
 
 void Game_Event::SanitizeData() {
-	StringView name = event->name;
+	std::string_view name = event->name;
 	Game_Character::SanitizeData(name);
 	if (page != nullptr) {
 		SanitizeMoveRoute(name, page->move_route, data()->original_move_route_index, "original_move_route_index");
@@ -100,7 +100,7 @@ lcf::rpg::SaveMapEvent Game_Event::GetSaveData() const {
 	lcf::rpg::SaveEventExecState state;
 	if (page && page->trigger == lcf::rpg::EventPage::Trigger_parallel) {
 		if (interpreter) {
-			state = interpreter->GetState();
+			state = interpreter->GetSaveState();
 		}
 
 		if (state.stack.empty() && page->event_commands.empty()) {
@@ -115,10 +115,10 @@ lcf::rpg::SaveMapEvent Game_Event::GetSaveData() const {
 	return save;
 }
 
-Drawable::Z_t Game_Event::GetScreenZ(bool apply_shift) const {
+Drawable::Z_t Game_Event::GetScreenZ(int x_offset, int y_offset) const {
 	// Lowest 16 bit are reserved for the ID
 	// See base function for full explanation
-	return Game_Character::GetScreenZ(apply_shift) + GetId();
+	return Game_Character::GetScreenZ(x_offset, y_offset) + GetId();
 }
 
 int Game_Event::GetOriginalMoveRouteIndex() const {
@@ -256,33 +256,9 @@ bool Game_Event::AreConditionsMet(const lcf::rpg::EventPage& page) {
 			return false;
 		}
 	} else {
-		if (page.condition.flags.variable) {
-			switch (page.condition.compare_operator) {
-			case 0: // ==
-				if (!(Main_Data::game_variables->Get(page.condition.variable_id) == page.condition.variable_value))
-					return false;
-				break;
-			case 1: // >=
-				if (!(Main_Data::game_variables->Get(page.condition.variable_id) >= page.condition.variable_value))
-					return false;
-				break;
-			case 2: // <=
-				if (!(Main_Data::game_variables->Get(page.condition.variable_id) <= page.condition.variable_value))
-					return false;
-				break;
-			case 3: // >
-				if (!(Main_Data::game_variables->Get(page.condition.variable_id) > page.condition.variable_value))
-					return false;
-				break;
-			case 4: // <
-				if (!(Main_Data::game_variables->Get(page.condition.variable_id) < page.condition.variable_value))
-					return false;
-				break;
-			case 5: // !=
-				if (!(Main_Data::game_variables->Get(page.condition.variable_id) != page.condition.variable_value))
-					return false;
-				break;
-			}
+		if (page.condition.flags.variable && page.condition.compare_operator >= 0 && page.condition.compare_operator <= 5) {
+			if (!Game_Interpreter_Shared::CheckOperator(Main_Data::game_variables->Get(page.condition.variable_id), page.condition.variable_value, page.condition.compare_operator))
+				return false;
 		}
 	}
 
@@ -307,7 +283,7 @@ bool Game_Event::AreConditionsMet(const lcf::rpg::EventPage& page) {
 	}
 
 	// Timer2
-	if (page.condition.flags.timer2) {
+	if (page.condition.flags.timer2 && Player::IsRPG2k3Commands()) {
 		int secs = Main_Data::game_party->GetTimerSeconds(Main_Data::game_party->Timer2);
 		if (secs > page.condition.timer2_sec)
 			return false;
@@ -321,7 +297,7 @@ int Game_Event::GetId() const {
 	return data()->ID;
 }
 
-StringView Game_Event::GetName() const {
+std::string_view Game_Event::GetName() const {
 	return event->name;
 }
 
@@ -349,7 +325,7 @@ bool Game_Event::ScheduleForegroundExecution(bool by_decision_key, bool face_pla
 	}
 
 	if (face_player && !(IsFacingLocked() || IsSpinning())) {
-		SetFacing(GetDirectionToHero());
+		SetFacing(GetDirectionToCharacter(GetPlayer()));
 	}
 
 	data()->waiting_execution = true;
@@ -554,8 +530,8 @@ void Game_Event::MoveTypeTowardsOrAwayPlayer(bool towards) {
 
 	constexpr int offset = TILE_SIZE * 2;
 
-	const bool in_sight = (sx >= -offset && sx <= SCREEN_TARGET_WIDTH + offset
-			&& sy >= -offset && sy <= SCREEN_TARGET_HEIGHT + offset);
+	const bool in_sight = (sx >= -offset && sx <= Player::screen_width + offset
+			&& sy >= -offset && sy <= Player::screen_height + offset);
 
 	const auto prev_dir = GetDirection();
 
@@ -570,8 +546,8 @@ void Game_Event::MoveTypeTowardsOrAwayPlayer(bool towards) {
 			dir = Rand::GetRandomNumber(0, 3);
 		} else {
 			dir = towards
-				? GetDirectionToHero()
-				: GetDirectionAwayHero();
+				? GetDirectionToCharacter(GetPlayer())
+				: GetDirectionAwayCharacter(GetPlayer());
 		}
 	}
 
@@ -611,7 +587,7 @@ AsyncOp Game_Event::Update(bool resume_async) {
 	// the wait will tick by 1 each time the interpreter is invoked.
 	if ((resume_async || GetTrigger() == lcf::rpg::EventPage::Trigger_parallel) && interpreter) {
 		if (!interpreter->IsRunning() && page && !page->event_commands.empty()) {
-			interpreter->Push(this);
+			interpreter->Push<InterpreterExecutionType::Parallel>(this);
 		}
 		interpreter->Update(!resume_async);
 

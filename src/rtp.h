@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include <lcf/enum_tags.h>
 #include "filefinder.h"
 
 /**
@@ -49,10 +50,24 @@ namespace RTP {
 		RPG2003_VladRussian,
 		RPG2003_RpgUniverseSpanishPortuguese,
 		RPG2003_Korean,
-		RPG2003_OfficialTraditionalChinese
+		RPG2003_OfficialTraditionalChinese,
+		LAST
 	};
 
-	extern const char* Names[];
+	constexpr auto kTypes = lcf::makeEnumTags<Type>(
+		"Official Japanese",
+		"Official English",
+		"Don Miguel English Translation",
+		"Don Miguel RTP Addon",
+		"Official Japanese",
+		"Official English",
+		"RPG Advocate English Translation",
+		"Vlad Russian Translation",
+		"RPG Universe Spanish/Portuguese Translation",
+		"Korean Translation",
+		"Official Traditional Chinese"
+	);
+	static_assert(kTypes.size() == static_cast<size_t>(Type::LAST));
 
 	struct RtpHitInfo {
 		RTP::Type type;
@@ -82,7 +97,7 @@ namespace RTP {
 	 * @param version rtp version (2000 or 2003)
 	 * @return List of possible RTP
 	 */
-	std::vector<RTP::Type> LookupAnyToRtp(StringView src_category, StringView src_name, int version);
+	std::vector<RTP::Type> LookupAnyToRtp(std::string_view src_category, std::string_view src_name, int version);
 
 	/**
 	 * Takes a source and a destination RTP. Maps source name to destination name and returns it.
@@ -94,7 +109,7 @@ namespace RTP {
 	 * @param is_rtp_asset When not null indicates if src_name is a known entry in the src_rtp but only when src_rtp != target_rtp
 	 * @return The translated asset name or empty string when the mapping is unavailable
 	 */
-	std::string LookupRtpToRtp(StringView src_category, StringView src_name,
+	std::string LookupRtpToRtp(std::string_view src_category, std::string_view src_name,
 		RTP::Type src_rtp, RTP::Type target_rtp, bool* is_rtp_asset = nullptr);
 }
 

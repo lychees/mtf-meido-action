@@ -360,11 +360,19 @@ bool Game_Battler::AddState(int state_id, bool allow_battle_states) {
 	if (GetBattleAlgorithm() != nullptr && GetBattleAlgorithm()->GetType() == Game_BattleAlgorithm::Type::Skill) {
 		auto* algo = static_cast<Game_BattleAlgorithm::Skill*>(GetBattleAlgorithm().get());
 		auto& skill = algo->GetSkill();
-		if (!IsSkillUsable(skill.ID)) {
+		// Only remove the action when it is a now invalid skill. Skills triggered through items are not affected.
+		if (!algo->GetItem() && !IsSkillUsable(skill.ID)) {
 			SetCharged(false);
 			this->SetBattleAlgorithm(std::make_shared<Game_BattleAlgorithm::None>(this));
 		}
 	}
+
+	Game_Battle::ManiacBattleHook(
+		Game_Interpreter_Battle::ManiacBattleHookType::SetState,
+		GetType() == Game_Battler::Type_Enemy,
+		GetPartyIndex(),
+		state_id
+	);
 
 	return was_added;
 }
@@ -568,13 +576,23 @@ int Game_Battler::GetAgi(Weapon weapon) const {
 }
 
 int Game_Battler::GetDisplayX() const {
-	int shake_pos = Main_Data::game_screen->GetShakeOffsetX() + shake.position;
-	return (GetBattlePosition().x + shake_pos) * SCREEN_TARGET_WIDTH / 320;
+	int shake_x = 0;
+	if (Main_Data::game_screen) {
+		shake_x = Main_Data::game_screen->GetShakeOffsetX();
+	}
+
+	int shake_pos = shake_x + shake.position;
+	return Player::menu_offset_x + ((GetBattlePosition().x + shake_pos) * MENU_WIDTH / MENU_WIDTH);
 }
 
 int Game_Battler::GetDisplayY() const {
-	int shake_pos = Main_Data::game_screen->GetShakeOffsetY();
-	return (GetBattlePosition().y + GetFlyingOffset() + shake_pos) * SCREEN_TARGET_HEIGHT / 240;
+	int shake_y = 0;
+	if (Main_Data::game_screen) {
+		shake_y = Main_Data::game_screen->GetShakeOffsetY();
+	}
+
+	int shake_pos = shake_y;
+	return Player::menu_offset_y + ((GetBattlePosition().y + GetFlyingOffset() + shake_pos) * MENU_HEIGHT / MENU_HEIGHT);
 }
 
 Game_Party_Base& Game_Battler::GetParty() const {
@@ -583,6 +601,10 @@ Game_Party_Base& Game_Battler::GetParty() const {
 	} else {
 		return *Main_Data::game_enemyparty;
 	}
+}
+
+int Game_Battler::GetPartyIndex() {
+	return GetParty().GetMemberIndex(this);
 }
 
 void Game_Battler::UpdateBattle() {

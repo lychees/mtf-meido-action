@@ -17,15 +17,14 @@
 
 // Headers
 #include "utils.h"
-#include "output.h"
 #include "compiler.h"
 #include <cassert>
 #include <cstdint>
 #include <cinttypes>
 #include <cstdio>
 #include <algorithm>
-#include <random>
 #include <cctype>
+#include <istream>
 #include <zlib.h>
 
 namespace {
@@ -47,7 +46,7 @@ namespace {
 
 }
 
-std::string Utils::LowerCase(StringView str) {
+std::string Utils::LowerCase(std::string_view str) {
 	auto result = std::string(str);
 	LowerCaseInPlace(result);
 	return result;
@@ -58,7 +57,7 @@ std::string& Utils::LowerCaseInPlace(std::string& str) {
 	return str;
 }
 
-std::string Utils::UpperCase(StringView str) {
+std::string Utils::UpperCase(std::string_view str) {
 	auto result = std::string(str);
 	UpperCaseInPlace(result);
 	return result;
@@ -83,7 +82,7 @@ int Utils::StrICmp(const char* l, const char* r) {
 	return *l - *r;
 }
 
-int Utils::StrICmp(StringView l, StringView r) {
+int Utils::StrICmp(std::string_view l, std::string_view r) {
 	for (size_t i = 0; i < std::min(l.size(), r.size()); ++i) {
 		auto d = Lower(l[i]) - Lower(r[i]);
 		if (d != 0) {
@@ -93,10 +92,10 @@ int Utils::StrICmp(StringView l, StringView r) {
 	return l.size() - r.size();
 }
 
-std::u16string Utils::DecodeUTF16(StringView str) {
+std::u16string Utils::DecodeUTF16(std::string_view str) {
 	std::u16string result;
 	for (auto it = str.begin(), str_end = str.end(); it < str_end; ++it) {
-		uint8_t c1 = *it;
+		uint8_t c1 = static_cast<uint8_t>(*it);
 		if (c1 < 0x80) {
 			result.push_back(static_cast<uint16_t>(c1));
 		}
@@ -106,7 +105,7 @@ std::u16string Utils::DecodeUTF16(StringView str) {
 		else if (c1 < 0xE0) {
 			if (str_end-it < 2)
 				break;
-			uint8_t c2 = *(++it);
+			uint8_t c2 = static_cast<uint8_t>(*(++it));
 			if ((c2 & 0xC0) != 0x80)
 				continue;
 			result.push_back(static_cast<uint16_t>(((c1 & 0x1F) << 6) | (c2 & 0x3F)));
@@ -114,8 +113,8 @@ std::u16string Utils::DecodeUTF16(StringView str) {
 		else if (c1 < 0xF0) {
 			if (str_end-it < 3)
 				break;
-			uint8_t c2 = *(++it);
-			uint8_t c3 = *(++it);
+			uint8_t c2 = static_cast<uint8_t>(*(++it));
+			uint8_t c3 = static_cast<uint8_t>(*(++it));
 			if (c1 == 0xE0) {
 				if ((c2 & 0xE0) != 0xA0)
 					continue;
@@ -135,9 +134,9 @@ std::u16string Utils::DecodeUTF16(StringView str) {
 		else if (c1 < 0xF5) {
 			if (str_end-it < 4)
 				break;
-			uint8_t c2 = *(++it);
-			uint8_t c3 = *(++it);
-			uint8_t c4 = *(++it);
+			uint8_t c2 = static_cast<uint8_t>(*(++it));
+			uint8_t c3 = static_cast<uint8_t>(*(++it));
+			uint8_t c4 = static_cast<uint8_t>(*(++it));
 			if (c1 == 0xF0) {
 				if (!(0x90 <= c2 && c2 <= 0xBF))
 					continue;
@@ -168,10 +167,10 @@ std::u16string Utils::DecodeUTF16(StringView str) {
 	return result;
 }
 
-std::u32string Utils::DecodeUTF32(StringView str) {
+std::u32string Utils::DecodeUTF32(std::string_view str) {
 	std::u32string result;
 	for (auto it = str.begin(), str_end = str.end(); it < str_end; ++it) {
-		uint8_t c1 = *it;
+		uint8_t c1 = static_cast<uint8_t>(*it);
 		if (c1 < 0x80) {
 			result.push_back(static_cast<uint32_t>(c1));
 		}
@@ -190,8 +189,8 @@ std::u32string Utils::DecodeUTF32(StringView str) {
 		else if (c1 < 0xF0) {
 			if (str_end-it < 3)
 				break;
-			uint8_t c2 = *(++it);
-			uint8_t c3 = *(++it);
+			uint8_t c2 = static_cast<uint8_t>(*(++it));
+			uint8_t c3 = static_cast<uint8_t>(*(++it));
 			if (c1 == 0xE0) {
 				if ((c2 & 0xE0) != 0xA0)
 					continue;
@@ -211,9 +210,9 @@ std::u32string Utils::DecodeUTF32(StringView str) {
 		else if (c1 < 0xF5) {
 			if (str_end-it < 4)
 				break;
-			uint8_t c2 = *(++it);
-			uint8_t c3 = *(++it);
-			uint8_t c4 = *(++it);
+			uint8_t c2 = static_cast<uint8_t>(*(++it));
+			uint8_t c3 = static_cast<uint8_t>(*(++it));
+			uint8_t c4 = static_cast<uint8_t>(*(++it));
 			if (c1 == 0xF0) {
 				if (!(0x90 <= c2 && c2 <= 0xBF))
 					continue;
@@ -240,16 +239,16 @@ std::string Utils::EncodeUTF(const std::u16string& str) {
 	for (auto it = str.begin(), str_end = str.end(); it < str_end; ++it) {
 		uint16_t wc1 = *it;
 		if (wc1 < 0x0080) {
-			result.push_back(static_cast<uint8_t>(wc1));
+			result.push_back(static_cast<char>(wc1));
 		}
 		else if (wc1 < 0x0800) {
-			result.push_back(static_cast<uint8_t>(0xC0 | (wc1 >> 6)));
-			result.push_back(static_cast<uint8_t>(0x80 | (wc1 & 0x03F)));
+			result.push_back(static_cast<char>(0xC0 | (wc1 >> 6)));
+			result.push_back(static_cast<char>(0x80 | (wc1 & 0x03F)));
 		}
 		else if (wc1 < 0xD800) {
-			result.push_back(static_cast<uint8_t>(0xE0 |  (wc1 >> 12)));
-			result.push_back(static_cast<uint8_t>(0x80 | ((wc1 & 0x0FC0) >> 6)));
-			result.push_back(static_cast<uint8_t>(0x80 |  (wc1 & 0x003F)));
+			result.push_back(static_cast<char>(0xE0 |  (wc1 >> 12)));
+			result.push_back(static_cast<char>(0x80 | ((wc1 & 0x0FC0) >> 6)));
+			result.push_back(static_cast<char>(0x80 |  (wc1 & 0x003F)));
 		}
 		else if (wc1 < 0xDC00) {
 			if (str_end-it < 2)
@@ -261,18 +260,18 @@ std::string Utils::EncodeUTF(const std::u16string& str) {
 				((wc1 & 0x003FUL) << 10) + (wc2 & 0x03FF) > 0x10FFFF)
 				continue;
 			uint8_t z = ((wc1 & 0x03C0) >> 6) + 1;
-			result.push_back(static_cast<uint8_t>(0xF0 | (z >> 2)));
-			result.push_back(static_cast<uint8_t>(0x80 | ((z & 0x03) << 4)     | ((wc1 & 0x003C) >> 2)));
-			result.push_back(static_cast<uint8_t>(0x80 | ((wc1 & 0x0003) << 4) | ((wc2 & 0x03C0) >> 6)));
-			result.push_back(static_cast<uint8_t>(0x80 |  (wc2 & 0x003F)));
+			result.push_back(static_cast<char>(0xF0 | (z >> 2)));
+			result.push_back(static_cast<char>(0x80 | ((z & 0x03) << 4)     | ((wc1 & 0x003C) >> 2)));
+			result.push_back(static_cast<char>(0x80 | ((wc1 & 0x0003) << 4) | ((wc2 & 0x03C0) >> 6)));
+			result.push_back(static_cast<char>(0x80 |  (wc2 & 0x003F)));
 		}
 		else if (wc1 < 0xE000) {
 			continue;
 		}
 		else {
-			result.push_back(static_cast<uint8_t>(0xE0 |  (wc1 >> 12)));
-			result.push_back(static_cast<uint8_t>(0x80 | ((wc1 & 0x0FC0) >> 6)));
-			result.push_back(static_cast<uint8_t>(0x80 |  (wc1 & 0x003F)));
+			result.push_back(static_cast<char>(0xE0 |  (wc1 >> 12)));
+			result.push_back(static_cast<char>(0x80 | ((wc1 & 0x0FC0) >> 6)));
+			result.push_back(static_cast<char>(0x80 |  (wc1 & 0x003F)));
 		}
 	}
 	return result;
@@ -284,22 +283,22 @@ std::string Utils::EncodeUTF(const std::u32string& str) {
 		if ((wc & 0xFFFFF800) == 0x00D800 || wc > 0x10FFFF)
 			break;
 		if (wc < 0x000080) {
-			result.push_back(static_cast<uint8_t>(wc));
+			result.push_back(static_cast<char>(wc));
 		}
 		else if (wc < 0x000800) {
-			result.push_back(static_cast<uint8_t>(0xC0 | (wc >> 6)));
-			result.push_back(static_cast<uint8_t>(0x80 | (wc & 0x03F)));
+			result.push_back(static_cast<char>(0xC0 | (wc >> 6)));
+			result.push_back(static_cast<char>(0x80 | (wc & 0x03F)));
 		}
 		else if (wc < 0x010000) {
-			result.push_back(static_cast<uint8_t>(0xE0 |  (wc >> 12)));
-			result.push_back(static_cast<uint8_t>(0x80 | ((wc & 0x0FC0) >> 6)));
-			result.push_back(static_cast<uint8_t>(0x80 |  (wc & 0x003F)));
+			result.push_back(static_cast<char>(0xE0 |  (wc >> 12)));
+			result.push_back(static_cast<char>(0x80 | ((wc & 0x0FC0) >> 6)));
+			result.push_back(static_cast<char>(0x80 |  (wc & 0x003F)));
 		}
 		else {
-			result.push_back(static_cast<uint8_t>(0xF0 |  (wc >> 18)));
-			result.push_back(static_cast<uint8_t>(0x80 | ((wc & 0x03F000) >> 12)));
-			result.push_back(static_cast<uint8_t>(0x80 | ((wc & 0x000FC0) >> 6)));
-			result.push_back(static_cast<uint8_t>(0x80 |  (wc & 0x00003F)));
+			result.push_back(static_cast<char>(0xF0 |  (wc >> 18)));
+			result.push_back(static_cast<char>(0x80 | ((wc & 0x03F000) >> 12)));
+			result.push_back(static_cast<char>(0x80 | ((wc & 0x000FC0) >> 6)));
+			result.push_back(static_cast<char>(0x80 |  (wc & 0x00003F)));
 		}
 	}
 	return result;
@@ -307,7 +306,7 @@ std::string Utils::EncodeUTF(const std::u32string& str) {
 
 Utils::UtfNextResult Utils::UTF8Next(const char* iter, const char* const end) {
 	while (iter != end) {
-		uint8_t c1 = *iter;
+		uint8_t c1 = static_cast<uint8_t>(*iter);
 		++iter;
 		if (c1 < 0x80) {
 			return { iter, static_cast<uint32_t>(c1) };
@@ -318,7 +317,7 @@ Utils::UtfNextResult Utils::UTF8Next(const char* iter, const char* const end) {
 		if (iter == end) {
 			break;
 		}
-		uint8_t c2 = *iter;
+		uint8_t c2 = static_cast<uint8_t>(*iter);
 		++iter;
 		if (c1 < 0xE0) {
 			if ((c2 & 0xC0) != 0x80)
@@ -329,7 +328,7 @@ Utils::UtfNextResult Utils::UTF8Next(const char* iter, const char* const end) {
 		if (iter == end) {
 			break;
 		}
-		uint8_t c3 = *iter;
+		uint8_t c3 = static_cast<uint8_t>(*iter);
 		++iter;
 		if (c1 < 0xF0) {
 			if (c1 == 0xE0) {
@@ -352,7 +351,7 @@ Utils::UtfNextResult Utils::UTF8Next(const char* iter, const char* const end) {
 		if (iter == end) {
 			break;
 		}
-		uint8_t c4 = *iter;
+		uint8_t c4 = static_cast<uint8_t>(*iter);
 		++iter;
 		if (c1 < 0xF5) {
 			if (c1 == 0xF0) {
@@ -377,6 +376,36 @@ Utils::UtfNextResult Utils::UTF8Next(const char* iter, const char* const end) {
 	return { iter, 0 };
 }
 
+Utils::UtfNextResult Utils::UTF8Skip(const char* iter, const char* end, int skip) {
+	UtfNextResult ret;
+
+	if (skip == 0) {
+		ret = UTF8Next(iter, end);
+		return { iter, ret.ch };
+	}
+
+	for (; iter < end && skip > 0; --skip) {
+		ret = UTF8Next(iter, end);
+		iter = ret.next;
+	}
+
+	return ret;
+}
+
+int Utils::UTF8Length(std::string_view str) {
+	size_t len = 0;
+
+	const char* iter = str.data();
+	const char* const e = str.data() + str.size();
+	while (iter < e) {
+		auto ret = Utils::UTF8Next(iter, e);
+		iter = ret.next;
+		++len;
+	}
+
+	return len;
+}
+
 Utils::ExFontRet Utils::ExFontNext(const char* iter, const char* end) {
 	ExFontRet ret;
 	if (end - iter >= 2 && *iter == '$') {
@@ -386,7 +415,7 @@ Utils::ExFontRet Utils::ExFontNext(const char* iter, const char* end) {
 		bool is_upper = (next_ch >= 'A' && next_ch <= 'Z');
 		if (is_lower || is_upper) {
 			ret.next = iter + 2;
-			ret.value = is_lower ? (next_ch - 'a' + 26) : (next_ch - 'A');
+			ret.value = next_ch;
 			ret.is_valid = true;
 		}
 	}
@@ -424,25 +453,24 @@ Utils::TextRet Utils::TextNext(const char* iter, const char* end, char32_t escap
 	return ret;
 }
 
-#if _WIN32
-
+// Please report an issue when you get a compile error here because your toolchain is broken and lacks wchar_t
 template<size_t WideSize>
-static std::wstring ToWideStringImpl(StringView);
+static std::wstring ToWideStringImpl(std::string_view);
 #if __SIZEOF_WCHAR_T__ == 4 || __WCHAR_MAX__ > 0x10000
 template<> // utf32
-std::wstring ToWideStringImpl<4>(StringView str) {
+std::wstring ToWideStringImpl<4>(std::string_view str) {
 	const auto tmp = Utils::DecodeUTF32(str);
 	return std::wstring(tmp.begin(), tmp.end());
 }
 #else
 template<> // utf16
-std::wstring ToWideStringImpl<2>(StringView str) {
+std::wstring ToWideStringImpl<2>(std::string_view str) {
 	const auto tmp = Utils::DecodeUTF16(str);
 	return std::wstring(tmp.begin(), tmp.end());
 }
 #endif
 
-std::wstring Utils::ToWideString(StringView str) {
+std::wstring Utils::ToWideString(std::string_view str) {
 	return ToWideStringImpl<sizeof(wchar_t)>(str);
 }
 
@@ -464,52 +492,41 @@ std::string Utils::FromWideString(const std::wstring& str) {
 	return FromWideStringImpl<sizeof(wchar_t)>(str);
 }
 
-#endif
-
 int Utils::PositiveModulo(int i, int m) {
 	return (i % m + m) % m;
 }
 
-bool Utils::IsBigEndian() {
-	union {
-		uint32_t i;
-		char c[4];
-	} d = {0x01020304};
-
-	return d.c[0] == 1;
-}
-
 void Utils::SwapByteOrder(uint16_t& us) {
-	if (!IsBigEndian()) {
-		return;
-	}
-
+#ifdef WORDS_BIGENDIAN
 	us =	(us >> 8) |
 			(us << 8);
+#else
+	(void)us;
+#endif
 }
 
 void Utils::SwapByteOrder(uint32_t& ui) {
-	if (!IsBigEndian()) {
-		return;
-	}
-
+#ifdef WORDS_BIGENDIAN
 	ui =	(ui >> 24) |
 			((ui<<8) & 0x00FF0000) |
 			((ui>>8) & 0x0000FF00) |
 			(ui << 24);
+#else
+	(void)ui;
+#endif
 }
 
 void Utils::SwapByteOrder(double& d) {
-	if (!IsBigEndian()) {
-		return;
-	}
-
+#ifdef WORDS_BIGENDIAN
 	uint32_t *p = reinterpret_cast<uint32_t *>(&d);
 	SwapByteOrder(p[0]);
 	SwapByteOrder(p[1]);
 	uint32_t tmp = p[0];
 	p[0] = p[1];
 	p[1] = tmp;
+#else
+	(void)d;
+#endif
 }
 
 // based on https://stackoverflow.com/questions/6089231/
@@ -546,7 +563,7 @@ bool Utils::ReadLine(std::istream& is, std::string& line_out) {
 	}
 }
 
-std::vector<std::string> Utils::Tokenize(StringView str_to_tokenize, const std::function<bool(char32_t)> predicate) {
+std::vector<std::string> Utils::Tokenize(std::string_view str_to_tokenize, const std::function<bool(char32_t)> predicate) {
 	std::u32string text = DecodeUTF32(str_to_tokenize);
 	std::vector<std::string> tokens;
 	std::u32string cur_token;
@@ -592,15 +609,19 @@ uint32_t Utils::CRC32(std::istream& stream) {
 
 // via https://stackoverflow.com/q/3418231/
 std::string Utils::ReplaceAll(std::string str, const std::string& search, const std::string& replace) {
-    size_t start_pos = 0;
-    while((start_pos = str.find(search, start_pos)) != std::string::npos) {
-        str.replace(start_pos, search.length(), replace);
-        start_pos += replace.length(); // Handles case where 'replace' is a substring of 'search'
-    }
-    return str;
+	if (search.empty()) {
+		return str;
+	}
+
+	size_t start_pos = 0;
+	while((start_pos = str.find(search, start_pos)) != std::string::npos) {
+		str.replace(start_pos, search.length(), replace);
+		start_pos += replace.length(); // Handles case where 'replace' is a substring of 'search'
+	}
+	return str;
 }
 
-std::string Utils::ReplacePlaceholders(StringView text_template, Span<const char> types, Span<const StringView> values) {
+std::string Utils::ReplacePlaceholders(std::string_view text_template, Span<const char> types, Span<const std::string_view> values) {
 	auto str = std::string(text_template);
 	size_t index = str.find("%");
 	while (index != std::string::npos) {
@@ -626,7 +647,7 @@ std::string Utils::ReplacePlaceholders(StringView text_template, Span<const char
 	return str;
 }
 
-StringView Utils::TrimWhitespace(StringView s) {
+std::string_view Utils::TrimWhitespace(std::string_view s) {
 	size_t left = 0;
 	for (auto& c: s) {
 		if (std::isspace(static_cast<int>(c))) {
@@ -650,7 +671,7 @@ StringView Utils::TrimWhitespace(StringView s) {
 	return s;
 }
 
-std::string Utils::FormatDate(const std::tm *tm, StringView format) {
+std::string Utils::FormatDate(const std::tm *tm, std::string_view format) {
 	constexpr int buf_size = 128;
 	char buffer[buf_size];
 

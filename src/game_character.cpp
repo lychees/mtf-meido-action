@@ -33,20 +33,19 @@
 #include "rand.h"
 #include <cmath>
 #include <cassert>
+#include <limits>
+#include <unordered_set>
 
 Game_Character::Game_Character(Type type, lcf::rpg::SaveMapEventBase* d) :
 	_type(type), _data(d)
 {
 }
 
-Game_Character::~Game_Character() {
-}
-
-void Game_Character::SanitizeData(StringView name) {
+void Game_Character::SanitizeData(std::string_view name) {
 	SanitizeMoveRoute(name, data()->move_route, data()->move_route_index, "move_route_index");
 }
 
-void Game_Character::SanitizeMoveRoute(StringView name, const lcf::rpg::MoveRoute& mr, int32_t& idx, StringView chunk_name) {
+void Game_Character::SanitizeMoveRoute(std::string_view name, const lcf::rpg::MoveRoute& mr, int32_t& idx, std::string_view chunk_name) {
 	const auto n = static_cast<int32_t>(mr.move_commands.size());
 	if (idx < 0 || idx > n) {
 		idx = n;
@@ -70,22 +69,18 @@ int Game_Character::GetJumpHeight() const {
 	return 0;
 }
 
-int Game_Character::GetScreenX(bool apply_shift) const {
+int Game_Character::GetScreenX() const {
 	int x = GetSpriteX() / TILE_SIZE - Game_Map::GetDisplayX() / TILE_SIZE + TILE_SIZE;
 
 	if (Game_Map::LoopHorizontal()) {
-		x = Utils::PositiveModulo(x, Game_Map::GetWidth() * TILE_SIZE);
+		x = Utils::PositiveModulo(x, Game_Map::GetTilesX() * TILE_SIZE);
 	}
 	x -= TILE_SIZE / 2;
-
-	if (apply_shift) {
-		x += Game_Map::GetWidth() * TILE_SIZE;
-	}
 
 	return x;
 }
 
-int Game_Character::GetScreenY(bool apply_shift, bool apply_jump) const {
+int Game_Character::GetScreenY(bool apply_jump) const {
 	int y = GetSpriteY() / TILE_SIZE - Game_Map::GetDisplayY() / TILE_SIZE + TILE_SIZE;
 
 	if (apply_jump) {
@@ -93,17 +88,13 @@ int Game_Character::GetScreenY(bool apply_shift, bool apply_jump) const {
 	}
 
 	if (Game_Map::LoopVertical()) {
-		y = Utils::PositiveModulo(y, Game_Map::GetHeight() * TILE_SIZE);
-	}
-
-	if (apply_shift) {
-		y += Game_Map::GetHeight() * TILE_SIZE;
+		y = Utils::PositiveModulo(y, Game_Map::GetTilesY() * TILE_SIZE);
 	}
 
 	return y;
 }
 
-Drawable::Z_t Game_Character::GetScreenZ(bool apply_shift) const {
+Drawable::Z_t Game_Character::GetScreenZ(int x_offset, int y_offset) const {
 	Drawable::Z_t z = 0;
 
 	if (IsFlying()) {
@@ -116,9 +107,9 @@ Drawable::Z_t Game_Character::GetScreenZ(bool apply_shift) const {
 		z = Priority_EventsAbove;
 	}
 
-	Drawable::Z_t y = static_cast<Drawable::Z_t>(GetScreenY(apply_shift, false));
-
-	Drawable::Z_t x = static_cast<Drawable::Z_t>(GetScreenX(apply_shift));
+	// 0x8000 (32768) is added to shift negative numbers into the positive range
+	Drawable::Z_t y = static_cast<Drawable::Z_t>(GetScreenY(false) + y_offset + 0x8000);
+	Drawable::Z_t x = static_cast<Drawable::Z_t>(GetScreenX() + x_offset + 0x8000);
 
 	// The rendering order of characters is: Highest Y-coordinate, Highest X-coordinate, Highest ID
 	// To encode this behaviour all of them get 16 Bit in the Z value
@@ -290,10 +281,10 @@ void Game_Character::UpdateMoveRoute(int32_t& current_index, const lcf::rpg::Mov
 					TurnRandom();
 					break;
 				case Code::move_towards_hero:
-					TurnTowardHero();
+					TurnTowardCharacter(GetPlayer());
 					break;
 				case Code::move_away_from_hero:
-					TurnAwayFromHero();
+					TurnAwayFromCharacter(GetPlayer());
 					break;
 				case Code::move_forward:
 					break;
@@ -308,6 +299,7 @@ void Game_Character::UpdateMoveRoute(int32_t& current_index, const lcf::rpg::Mov
 					SetDirection(prev_direction);
 					SetFacing(prev_facing);
 				} else {
+					SetMoveFailureCount(GetMoveFailureCount() + 1);
 					return;
 				}
 			}
@@ -347,10 +339,10 @@ void Game_Character::UpdateMoveRoute(int32_t& current_index, const lcf::rpg::Mov
 					TurnRandom();
 					break;
 				case Code::face_hero:
-					TurnTowardHero();
+					TurnTowardCharacter(GetPlayer());
 					break;
 				case Code::face_away_from_hero:
-					TurnAwayFromHero();
+					TurnAwayFromCharacter(GetPlayer());
 					break;
 				default:
 					break;
@@ -372,6 +364,7 @@ void Game_Character::UpdateMoveRoute(int32_t& current_index, const lcf::rpg::Mov
 							SetFacing(prev_facing);
 						} else {
 							current_index = saved_index;
+							SetMoveFailureCount(GetMoveFailureCount() + 1);
 							return;
 						}
 					}
@@ -456,6 +449,7 @@ void Game_Character::UpdateMoveRoute(int32_t& current_index, const lcf::rpg::Mov
 					break;
 			}
 		}
+		SetMoveFailureCount(0);
 		++current_index;
 
 		if (current_index == start_index) {
@@ -468,6 +462,20 @@ void Game_Character::UpdateMoveRoute(int32_t& current_index, const lcf::rpg::Mov
 bool Game_Character::MakeWay(int from_x, int from_y, int to_x, int to_y) {
 	return Game_Map::MakeWay(*this, from_x, from_y, to_x, to_y);
 }
+
+
+bool Game_Character::CheckWay(int from_x, int from_y, int to_x, int to_y) {
+	return Game_Map::CheckWay(*this, from_x, from_y, to_x, to_y);
+}
+
+
+bool Game_Character::CheckWay(
+		int from_x, int from_y, int to_x, int to_y, bool ignore_all_events,
+		Span<int> ignore_some_events_by_id) {
+	return Game_Map::CheckWay(*this, from_x, from_y, to_x, to_y,
+		ignore_all_events, ignore_some_events_by_id);
+}
+
 
 bool Game_Character::Move(int dir) {
 	if (!IsStopping()) {
@@ -528,9 +536,9 @@ void Game_Character::Turn90DegreeLeftOrRight() {
 	}
 }
 
-int Game_Character::GetDirectionToHero() {
-	int sx = DistanceXfromPlayer();
-	int sy = DistanceYfromPlayer();
+int Game_Character::GetDirectionToCharacter(const Game_Character& target) {
+	int sx = GetDistanceXfromCharacter(target);
+	int sy = GetDistanceYfromCharacter(target);
 
 	if ( std::abs(sx) > std::abs(sy) ) {
 		return (sx > 0) ? Left : Right;
@@ -539,9 +547,9 @@ int Game_Character::GetDirectionToHero() {
 	}
 }
 
-int Game_Character::GetDirectionAwayHero() {
-	int sx = DistanceXfromPlayer();
-	int sy = DistanceYfromPlayer();
+int Game_Character::GetDirectionAwayCharacter(const Game_Character& target) {
+	int sx = GetDistanceXfromCharacter(target);
+	int sy = GetDistanceYfromCharacter(target);
 
 	if ( std::abs(sx) > std::abs(sy) ) {
 		return (sx > 0) ? Right : Left;
@@ -550,12 +558,12 @@ int Game_Character::GetDirectionAwayHero() {
 	}
 }
 
-void Game_Character::TurnTowardHero() {
-	SetDirection(GetDirectionToHero());
+void Game_Character::TurnTowardCharacter(const Game_Character& target) {
+	SetDirection(GetDirectionToCharacter(target));
 }
 
-void Game_Character::TurnAwayFromHero() {
-	SetDirection(GetDirectionAwayHero());
+void Game_Character::TurnAwayFromCharacter(const Game_Character& target) {
+	SetDirection(GetDirectionAwayCharacter(target));
 }
 
 void Game_Character::TurnRandom() {
@@ -591,10 +599,10 @@ bool Game_Character::BeginMoveRouteJump(int32_t& current_index, const lcf::rpg::
 					TurnRandom();
 					break;
 				case Code::move_towards_hero:
-					TurnTowardHero();
+					TurnTowardCharacter(GetPlayer());
 					break;
 				case Code::move_away_from_hero:
-					TurnAwayFromHero();
+					TurnAwayFromCharacter(GetPlayer());
 					break;
 				case Code::move_forward:
 					break;
@@ -635,10 +643,10 @@ bool Game_Character::BeginMoveRouteJump(int32_t& current_index, const lcf::rpg::
 					TurnRandom();
 					break;
 				case Code::face_hero:
-					TurnTowardHero();
+					TurnTowardCharacter(GetPlayer());
 					break;
 				case Code::face_away_from_hero:
-					TurnAwayFromHero();
+					TurnAwayFromCharacter(GetPlayer());
 					break;
 				default:
 					break;
@@ -699,7 +707,7 @@ bool Game_Character::Jump(int x, int y) {
 	// Adjust positions for looping maps. jump begin positions
 	// get set off the edge of the map to preserve direction.
 	if (Game_Map::LoopHorizontal()
-			&& (x < 0 || x >= Game_Map::GetWidth()))
+			&& (x < 0 || x >= Game_Map::GetTilesX()))
 	{
 		const auto old_x = x;
 		x = Game_Map::RoundX(x);
@@ -707,7 +715,7 @@ bool Game_Character::Jump(int x, int y) {
 	}
 
 	if (Game_Map::LoopVertical()
-			&& (y < 0 || y >= Game_Map::GetHeight()))
+			&& (y < 0 || y >= Game_Map::GetTilesY()))
 	{
 		auto old_y = y;
 		y = Game_Map::RoundY(y);
@@ -724,27 +732,27 @@ bool Game_Character::Jump(int x, int y) {
 	return true;
 }
 
-int Game_Character::DistanceXfromPlayer() const {
-	int sx = GetX() - Main_Data::game_player->GetX();
+int Game_Character::GetDistanceXfromCharacter(const Game_Character& target) const {
+	int sx = GetX() - target.GetX();
 	if (Game_Map::LoopHorizontal()) {
-		if (std::abs(sx) > Game_Map::GetWidth() / 2) {
+		if (std::abs(sx) > Game_Map::GetTilesX() / 2) {
 			if (sx > 0)
-				sx -= Game_Map::GetWidth();
+				sx -= Game_Map::GetTilesX();
 			else
-				sx += Game_Map::GetWidth();
+				sx += Game_Map::GetTilesX();
 		}
 	}
 	return sx;
 }
 
-int Game_Character::DistanceYfromPlayer() const {
-	int sy = GetY() - Main_Data::game_player->GetY();
+int Game_Character::GetDistanceYfromCharacter(const Game_Character& target) const {
+	int sy = GetY() - target.GetY();
 	if (Game_Map::LoopVertical()) {
-		if (std::abs(sy) > Game_Map::GetHeight() / 2) {
+		if (std::abs(sy) > Game_Map::GetTilesY() / 2) {
 			if (sy > 0)
-				sy -= Game_Map::GetHeight();
+				sy -= Game_Map::GetTilesY();
 			else
-				sy += Game_Map::GetHeight();
+				sy += Game_Map::GetTilesY();
 		}
 	}
 	return sy;
@@ -763,6 +771,7 @@ void Game_Character::ForceMoveRoute(const lcf::rpg::MoveRoute& new_route,
 	SetMoveFrequency(frequency);
 	SetMoveRouteOverwritten(true);
 	SetMoveRoute(new_route);
+	SetMoveFailureCount(0);
 	if (frequency != original_move_frequency) {
 		SetMaxStopCountForStep();
 	}
@@ -780,6 +789,306 @@ void Game_Character::CancelMoveRoute() {
 	}
 	SetMoveRouteOverwritten(false);
 	SetMoveRouteFinished(false);
+}
+
+struct SearchNode {
+	int x = 0;
+	int y = 0;
+	int cost = 0;
+	int direction = 0;
+
+	int id = 0;
+	int parent_id = -1;
+	int parent_x = -1;
+	int parent_y = -1;
+
+	friend bool operator==(const SearchNode& n1, const SearchNode& n2)
+	{
+		return n1.x == n2.x && n1.y == n2.y;
+	}
+
+	bool operator()(SearchNode const& a, SearchNode const& b)
+	{
+		return a.id > b.id;
+	}
+};
+
+struct SearchNodeHash {
+	size_t operator()(const SearchNode &p) const {
+		return (p.x ^ (p.y + (p.y >> 12)));
+	}
+};
+
+bool Game_Character::CalculateMoveRoute(const CalculateMoveRouteArgs& args) {
+	CancelMoveRoute();
+
+	// Set up helper variables:
+	SearchNode start = {GetX(), GetY(), 0, -1};
+	if ((start.x == args.dest_x && start.y == args.dest_y) || args.steps_max == 0) {
+		return true;
+	}
+	std::vector<SearchNode> queue;
+	std::unordered_map<int, SearchNode> graph;
+	std::map<std::pair<int, int>, SearchNode> graph_by_coord;
+	queue.push_back(start);
+	int id = 0;
+	int idd = 0;
+	int steps_taken = 0;
+	SearchNode closest_node = {args.dest_x, args.dest_y, std::numeric_limits<int>::max(), -1}; // Initialize with a very high cost.
+	int closest_distance = std::numeric_limits<int>::max(); // Initialize with a very high distance.
+	std::unordered_set<SearchNode, SearchNodeHash> seen;
+
+	int steps_max = args.steps_max;
+	if (steps_max == -1) {
+		steps_max = std::numeric_limits<int>::max();
+	}
+
+	if (args.debug_print) {
+		Output::Debug("Game_Interpreter::CommandSearchPath: "
+			"start search, character x{} y{}, to x{}, y{}, "
+			"ignored event ids count: {}",
+			start.x, start.y, args.dest_x, args.dest_y, args.event_id_ignore_list.size());
+	}
+
+	bool loops_horizontal = Game_Map::LoopHorizontal();
+	bool loops_vertical = Game_Map::LoopVertical();
+	std::vector<SearchNode> neighbour;
+	neighbour.reserve(8);
+	while (!queue.empty() && steps_taken < args.search_max) {
+		SearchNode n = queue[0];
+		queue.erase(queue.begin());
+		steps_taken++;
+		graph[n.id] = n;
+		graph_by_coord.insert({{n.x, n.y}, n});
+
+		if (n.x == args.dest_x && n.y == args.dest_y) {
+			// Reached the destination.
+			closest_node = n;
+			closest_distance = 0;
+			break;	// Exit the loop to build final route.
+		}
+		else {
+			neighbour.clear();
+			SearchNode nn = {n.x + 1, n.y, n.cost + 1, 1}; // Right
+			neighbour.push_back(nn);
+			nn = {n.x, n.y - 1, n.cost + 1, 0}; // Up
+			neighbour.push_back(nn);
+			nn = {n.x - 1, n.y, n.cost + 1, 3}; // Left
+			neighbour.push_back(nn);
+			nn = {n.x, n.y + 1, n.cost + 1, 2}; // Down
+			neighbour.push_back(nn);
+
+			if (args.allow_diagonal) {
+				nn = {n.x - 1, n.y + 1, n.cost + 1, 6}; // Down Left
+				neighbour.push_back(nn);
+				nn = {n.x + 1, n.y - 1, n.cost + 1, 4}; // Up Right
+				neighbour.push_back(nn);
+				nn = {n.x - 1, n.y - 1, n.cost + 1, 7}; // Up Left
+				neighbour.push_back(nn);
+				nn = {n.x + 1, n.y + 1, n.cost + 1, 5}; // Down Right
+				neighbour.push_back(nn);
+			}
+
+			for (SearchNode a : neighbour) {
+				idd++;
+				a.parent_x = n.x;
+				a.parent_y = n.y;
+				a.id = idd;
+				a.parent_id = n.id;
+
+				// Adjust neighbor coordinates for map looping
+				if (loops_horizontal) {
+					if (a.x >= Game_Map::GetTilesX())
+						a.x -= Game_Map::GetTilesX();
+					else if (a.x < 0)
+						a.x += Game_Map::GetTilesX();
+				}
+
+				if (loops_vertical) {
+					if (a.y >= Game_Map::GetTilesY())
+						a.y -= Game_Map::GetTilesY();
+					else if (a.y < 0)
+						a.y += Game_Map::GetTilesY();
+				}
+
+				auto check = seen.find(a);
+				if (check != seen.end()) {
+					SearchNode old_entry = graph[(*check).id];
+					if (a.cost < old_entry.cost) {
+						// Found a shorter path to previous node, update & reinsert:
+						if (args.debug_print) {
+							Output::Debug("Game_Interpreter::CommandSearchPath: "
+								"found shorter path to x:{} y:{}"
+								"from x:{} y:{} direction: {}",
+								a.x, a.y, n.x, n.y, a.direction);
+						}
+						graph.erase(old_entry.id);
+						old_entry.cost = a.cost;
+						old_entry.parent_id = n.id;
+						old_entry.parent_x = n.x;
+						old_entry.parent_y = n.y;
+						old_entry.direction = a.direction;
+						graph[old_entry.id] = old_entry;
+					}
+					continue;
+				} else if (a.x == start.x && a.y == start.y) {
+					continue;
+				}
+				bool added = false;
+				if (CheckWay(n.x, n.y, a.x, a.y, true, args.event_id_ignore_list) ||
+						(a.x == args.dest_x && a.y == args.dest_y &&
+						CheckWay(n.x, n.y, a.x, a.y, false, {}))) {
+					if (a.direction == 4) {
+						if (CheckWay(n.x, n.y, n.x + 1, n.y,
+									true, args.event_id_ignore_list) ||
+								CheckWay(n.x, n.y, n.x, n.y - 1,
+									true, args.event_id_ignore_list)) {
+							added = true;
+							queue.push_back(a);
+							seen.insert(a);
+						}
+					}
+					else if (a.direction == 5) {
+						if (CheckWay(n.x, n.y, n.x + 1, n.y,
+									true, args.event_id_ignore_list) ||
+								CheckWay(n.x, n.y, n.x, n.y + 1,
+									true, args.event_id_ignore_list)) {
+							added = true;
+							queue.push_back(a);
+							seen.insert(a);
+						}
+					}
+					else if (a.direction == 6) {
+						if (CheckWay(n.x, n.y, n.x - 1, n.y,
+									true, args.event_id_ignore_list) ||
+								CheckWay(n.x, n.y, n.x, n.y + 1,
+									true, args.event_id_ignore_list)) {
+							added = true;
+							queue.push_back(a);
+							seen.insert(a);
+						}
+					}
+					else if (a.direction == 7) {
+						if (CheckWay(n.x, n.y, n.x - 1, n.y,
+									true, args.event_id_ignore_list) ||
+								CheckWay(n.x, n.y, n.x, n.y - 1,
+									true, args.event_id_ignore_list)) {
+							added = true;
+							queue.push_back(a);
+							seen.insert(a);
+						}
+					}
+					else {
+						added = true;
+						queue.push_back(a);
+						seen.insert(a);
+					}
+				}
+				if (added && args.debug_print) {
+					Output::Debug("Game_Interpreter::CommandSearchPath: "
+						"discovered id:{} x:{} y:{} parentX:{} parentY:{}"
+						"parentID:{} direction: {}",
+					queue[queue.size() - 1].id,
+					queue[queue.size() - 1].x, queue[queue.size() - 1].y,
+					queue[queue.size() - 1].parent_x,
+					queue[queue.size() - 1].parent_y,
+					queue[queue.size() - 1].parent_id,
+					queue[queue.size() - 1].direction);
+				}
+			}
+		}
+		id++;
+		// Calculate the Manhattan distance between the current node and the destination
+		int manhattan_dist = abs(args.dest_x - n.x) + abs(args.dest_y - n.y);
+
+		// Check if this node is closer to the destination
+		if (manhattan_dist < closest_distance) {
+			closest_node = n;
+			closest_distance = manhattan_dist;
+			if (args.debug_print) {
+				Output::Debug("Game_Interpreter::CommandSearchPath: "
+						"new closest node at x:{} y:{} id:{}",
+					closest_node.x, closest_node.y,
+					closest_node.id);
+			}
+		}
+	}
+
+	// Check if a path to the closest node was found.
+	if (closest_distance != std::numeric_limits<int>::max()) {
+		// Build a route to the closest reachable node.
+		if (args.debug_print) {
+			Output::Debug("Game_Interpreter::CommandSearchPath: "
+					"trying to return route from x:{} y:{} to "
+					"x:{} y:{} (id:{})",
+				start.x, start.y, closest_node.x, closest_node.y,
+				closest_node.id);
+		}
+		std::vector<SearchNode> list_move;
+
+		SearchNode node = closest_node;
+		while (static_cast<int>(list_move.size()) < steps_max) {
+			list_move.push_back(node);
+			if (graph_by_coord.find({node.parent_x,
+					node.parent_y}) == graph_by_coord.end())
+				break;
+			SearchNode node2 = graph_by_coord[
+				{node.parent_x, node.parent_y}
+			];
+			if (args.debug_print) {
+				Output::Debug(
+					"Game_Interpreter::CommandSearchPath: "
+					"found parent leading to x:{} y:{}, "
+					"it's at x:{} y:{} dir:{}",
+					node.x, node.y,
+					node2.x, node2.y, node2.direction);
+			}
+			node = node2;
+		}
+
+		std::reverse(list_move.rbegin(), list_move.rend());
+
+		std::string debug_output_path("");
+		if (list_move.size() > 0) {
+			lcf::rpg::MoveRoute route;
+			route.skippable = args.skip_when_failed;
+			route.repeat = false;
+
+			for (SearchNode node2 : list_move) {
+				if (node2.direction >= 0) {
+					lcf::rpg::MoveCommand cmd;
+					cmd.command_id = node2.direction;
+					route.move_commands.push_back(cmd);
+					if (args.debug_print >= 1) {
+						if (debug_output_path.length() > 0)
+							debug_output_path += ",";
+						std::ostringstream dirnum;
+						dirnum << node2.direction;
+						debug_output_path += std::string(dirnum.str());
+					}
+				}
+			}
+
+			lcf::rpg::MoveCommand cmd;
+			cmd.command_id = 23;
+			route.move_commands.push_back(cmd);
+
+			ForceMoveRoute(route, args.frequency);
+		}
+		if (args.debug_print) {
+			Output::Debug(
+				"Game_Interpreter::CommandSearchPath: "
+				"setting route {} for character x{} y{}",
+				" (ignored event ids count: {})",
+				debug_output_path, start.x, start.y,
+				args.event_id_ignore_list.size()
+			);
+		}
+		return true;
+	}
+
+	// No path to the destination, return failure.
+	return false;
 }
 
 int Game_Character::GetSpriteX() const {
@@ -877,6 +1186,12 @@ Game_Character* Game_Character::GetCharacter(int character_id, int event_id) {
 	}
 }
 
+Game_Character& Game_Character::GetPlayer() {
+	assert(Main_Data::game_player);
+
+	return *Main_Data::game_player;
+}
+
 int Game_Character::ReverseDir(int dir) {
 	constexpr static char reversed[] =
 		{ Down, Left, Up, Right, DownLeft, UpLeft, UpRight, DownRight };
@@ -917,4 +1232,3 @@ void Game_Character::UpdateFacing() {
 		SetFacing(dir);
 	}
 }
-

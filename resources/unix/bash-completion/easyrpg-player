@@ -13,8 +13,8 @@ _easyrpg-player ()
   prev=${COMP_WORDS[COMP_CWORD-1]}
 
   # all possible options
-  ouropts='--autobattle-algo --battle-test --disable-audio --disable-rtp --enable-mouse --enable-touch \
-           --encoding --enemyai-algo --engine --fps-limit --fps-render-window --fullscreen -h --help \
+  ouropts='--autobattle-algo --battle-test --disable-audio --disable-rtp \
+           --encoding --enemyai-algo --engine --fps-limit --fullscreen -h --help \
            --hide-title --load-game-id --new-game --no-vsync --project-path --rtp-path --record-input \
            --replay-input --save-path --seed --show-fps --start-map-id --start-party --no-log-color \
            --start-position --test-play --window -v --version'

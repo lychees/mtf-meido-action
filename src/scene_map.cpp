@@ -16,14 +16,12 @@
  */
 
 // Headers
-#include "scene_gameover.h"
 #include "scene_map.h"
-#include "scene_menu.h"
 #include "scene_save.h"
 #include "scene_debug.h"
+#include "scene_settings.h"
 #include "main_data.h"
 #include "game_map.h"
-#include "game_actors.h"
 #include "game_message.h"
 #include "game_party.h"
 #include "game_player.h"
@@ -37,10 +35,7 @@
 #include "transition.h"
 #include "audio.h"
 #include "input.h"
-#include "screen.h"
-#include "scene_load.h"
-#include "output.h"
-#include "dynrpg.h"
+#include "game_dynrpg.h"
 
 using namespace std::chrono_literals;
 
@@ -73,7 +68,7 @@ Scene_Map::~Scene_Map() {
 void Scene_Map::Start() {
 	Scene_Debug::ResetPrevIndices();
 	spriteset.reset(new Spriteset_Map());
-	message_window.reset(new Window_Message(MESSAGE_BOX_OFFSET_X, SCREEN_TARGET_HEIGHT - MESSAGE_BOX_HEIGHT, MESSAGE_BOX_WIDTH, MESSAGE_BOX_HEIGHT));
+	message_window.reset(new Window_Message(Player::message_box_offset_x, Player::screen_height - MESSAGE_BOX_HEIGHT, MESSAGE_BOX_WIDTH, MESSAGE_BOX_HEIGHT));
 
 	Game_Message::SetWindow(message_window.get());
 
@@ -83,7 +78,7 @@ void Scene_Map::Start() {
 		auto current_music = Main_Data::game_system->GetCurrentBGM();
 		Main_Data::game_system->BgmStop();
 		Main_Data::game_system->BgmPlay(current_music);
-		DynRpg::Load(from_save_id);
+		Main_Data::game_dynrpg->Load(from_save_id);
 	} else {
 		Game_Map::PlayBgm();
 	}
@@ -93,6 +88,11 @@ void Scene_Map::Start() {
 	Game_Clock::ResetFrame(Game_Clock::now());
 
 	Start2(MapUpdateAsyncContext());
+}
+
+void Scene_Map::StartFromSave(int from_save_id) {
+	this->from_save_id = from_save_id;
+	Start();
 }
 
 void Scene_Map::Start2(MapUpdateAsyncContext actx) {
@@ -176,7 +176,9 @@ void Scene_Map::TransitionOut(SceneType next_scene) {
 	auto& transition = Transition::instance();
 
 	if (next_scene != Scene::Battle
-			&& next_scene != Scene::Debug) {
+			&& next_scene != Scene::Debug
+			&& next_scene != Scene::Settings
+			&& next_scene != Scene::LanguageMenu) {
 		screen_erased_by_event = false;
 	}
 
@@ -224,7 +226,6 @@ void Scene_Map::OnTranslationChanged() {
 	// FIXME: Map events are not reloaded
 	// They require leaving and reentering the map
 	Scene::OnTranslationChanged();
-	Game_Map::OnTranslationChanged();
 }
 
 void Scene_Map::PreUpdate(MapUpdateAsyncContext& actx) {
@@ -237,11 +238,12 @@ void Scene_Map::PreUpdateForegroundEvents(MapUpdateAsyncContext& actx) {
 	UpdateGraphics();
 }
 
-void Scene_Map::Update() {
+void Scene_Map::vUpdate() {
 	if (activate_inn) {
 		UpdateInn();
 		return;
 	}
+
 	MapUpdateAsyncContext actx;
 	UpdateStage1(actx);
 }
@@ -277,33 +279,21 @@ void Scene_Map::UpdateStage2() {
 }
 
 void Scene_Map::UpdateSceneCalling() {
-
 	auto call = TakeRequestedScene();
 
-	if (call == nullptr
-			&& Player::debug_flag
-			&& !Game_Message::IsMessageActive())
-	{
-		// ESC-Menu calling can be force called when TestPlay mode is on and cancel is pressed 5 times while holding SHIFT
-		if (Input::IsPressed(Input::SHIFT)) {
-			if (Input::IsTriggered(Input::CANCEL)) {
-				debug_menuoverwrite_counter++;
-				if (debug_menuoverwrite_counter >= 5) {
-					call = std::make_shared<Scene_Menu>();
-					debug_menuoverwrite_counter = 0;
-				}
-			}
-		} else {
-			debug_menuoverwrite_counter = 0;
+	if (call == nullptr) {
+		if (Input::IsTriggered(Input::SETTINGS_MENU)) {
+			call = std::make_shared<Scene_Settings>();
+		}
+	}
+
+	if (Player::debug_flag) {
+		if (call == nullptr && Input::IsTriggered(Input::DEBUG_MENU)) {
+			call = std::make_shared<Scene_Debug>();
 		}
 
-		if (call == nullptr) {
-			if (Input::IsTriggered(Input::DEBUG_MENU)) {
-				call = std::make_shared<Scene_Debug>();
-			}
-			else if (Input::IsTriggered(Input::DEBUG_SAVE)) {
-				call = std::make_shared<Scene_Save>();
-			}
+		if (call == nullptr && Input::IsTriggered(Input::DEBUG_SAVE)) {
+			call = std::make_shared<Scene_Save>();
 		}
 	}
 
@@ -418,6 +408,14 @@ void Scene_Map::OnAsyncSuspend(F&& f, AsyncOp aop, bool is_preupdate) {
 		Player::LoadSavegame(save_name, aop.GetSaveSlot());
 	}
 
+	if (aop.GetType() == AsyncOp::eCloneMapEvent) {
+		Game_Map::CloneMapEvent(aop.GetMapId(), aop.GetSourceEventId(), aop.GetX(), aop.GetY(), aop.GetTargetEventId(), aop.GetEventName());
+	}
+
+	if (aop.GetType() == AsyncOp::eDestroyMapEvent) {
+		Game_Map::DestroyMapEvent(aop.GetTargetEventId());
+	}
+
 	auto& transition = Transition::instance();
 
 	if (aop.GetType() == AsyncOp::eEraseScreen) {
@@ -517,6 +515,7 @@ void Scene_Map::UpdateInn() {
 		return;
 	}
 
+	// Do not use Game_System::BgmPlayedOnce here as it does not report looping for WAV correctly
 	if (Audio().BGM_IsPlaying() && !Audio().BGM_PlayedOnce() && (Game_Clock::GetFrameTime() - inn_timer < 10s)) {
 		return;
 	}

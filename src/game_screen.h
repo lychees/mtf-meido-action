@@ -18,6 +18,7 @@
 #ifndef EP_GAME_SCREEN_H
 #define EP_GAME_SCREEN_H
 
+#include <cstdint>
 #include <vector>
 #include <cassert>
 #include "system.h"
@@ -27,6 +28,7 @@
 #include "battle_animation.h"
 #include "flash.h"
 #include <lcf/rpg/savescreen.h>
+#include <player.h>
 
 class Game_Battler;
 class Screen;
@@ -53,7 +55,7 @@ public:
 	void ShakeEnd();
 	void SetWeatherEffect(int type, int strength);
 	void PlayMovie(std::string filename,
-				   int pos_x, int pos_y, int res_x, int res_y);
+		int pos_x, int pos_y, int res_x, int res_y);
 	void Update();
 
 	/**
@@ -135,6 +137,11 @@ public:
 	 */
 	bool IsBattleAnimationWaiting();
 
+	/**
+	 * Updates the event reference when the event vector was altered e.g. by SpawnMapEvent.
+	 */
+	void UpdateUnderlyingEventReferences();
+
 	/** @return current pan_x offset for screen effects in 1/16 pixels */
 	int GetPanX() const;
 
@@ -142,10 +149,10 @@ public:
 	int GetPanY() const;
 
 	/** @return maximum pan_x offset for screen effects in 1/16 pixels */
-	static constexpr int GetPanLimitX();
+	static int GetPanLimitX();
 
 	/** @return maximum pan_y offset for screen effects in 1/16 pixels */
-	static constexpr int GetPanLimitY();
+	static int GetPanLimitY();
 
 	/** @return a Rect describing position and size of screen effects in pixels */
 	Rect GetScreenEffectsRect() const;
@@ -171,7 +178,7 @@ public:
 	void OnMapScrolled(int dx, int dy);
 
 private:
-	std::unique_ptr<BattleAnimation> animation;
+	std::unique_ptr<BattleAnimationMap> animation;
 	std::unique_ptr<Weather> weather;
 
 	lcf::rpg::SaveScreen data;
@@ -209,12 +216,12 @@ inline int Game_Screen::GetPanY() const {
 	return data.pan_y;
 }
 
-inline constexpr int Game_Screen::GetPanLimitX() {
-	return SCREEN_TARGET_WIDTH * 16;
+inline int Game_Screen::GetPanLimitX() {
+	return Player::screen_width * 16;
 }
 
-inline constexpr int Game_Screen::GetPanLimitY() {
-	return SCREEN_TARGET_HEIGHT * 16 * 2 / 3;
+inline int Game_Screen::GetPanLimitY() {
+	return Player::screen_height * 16 * 2 / 3;
 }
 
 inline Rect Game_Screen::GetScreenEffectsRect() const {
@@ -230,10 +237,10 @@ inline int Game_Screen::GetShakeOffsetY() const {
 }
 
 inline Tone Game_Screen::GetTone() {
-	return Tone((int) ((data.tint_current_red) * 128 / 100),
-		(int) ((data.tint_current_green) * 128 / 100),
-		(int) ((data.tint_current_blue) * 128 / 100),
-		(int) ((data.tint_current_sat) * 128 / 100));
+	return Tone((int)((data.tint_current_red) * 128 / 100),
+		(int)((data.tint_current_green) * 128 / 100),
+		(int)((data.tint_current_blue) * 128 / 100),
+		(int)((data.tint_current_sat) * 128 / 100));
 }
 
 inline Color Game_Screen::GetFlashColor() const {

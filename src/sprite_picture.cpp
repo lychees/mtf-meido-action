@@ -21,13 +21,14 @@
 #include "game_pictures.h"
 #include "game_battle.h"
 #include "game_screen.h"
+#include "game_windows.h"
 #include "player.h"
 #include "bitmap.h"
 
 Sprite_Picture::Sprite_Picture(int pic_id, Drawable::Flags flags)
 	: Sprite(flags),
 	pic_id(pic_id),
-	feature_spritesheet(Player::IsRPG2k3E()),
+	feature_spritesheet(Player::IsRPG2k3ECommands()),
 	feature_priority_layers(Player::IsMajorUpdatedVersion()),
 	feature_bottom_trans(Player::IsRPG2k3() && !Player::IsRPG2k3E())
 {
@@ -52,7 +53,9 @@ void Sprite_Picture::OnPictureShow() {
 			priority = Drawable::GetPriorityForMapLayer(pic.data.map_layer);
 		}
 		if (priority > 0) {
-			SetZ(priority + pic_id);
+			// Small offset (10) to ensure there is space for graphics that are
+			// drawn at the image position (e.g. DynRPG Text Plugin)
+			SetZ(priority + pic_id * 10);
 		}
 	}
 }
@@ -66,6 +69,12 @@ void Sprite_Picture::Draw(Bitmap& dst) {
 
 	if (!bitmap) {
 		return;
+	}
+
+	if (data.easyrpg_type == lcf::rpg::SavePicture::EasyRpgType_window) {
+		// Paint the Window on the Picture
+		const auto& window = Main_Data::game_windows->GetWindow(pic_id);
+		window.window->Draw(*bitmap.get());
 	}
 
 	const bool is_battle = Game_Battle::IsBattleRunning();
@@ -96,10 +105,19 @@ void Sprite_Picture::Draw(Bitmap& dst) {
 		y -= Main_Data::game_screen->GetShakeOffsetY();
 	}
 
-	SetX(x);
-	SetY(y);
+	if (Player::game_config.fake_resolution.Get()) {
+		SetX(x + Player::menu_offset_x);
+		SetY(y + Player::menu_offset_y);
+	} else {
+		SetX(x);
+		SetY(y);
+	}
+
 	SetZoomX(data.current_magnify / 100.0);
 	SetZoomY(data.current_magnify / 100.0);
+	if (Player::IsPatchManiac()) {
+		SetZoomY(data.maniac_current_magnify_height / 100.0);
+	}
 
 	auto sr = GetSrcRect();
 	SetOx(sr.width / 2);
@@ -141,11 +159,45 @@ void Sprite_Picture::Draw(Bitmap& dst) {
 
 	if (data.flags.affected_by_flash) {
 		SetFlashEffect(Main_Data::game_screen->GetFlashColor());
+	} else {
+		SetFlashEffect(Color());
 	}
 
 	SetFlipX((data.easyrpg_flip & lcf::rpg::SavePicture::EasyRpgFlip_x) == lcf::rpg::SavePicture::EasyRpgFlip_x);
 	SetFlipY((data.easyrpg_flip & lcf::rpg::SavePicture::EasyRpgFlip_y) == lcf::rpg::SavePicture::EasyRpgFlip_y);
 	SetBlendType(data.easyrpg_blend_mode);
 
+	// Don't draw anything if zoom is at zero, helps avoid a glitchy rotated sprite in the top left corner
+	if (GetZoomX() <= 0.0 || GetZoomY() <= 0.0) {
+		return;
+	}
 	Sprite::Draw(dst);
+}
+
+int Sprite_Picture::GetFrameWidth() const {
+	const auto& pic = Main_Data::game_pictures->GetPicture(pic_id);
+	const auto& data = pic.data;
+
+	auto& bitmap = GetBitmap();
+	assert(bitmap);
+
+	if (feature_spritesheet && pic.NumSpriteSheetFrames() > 1) {
+		return bitmap->GetWidth() / data.spritesheet_cols;
+	} else {
+		return bitmap->GetWidth();
+	}
+}
+
+int Sprite_Picture::GetFrameHeight() const {
+	const auto& pic = Main_Data::game_pictures->GetPicture(pic_id);
+	const auto& data = pic.data;
+
+	auto& bitmap = GetBitmap();
+	assert(bitmap);
+
+	if (feature_spritesheet && pic.NumSpriteSheetFrames() > 1) {
+		return bitmap->GetHeight() / data.spritesheet_rows;
+	} else {
+		return bitmap->GetHeight();
+	}
 }

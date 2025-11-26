@@ -43,16 +43,6 @@
 #include <cmath>
 #include "scene_gameover.h"
 
-namespace {
-	int default_pan_x() {
-		return (Utils::RoundTo<int>(static_cast<float>(SCREEN_TARGET_WIDTH) / TILE_SIZE / 2) - 1) * SCREEN_TILE_SIZE;
-	}
-
-	int default_pan_y() {
-		return (Utils::RoundTo<int>(static_cast<float>(SCREEN_TARGET_HEIGHT) / TILE_SIZE / 2) - 1) * SCREEN_TILE_SIZE;
-	}
-}
-
 Game_Player::Game_Player(): Game_PlayerBase(Player)
 {
 	SetDirection(lcf::rpg::EventPage::Direction_down);
@@ -75,32 +65,31 @@ lcf::rpg::SavePartyLocation Game_Player::GetSaveData() const {
 	return *data();
 }
 
-Drawable::Z_t Game_Player::GetScreenZ(bool apply_shift) const {
+Drawable::Z_t Game_Player::GetScreenZ(int x_offset, int y_offset) const {
 	// Player is always "same layer as hero".
 	// When the Player is on the same Y-coordinate as an event the Player is always rendered first.
 	// This is different to events where, when Y is the same, the highest X-coordinate is rendered first.
 	// To ensure this, fake a very high X-coordinate of 65535 (all bits set)
 	// See base function for full explanation of the bitmask
-	return Game_Character::GetScreenZ(apply_shift) | (0xFFFFu << 16u);
+	return Game_Character::GetScreenZ(x_offset, y_offset) | (0xFFFFu << 16u);
 }
 
 void Game_Player::ReserveTeleport(int map_id, int x, int y, int direction, TeleportTarget::Type tt) {
 	teleport_target = TeleportTarget(map_id, x, y, direction, tt);
 
 	FileRequestAsync* request = Game_Map::RequestMap(map_id);
-	request->SetImportantFile(true);
 	request->Start();
 }
 
 void Game_Player::ReserveTeleport(const lcf::rpg::SaveTarget& target) {
-	int map_id = target.map_id;
+	const auto* target_map_info = &Game_Map::GetMapInfo(target.map_id);
 
-	if (Game_Map::GetMapType(target.map_id) == lcf::rpg::TreeMap::MapType_area) {
+	if (target_map_info->type == lcf::rpg::TreeMap::MapType_area) {
 		// Area: Obtain the map the area belongs to
-		map_id = Game_Map::GetParentId(target.map_id);
+		target_map_info = &Game_Map::GetParentMapInfo(*target_map_info);
 	}
 
-	ReserveTeleport(map_id, target.map_x, target.map_y, Down, TeleportTarget::eSkillTeleport);
+	ReserveTeleport(target_map_info->ID, target.map_x, target.map_y, Down, TeleportTarget::eSkillTeleport);
 
 	if (target.switch_on) {
 		Main_Data::game_switches->Set(target.switch_id, true);
@@ -141,7 +130,7 @@ void Game_Player::MoveTo(int map_id, int x, int y) {
 	const auto map_changed = (GetMapId() != map_id);
 
 	Game_Character::MoveTo(map_id, x, y);
-	SetEncounterSteps(0);
+	SetTotalEncounterRate(0);
 	SetMenuCalling(false);
 
 	auto* vehicle = GetVehicle();
@@ -155,14 +144,16 @@ void Game_Player::MoveTo(int map_id, int x, int y) {
 
 		// pan_state does not reset when you change maps.
 		data()->pan_speed = lcf::rpg::SavePartyLocation::kPanSpeedDefault;
-		data()->pan_finish_x = default_pan_x();
-		data()->pan_finish_y = default_pan_y();
-		data()->pan_current_x = default_pan_x();
-		data()->pan_current_y = default_pan_y();
+		data()->pan_finish_x = GetDefaultPanX();
+		data()->pan_finish_y = GetDefaultPanY();
+		data()->pan_current_x = GetDefaultPanX();
+		data()->pan_current_y = GetDefaultPanY();
+		maniac_pan_current_x = static_cast<double>(GetDefaultPanX());
+		maniac_pan_current_y = static_cast<double>(GetDefaultPanY());
 
 		ResetAnimation();
 
-		auto map = Game_Map::loadMapFile(GetMapId());
+		auto map = Game_Map::LoadMapFile(GetMapId());
 
 		Game_Map::Setup(std::move(map));
 		Game_Map::PlayBgm();
@@ -203,8 +194,8 @@ void Game_Player::UpdateScroll(int amount, bool was_jumping) {
 	auto dx = (GetX() * SCREEN_TILE_SIZE) - Game_Map::GetPositionX() - GetPanX();
 	auto dy = (GetY() * SCREEN_TILE_SIZE) - Game_Map::GetPositionY() - GetPanY();
 
-	const auto w = Game_Map::GetWidth() * SCREEN_TILE_SIZE;
-	const auto h = Game_Map::GetHeight() * SCREEN_TILE_SIZE;
+	const auto w = Game_Map::GetTilesX() * SCREEN_TILE_SIZE;
+	const auto h = Game_Map::GetTilesY() * SCREEN_TILE_SIZE;
 
 	dx = Utils::PositiveModulo(dx + w / 2, w) - w / 2;
 	dy = Utils::PositiveModulo(dy + h / 2, h) - h / 2;
@@ -305,7 +296,7 @@ void Game_Player::UpdateNextMovementAction() {
 
 		ResetAnimation();
 		Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
-		Scene::instance->SetRequestedScene(std::make_shared<Scene_Menu>());
+		Game_Map::GetInterpreter().RequestMainMenuScene();
 		return;
 	}
 
@@ -437,7 +428,7 @@ bool Game_Player::CheckActionEvent() {
 	return result || got_action;
 }
 
-bool Game_Player::CheckEventTriggerHere(TriggerSet triggers, bool triggered_by_decision_key) {
+bool Game_Player::CheckEventTriggerHere(TriggerSet triggers, bool triggered_by_decision_key, bool face_player) {
 	if (InAirship()) {
 		return false;
 	}
@@ -453,13 +444,13 @@ bool Game_Player::CheckEventTriggerHere(TriggerSet triggers, bool triggered_by_d
 				&& trigger >= 0
 				&& triggers[trigger]) {
 			SetEncounterCalling(false);
-			result |= ev.ScheduleForegroundExecution(triggered_by_decision_key, true);
+			result |= ev.ScheduleForegroundExecution(triggered_by_decision_key, face_player);
 		}
 	}
 	return result;
 }
 
-bool Game_Player::CheckEventTriggerThere(TriggerSet triggers, int x, int y, bool triggered_by_decision_key) {
+bool Game_Player::CheckEventTriggerThere(TriggerSet triggers, int x, int y, bool triggered_by_decision_key, bool face_player) {
 	if (InAirship()) {
 		return false;
 	}
@@ -474,7 +465,7 @@ bool Game_Player::CheckEventTriggerThere(TriggerSet triggers, int x, int y, bool
 				&& trigger >= 0
 				&& triggers[trigger]) {
 			SetEncounterCalling(false);
-			result |= ev.ScheduleForegroundExecution(triggered_by_decision_key, true);
+			result |= ev.ScheduleForegroundExecution(triggered_by_decision_key, face_player);
 		}
 	}
 	return result;
@@ -662,7 +653,7 @@ bool Game_Player::Move(int dir) {
 				}
 			}
 		}
-		if (!terrain->on_damage_se || red_flash) {
+		if ((!terrain->on_damage_se || red_flash) && Player::IsRPG2k3()) {
 			Main_Data::game_system->SePlay(terrain->footstep);
 		}
 	} else {
@@ -693,10 +684,10 @@ void Game_Player::UpdateEncounterSteps() {
 		return;
 	}
 
-	const auto encounter_rate = Game_Map::GetEncounterRate();
+	const auto encounter_steps = Game_Map::GetEncounterSteps();
 
-	if (encounter_rate <= 0) {
-		SetEncounterSteps(0);
+	if (encounter_steps <= 0) {
+		SetTotalEncounterRate(0);
 		return;
 	}
 
@@ -709,7 +700,7 @@ void Game_Player::UpdateEncounterSteps() {
 		return;
 	}
 
-	data()->encounter_steps += terrain->encounter_rate;
+	data()->total_encounter_rate += terrain->encounter_rate;
 
 	struct Row {
 		int ratio;
@@ -740,7 +731,7 @@ void Game_Player::UpdateEncounterSteps() {
 		{ INT_MAX, 3.0 / 2.0 }
 	};
 #endif
-	const auto ratio = GetEncounterSteps() / encounter_rate;
+	const auto ratio = GetTotalEncounterRate() / encounter_steps;
 
 	auto& idx = last_encounter_idx;
 	while (ratio > enc_table[idx+1].ratio) {
@@ -749,19 +740,27 @@ void Game_Player::UpdateEncounterSteps() {
 	const auto& row = enc_table[idx];
 
 	const auto pmod = row.pmod;
-	const auto p = (1.0f / float(encounter_rate)) * pmod * (float(terrain->encounter_rate) / 100.0f);
+	const auto p = (1.0f / float(encounter_steps)) * pmod * (float(terrain->encounter_rate) / 100.0f);
 
 	if (!Rand::PercentChance(p)) {
 		return;
 	}
 
-	SetEncounterSteps(0);
+	SetTotalEncounterRate(0);
 	SetEncounterCalling(true);
 }
 
-void Game_Player::SetEncounterSteps(int steps) {
+void Game_Player::SetTotalEncounterRate(int rate) {
 	last_encounter_idx = 0;
-	data()->encounter_steps = steps;
+	data()->total_encounter_rate = rate;
+}
+
+int Game_Player::GetDefaultPanX() {
+	return static_cast<int>(std::ceil(static_cast<float>(Player::screen_width) / TILE_SIZE / 2) - 1) * SCREEN_TILE_SIZE;
+}
+
+int Game_Player::GetDefaultPanY() {
+	return static_cast<int>(std::ceil(static_cast<float>(Player::screen_height) / TILE_SIZE / 2) - 1) * SCREEN_TILE_SIZE;
 }
 
 void Game_Player::LockPan() {
@@ -790,23 +789,97 @@ void Game_Player::StartPan(int direction, int distance, int speed) {
 	}
 
 	data()->pan_speed = 2 << speed;
+
+	if (Player::IsPatchManiac()) {
+		// Maniac uses separate horizontal/vertical pan for everything
+		data()->maniac_horizontal_pan_speed = data()->pan_speed;
+		data()->maniac_vertical_pan_speed = data()->pan_speed;
+	}
+}
+
+void Game_Player::StartPixelPan(int h, int v, int speed, bool interpolated, bool centered, bool relative) {
+	if (!Player::IsPatchManiac()) {
+		return;
+	}
+
+	h *= TILE_SIZE;
+	v *= TILE_SIZE;
+
+	maniac_pan_current_x = static_cast<double>(data()->pan_current_x);
+	maniac_pan_current_y = static_cast<double>(data()->pan_current_y);
+
+	int new_pan_x;
+	int new_pan_y;
+
+	if (relative && centered) {
+		int screen_width = static_cast<int>(std::ceil(static_cast<float>(Player::screen_width) / 2)) * TILE_SIZE;
+		int screen_height = static_cast<int>(std::ceil(static_cast<float>(Player::screen_height) / 2)) * TILE_SIZE;
+		new_pan_x = data()->pan_finish_x - (h - screen_width) * 0.5;
+		new_pan_y = data()->pan_finish_y - (v - screen_height) * 0.5;
+	} else if (relative) {
+		new_pan_x = data()->pan_finish_x - h;
+		new_pan_y = data()->pan_finish_y - v;
+	} else if (centered) {
+		new_pan_x = GetSpriteX() + GetDefaultPanX() - h;
+		new_pan_y = GetSpriteY() + GetDefaultPanY() - v;
+	} else {
+		new_pan_x = GetSpriteX() - h;
+		new_pan_y = GetSpriteY() - v;
+	}
+
+	double h_speed;
+	double v_speed;
+
+	if (speed == 0) {
+		// Instant pan if speed is zero
+		h_speed = std::abs((static_cast<double>(new_pan_x) - maniac_pan_current_x));
+		v_speed = std::abs((static_cast<double>(new_pan_y) - maniac_pan_current_y));
+	} else if (interpolated) {
+		// Interpolate distance by number of frames
+		h_speed = std::abs((static_cast<double>(new_pan_x) - maniac_pan_current_x)) / (speed + 1);
+		v_speed = std::abs((static_cast<double>(new_pan_y) - maniac_pan_current_y)) / (speed + 1);
+	} else {
+		// Multiply speed by 0.001
+		h_speed = std::max(static_cast<double>(speed * TILE_SIZE * 0.001), 1.0);
+		v_speed = std::max(static_cast<double>(speed * TILE_SIZE * 0.001), 1.0);
+	}
+
+	data()->pan_finish_x = new_pan_x;
+	data()->pan_finish_y = new_pan_y;
+	data()->maniac_horizontal_pan_speed = h_speed;
+	data()->maniac_vertical_pan_speed = v_speed;
 }
 
 void Game_Player::ResetPan(int speed) {
-	data()->pan_finish_x = default_pan_x();
-	data()->pan_finish_y = default_pan_y();
+	data()->pan_finish_x = GetDefaultPanX();
+	data()->pan_finish_y = GetDefaultPanY();
 	data()->pan_speed = 2 << speed;
+
+	if (Player::IsPatchManiac()) {
+		// Maniac uses separate horizontal/vertical pan for everything
+		data()->maniac_horizontal_pan_speed = data()->pan_speed;
+		data()->maniac_vertical_pan_speed = data()->pan_speed;
+	}
 }
 
 int Game_Player::GetPanWait() {
+	bool is_maniac = Player::IsPatchManiac();
 	const auto distance = std::max(
 			std::abs(data()->pan_current_x - data()->pan_finish_x),
 			std::abs(data()->pan_current_y - data()->pan_finish_y));
-	const auto speed = data()->pan_speed;
+	const auto speed = !is_maniac ? data()->pan_speed : static_cast<int>(std::max(
+			std::abs(data()->maniac_horizontal_pan_speed),
+			std::abs(data()->maniac_vertical_pan_speed)));
 	assert(speed > 0);
 	return distance / speed + (distance % speed != 0);
 }
 
+// Fixes compilation error with OpenOrbis toolchain where std::abs fails to cast to double on values where it should
+#if __PS4__
+#	define PS4_WORKAROUND (double)
+#else
+#	define PS4_WORKAROUND
+#endif
 void Game_Player::UpdatePan() {
 	if (!IsPanActive())
 		return;
@@ -815,10 +888,33 @@ void Game_Player::UpdatePan() {
 	const int pan_remain_x = data()->pan_current_x - data()->pan_finish_x;
 	const int pan_remain_y = data()->pan_current_y - data()->pan_finish_y;
 
-	int dx = std::min(step, std::abs(pan_remain_x));
-	dx = pan_remain_x >= 0 ? dx : -dx;
-	int dy = std::min(step, std::abs(pan_remain_y));
-	dy = pan_remain_y >= 0 ? dy : -dy;
+	int dx;
+	int dy;
+
+	if (Player::IsPatchManiac()) {
+		const double step_x = data()->maniac_horizontal_pan_speed;
+		const double step_y = data()->maniac_vertical_pan_speed;
+
+		// Maniac uses doubles for smoother screen scrolling
+		double dx2 = std::min(step_x, PS4_WORKAROUND std::abs(static_cast<double>(pan_remain_x)));
+		double dy2 = std::min(step_y, PS4_WORKAROUND std::abs(static_cast<double>(pan_remain_y)));
+
+		dx2 = pan_remain_x >= 0 ? dx2 : -dx2;
+		dy2 = pan_remain_y >= 0 ? dy2 : -dy2;
+
+		maniac_pan_current_x -= dx2;
+		maniac_pan_current_y -= dy2;
+
+		// Depending on the position, floor or ceil the value
+		dx = Utils::RoundTo<double>(std::abs(maniac_pan_current_x)) == std::ceil(std::abs(maniac_pan_current_x)) ? static_cast<int>(std::floor(dx2)) : static_cast<int>(std::ceil(dx2));
+		dy = Utils::RoundTo<double>(std::abs(maniac_pan_current_y)) == std::ceil(std::abs(maniac_pan_current_y)) ? static_cast<int>(std::floor(dy2)) : static_cast<int>(std::ceil(dy2));
+	} else {
+		dx = std::min(step, std::abs(pan_remain_x));
+		dy = std::min(step, std::abs(pan_remain_y));
+
+		dx = pan_remain_x >= 0 ? dx : -dx;
+		dy = pan_remain_y >= 0 ? dy : -dy;
+	}
 
 	int screen_x = Game_Map::GetPositionX();
 	int screen_y = Game_Map::GetPositionY();
@@ -837,3 +933,6 @@ void Game_Player::UpdatePan() {
 	data()->pan_current_y -= dy;
 }
 
+bool Game_Player::TriggerEventAt(int x, int y, bool triggered_by_decision_key, bool face_player) {
+	return CheckEventTriggerThere({ lcf::rpg::EventPage::Trigger_action }, x, y, triggered_by_decision_key, face_player);
+}

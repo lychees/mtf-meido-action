@@ -38,11 +38,16 @@ public:
 
 	int GetIndex() const;
 	void SetIndex(int nindex);
+	int GetColumnMax() const;
+	void SetColumnMax(int ncolmax);
 	int GetRowMax() const;
 	int GetTopRow() const;
 	void SetTopRow(int row);
 	int GetPageRowMax() const;
 	int GetPageItemMax();
+
+	/** Change the max item */
+	void SetItemMax(int value);
 
 	/**
 	 * Returns the Item Rect used for item drawing.
@@ -50,7 +55,7 @@ public:
 	 * @param index index of item.
 	 * @return Rect where the item is drawn.
 	 */
-	Rect GetItemRect(int index);
+	virtual Rect GetItemRect(int index);
 
 	/**
 	 * Function called by the base UpdateHelp() implementation.
@@ -87,6 +92,14 @@ public:
 	 */
 	void SetMenuItemHeight(int height);
 
+	/**
+	 * Allow left/right input to move cursor up/down when the selectable has only one column.
+	 * By default this behaviour is only enabled for two and more columns.
+	 *
+	 * @param wrap enable/disable single column wrap
+	 */
+	void SetSingleColumnWrapping(bool wrap);
+
 protected:
 	void UpdateArrows();
 
@@ -102,6 +115,12 @@ protected:
 
 	int scroll_dir = 0;
 	int scroll_progress = 0;
+
+	int wrap_limit = 2;
 };
+
+inline void Window_Selectable::SetItemMax(int value) {
+	item_max = value;
+}
 
 #endif

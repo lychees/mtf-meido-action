@@ -20,6 +20,7 @@
 
 // Headers
 #include "system.h"
+#include "bitmap.h"
 #include "drawable.h"
 #include "rect.h"
 
@@ -32,7 +33,7 @@ public:
 
 	void Draw(Bitmap& dst) override;
 
-	void Update();
+	virtual void Update();
 	BitmapRef const& GetWindowskin() const;
 	void SetWindowskin(BitmapRef const& nwindowskin);
 	BitmapRef GetContents() const;
@@ -53,6 +54,8 @@ public:
 	void SetLeftArrow(bool nleft_arrow);
 	bool GetRightArrow() const;
 	void SetRightArrow(bool nright_arrow);
+	bool GetAnimateArrows() const;
+	void SetAnimateArrows(bool nanimate_arrows);
 	int GetX() const;
 	void SetX(int nx);
 	int GetY() const;
@@ -61,6 +64,8 @@ public:
 	void SetWidth(int nwidth);
 	int GetHeight() const;
 	void SetHeight(int nheight);
+	int GetRightX() const;
+	int GetBottomY() const;
 	int GetOx() const;
 	void SetOx(int nox);
 	int GetOy() const;
@@ -71,12 +76,25 @@ public:
 	void SetBorderY(int noy);
 	int GetOpacity() const;
 	void SetOpacity(int nopacity);
+	int GetFrameOpacity() const;
+	void SetFrameOpacity(int nframe_opacity);
 	int GetBackOpacity() const;
 	void SetBackOpacity(int nback_opacity);
 	int GetContentsOpacity() const;
 	void SetContentsOpacity(int ncontents_opacity);
 	void SetOpenAnimation(int frames);
 	void SetCloseAnimation(int frames);
+	// Whether transparent pixels on the window background are drawn in black
+	// or transparent
+	bool GetBackgroundAlpha() const;
+	void SetBackgroundAlpha(bool alpha);
+	// Whether transparent pixels keep there original color instead of
+	// converting them to black
+	bool GetBackgroundPreserveTransparentColor() const;
+	void SetBackgroundPreserveTransparentColor(bool preserve);
+
+	FontRef GetFont() const;
+	void SetFont(FontRef font);
 
 	bool IsOpening() const;
 	bool IsClosing() const;
@@ -86,6 +104,7 @@ protected:
 	virtual bool IsSystemGraphicUpdateAllowed() const;
 
 	unsigned long ID;
+	FontRef font;
 	BitmapRef windowskin, contents;
 	bool stretch = true;
 	Rect cursor_rect;
@@ -95,6 +114,7 @@ protected:
 	bool down_arrow = false;
 	bool left_arrow = false;
 	bool right_arrow = false;
+	bool animate_arrows = false;
 	int x = 0;
 	int y = 0;
 	int width = 0;
@@ -104,6 +124,7 @@ protected:
 	int border_x = 8;
 	int border_y = 8;
 	int opacity = 255;
+	int frame_opacity = 255;
 	int back_opacity = 255;
 	int contents_opacity = 255;
 
@@ -116,13 +137,15 @@ private:
 	void RefreshFrame();
 	void RefreshCursor();
 
+	bool background_alpha = false;
+	bool bg_preserve_transparent_color = false;
 	bool background_needs_refresh;
 	bool frame_needs_refresh;
 	bool cursor_needs_refresh;
 	bool pause = false;
 
 	int cursor_frame = 0;
-	int pause_frame = 0;
+	int arrow_animation_frame = 0;
 	int animation_frames = 0;
 	double animation_count = 0.0;
 	double animation_increment = 0.0;
@@ -150,6 +173,7 @@ inline BitmapRef Window::GetContents() const {
 
 inline void Window::SetContents(BitmapRef const& ncontents) {
 	contents = ncontents;
+	contents->SetFont(font);
 }
 
 inline bool Window::GetStretch() const {
@@ -174,7 +198,7 @@ inline bool Window::GetPause() const {
 
 inline void Window::SetPause(bool npause) {
 	pause = npause;
-	pause_frame = 0;
+	arrow_animation_frame = 0;
 }
 
 inline bool Window::GetUpArrow() const {
@@ -209,6 +233,14 @@ inline void Window::SetRightArrow(bool nright_arrow) {
 	right_arrow = nright_arrow;
 }
 
+inline bool Window::GetAnimateArrows() const {
+	return animate_arrows;
+}
+
+inline void Window::SetAnimateArrows(bool nanimate_arrows) {
+	animate_arrows = nanimate_arrows;
+}
+
 inline int Window::GetX() const {
 	return x;
 }
@@ -231,6 +263,14 @@ inline int Window::GetWidth() const {
 
 inline int Window::GetHeight() const {
 	return height;
+}
+
+inline int Window::GetRightX() const {
+	return x + width;
+}
+
+inline int Window::GetBottomY() const {
+	return y + height;
 }
 
 inline int Window::GetOx() const {
@@ -273,6 +313,14 @@ inline void Window::SetOpacity(int nopacity) {
 	opacity = nopacity;
 }
 
+inline int Window::GetFrameOpacity() const {
+	return frame_opacity;
+}
+
+inline void Window::SetFrameOpacity(int nframe_opacity) {
+	frame_opacity = nframe_opacity;
+}
+
 inline int Window::GetBackOpacity() const {
 	return back_opacity;
 }
@@ -289,8 +337,27 @@ inline void Window::SetContentsOpacity(int ncontents_opacity) {
 	contents_opacity = ncontents_opacity;
 }
 
+inline bool Window::GetBackgroundAlpha() const {
+	return background_alpha;
+}
+
+inline bool Window::GetBackgroundPreserveTransparentColor() const {
+	return bg_preserve_transparent_color;
+}
+
 inline bool Window::IsSystemGraphicUpdateAllowed() const {
 	return !IsClosing();
+}
+
+inline FontRef Window::GetFont() const {
+	return font;
+}
+
+inline void Window::SetFont(FontRef font) {
+	this->font = font;
+	if (contents) {
+		contents->SetFont(font);
+	}
 }
 
 #endif

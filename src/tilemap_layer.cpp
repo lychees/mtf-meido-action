@@ -140,6 +140,59 @@ static constexpr uint8_t BlockD_Subtiles_IDS[50][2][2][2] = {
     {{{0, 0}, {0, 0}}, {{0, 0}, {0, 0}}}
 };
 
+// Set of neighboring autotiles -> autotile variant
+// Each neighbor is represented by a single bit (1 - same autotile, 0 - any other case)
+// The bits are ordered as follows (from most to least significant bit): NW N NE W E SW S SE
+static const std::unordered_map<uint8_t, int> AUTOTILE_D_VARIANTS_MAP = { //it also works with A
+	{0b11111111, 0},
+	{0b01111111, 1},
+	{0b11011111, 2},
+	{0b01011111, 3},
+	{0b11111110, 4},
+	{0b01111110, 5},
+	{0b11011110, 6},
+	{0b01011110, 7},
+	{0b11111011, 8},
+	{0b01111011, 9},
+	{0b11011011, 10},
+	{0b01011011, 11},
+	{0b11111010, 12},
+	{0b01111010, 13},
+	{0b11011010, 14},
+	{0b01011010, 15},
+	{0b01101011, 16},
+	{0b01001011, 17},
+	{0b01101010, 18},
+	{0b01001010, 19},
+	{0b00011111, 20},
+	{0b00011110, 21},
+	{0b00011011, 22},
+	{0b00011010, 23},
+	{0b11010110, 24},
+	{0b11010010, 25},
+	{0b01010110, 26},
+	{0b01010010, 27},
+	{0b11111000, 28},
+	{0b01111000, 29},
+	{0b11011000, 30},
+	{0b01011000, 31},
+	{0b01000010, 32},
+	{0b00011000, 33},
+	{0b00001011, 34},
+	{0b00001010, 35},
+	{0b00010110, 36},
+	{0b00010010, 37},
+	{0b11010000, 38},
+	{0b01010000, 39},
+	{0b01101000, 40},
+	{0b01001000, 41},
+	{0b00000010, 42},
+	{0b00001000, 43},
+	{0b01000000, 44},
+	{0b00010000, 45},
+	{0b00000000, 46}
+};
+
 TilemapLayer::TilemapLayer(int ilayer) :
 	substitutions(Game_Map::GetTilesLayer(ilayer)),
 	layer(ilayer),
@@ -205,17 +258,17 @@ static uint32_t MakeAbTileHash(int id, int anim_step) {
 	return static_cast<uint32_t>((id + (anim_step << 12)) | (4 << 24));
 }
 
-void TilemapLayer::Draw(Bitmap& dst, uint8_t z_order) {
+void TilemapLayer::Draw(Bitmap& dst, uint8_t z_order, int render_ox, int render_oy) {
 	// Get the number of tiles that can be displayed on window
-	int tiles_x = (int)ceil(DisplayUi->GetWidth() / (float)TILE_SIZE);
-	int tiles_y = (int)ceil(DisplayUi->GetHeight() / (float)TILE_SIZE);
+	int tiles_x = (int)ceil(Player::screen_width / (float)TILE_SIZE);
+	int tiles_y = (int)ceil(Player::screen_height / (float)TILE_SIZE);
 
 	// If ox or oy are not equal to the tile size draw the next tile too
 	// to prevent black (empty) tiles at the borders
-	if (ox % TILE_SIZE != 0) {
+	if ((ox - render_ox) % TILE_SIZE != 0) {
 		++tiles_x;
 	}
-	if (oy % TILE_SIZE != 0) {
+	if ((oy - render_oy) % TILE_SIZE != 0) {
 		++tiles_y;
 	}
 
@@ -232,7 +285,7 @@ void TilemapLayer::Draw(Bitmap& dst, uint8_t z_order) {
 	};
 
 	// FIXME: When Game_Map singleton is made an object we can remove this null check
-	const auto frames = Main_Data::game_system ? Main_Data::game_system->GetFrameCounter() : 0;
+	const auto frames = Main_Data::game_system ? static_cast<uint32_t>(Main_Data::game_system->GetFrameCounter()) : 0u;
 	auto animation_step_c = (frames / 6) % 4;
 	auto animation_step_ab = frames / animation_speed;
 	if (animation_type) {
@@ -244,11 +297,11 @@ void TilemapLayer::Draw(Bitmap& dst, uint8_t z_order) {
 		}
 	}
 
-	const int div_ox = div_rounding_down(ox, TILE_SIZE);
-	const int div_oy = div_rounding_down(oy, TILE_SIZE);
+	const int div_ox = div_rounding_down(ox - render_ox, TILE_SIZE);
+	const int div_oy = div_rounding_down(oy - render_oy, TILE_SIZE);
 
-	const int mod_ox = mod(ox, TILE_SIZE);
-	const int mod_oy = mod(oy, TILE_SIZE);
+	const int mod_ox = mod(ox - render_ox, TILE_SIZE);
+	const int mod_oy = mod(oy - render_oy, TILE_SIZE);
 
 	for (int y = 0; y < tiles_y; y++) {
 		for (int x = 0; x < tiles_x; x++) {
@@ -259,9 +312,6 @@ void TilemapLayer::Draw(Bitmap& dst, uint8_t z_order) {
 			if (loop_h) map_x = mod(map_x, width);
 			if (loop_v) map_y = mod(map_y, height);
 
-			int map_draw_x = x * TILE_SIZE - mod_ox;
-			int map_draw_y = y * TILE_SIZE - mod_oy;
-
 			bool out_of_bounds =
 				map_x < 0 || map_x >= width ||
 				map_y < 0 || map_y >= height;
@@ -269,6 +319,9 @@ void TilemapLayer::Draw(Bitmap& dst, uint8_t z_order) {
 			if (out_of_bounds) {
 				continue;
 			}
+
+			int map_draw_x = x * TILE_SIZE - mod_ox;
+			int map_draw_y = y * TILE_SIZE - mod_oy;
 
 			// Get the tile data
 			TileData &tile = GetDataCache(map_x, map_y);
@@ -376,37 +429,45 @@ void TilemapLayer::CreateTileCache(const std::vector<short>& nmap_data) {
 	data_cache_vec.resize(width * height);
 	for (int x = 0; x < width; x++) {
 		for (int y = 0; y < height; y++) {
-			TileData tile;
-
-			// Get the tile ID
-			tile.ID = nmap_data[x + y * width];
-
-			tile.z = TileBelow;
-
-			// Calculate the tile Z
-			if (!passable.empty()) {
-				if (tile.ID >= BLOCK_F) { // Upper layer
-					if ((passable[substitutions[tile.ID - BLOCK_F]] & Passable::Above) != 0)
-						tile.z = TileAbove + 1; // Upper sublayer
-					else
-						tile.z = TileBelow + 1; // Lower sublayer
-
-				} else { // Lower layer
-					int chip_index =
-						tile.ID >= BLOCK_E ? substitutions[tile.ID - BLOCK_E] + 18 :
-						tile.ID >= BLOCK_D ? (tile.ID - BLOCK_D) / 50 + 6 :
-						tile.ID >= BLOCK_C ? (tile.ID - BLOCK_C) / 50 + 3 :
-						tile.ID / 1000;
-					if ((passable[chip_index] & (Passable::Wall | Passable::Above)) != 0)
-						tile.z = TileAbove; // Upper sublayer
-					else
-						tile.z = TileBelow; // Lower sublayer
-
-				}
-			}
-			GetDataCache(x, y) = tile;
+			auto tile_id = nmap_data[x + y * width];
+			CreateTileCacheAt(x, y, tile_id);
 		}
 	}
+}
+
+void TilemapLayer::CreateTileCacheAt(int x, int y, int tile_id) {
+	TileData tile;
+	tile.ID = static_cast<short>(tile_id);
+	tile.z = TileBelow;
+
+	// Calculate the tile Z
+	if (!passable.empty()) {
+		if (tile.ID >= BLOCK_F) { // Upper layer
+			if ((passable[substitutions[tile.ID - BLOCK_F]] & Passable::Above) != 0)
+				tile.z = TileAbove + 1; // Upper sublayer
+			else
+				tile.z = TileBelow + 1; // Lower sublayer
+
+		} else { // Lower layer
+			int chip_index =
+					tile.ID >= BLOCK_E ? substitutions[tile.ID - BLOCK_E] + 18 :
+					tile.ID >= BLOCK_D ? (tile.ID - BLOCK_D) / 50 + 6 :
+					tile.ID >= BLOCK_C ? (tile.ID - BLOCK_C) / 50 + 3 :
+					tile.ID / 1000;
+			if ((passable[chip_index] & (Passable::Wall | Passable::Above)) != 0)
+				tile.z = TileAbove; // Upper sublayer
+			else
+				tile.z = TileBelow; // Lower sublayer
+
+		}
+	}
+	GetDataCache(x, y) = tile;
+}
+
+void TilemapLayer::RecreateTileDataAt(int x, int y, int tile_id) {
+	map_data[x + y * width] = static_cast<short>(tile_id);
+	Game_Map::ReplaceTileAt(x, y, tile_id, layer);
+	CreateTileCacheAt(x, y, tile_id);
 }
 
 void TilemapLayer::GenerateAutotileAB(short ID, short animID) {
@@ -583,10 +644,14 @@ BitmapRef TilemapLayer::GenerateAutotiles(int count, const std::unordered_map<ui
 		// unpack the quarters data
 		for (int j = 0; j < 2; j++) {
 			for (int i = 0; i < 2; i++) {
+				constexpr int mask = ~(0xFu << 28);
+
 				int x = quarters_hash >> 28;
+				quarters_hash &= mask;
 				quarters_hash <<= 4;
 
 				int y = quarters_hash >> 28;
+				quarters_hash &= mask;
 				quarters_hash <<= 4;
 
 				rect.x = (x * 2 + i) * (TILE_SIZE/2);
@@ -657,6 +722,141 @@ void TilemapLayer::SetMapData(std::vector<short> nmap_data) {
 	map_data = std::move(nmap_data);
 }
 
+static inline bool IsTileFromBlock(int tile_id, int block) {
+	switch (block) {
+	case BLOCK_A: return tile_id >= BLOCK_A && tile_id < BLOCK_A_END;
+	case BLOCK_B: return tile_id >= BLOCK_B && tile_id < BLOCK_B_END;
+	case BLOCK_C: return tile_id >= BLOCK_C && tile_id < BLOCK_C_END;
+	case BLOCK_D: return tile_id >= BLOCK_D && tile_id < BLOCK_D_END;
+	case BLOCK_E: return tile_id >= BLOCK_E && tile_id < BLOCK_E_END;
+	case BLOCK_F: return tile_id >= BLOCK_F && tile_id < BLOCK_F_END;
+	default: return false;
+	}
+}
+
+void TilemapLayer::SetMapTileDataAt(int x, int y, int tile_id, bool disable_autotile) {
+	if(!IsInMapBounds(x, y))
+		return;
+
+	substitutions = Game_Map::GetTilesLayer(layer);
+
+	bool is_autotile = IsTileFromBlock(tile_id, BLOCK_A) || IsTileFromBlock(tile_id, BLOCK_B) || IsTileFromBlock(tile_id, BLOCK_D);
+
+	if (disable_autotile || !is_autotile) {
+		RecreateTileDataAt(x, y, tile_id);
+	} else {
+		// Recalculate the replaced tile itself + every neighboring tile
+		static constexpr struct { int dx; int dy; } adjacent[8] = {
+				{-1, -1}, { 0, -1}, { 1, -1},
+				{-1,  0}, { 1,  0},
+				{-1,  1}, { 0,  1}, { 1,  1}
+		};
+
+		// TODO: make it work for AB autotiles
+		RecalculateAutotile(x, y, tile_id);
+
+		for (const auto& adj : adjacent) {
+			auto nx = x + adj.dx;
+			auto ny = y + adj.dy;
+			if (IsInMapBounds(nx, ny)) {
+				RecalculateAutotile(nx, ny, GetDataCache(nx, ny).ID);
+			}
+		}
+	}
+
+	SetMapData(map_data);
+}
+
+static inline bool IsAutotileD(int tile_id) {
+	return tile_id >= BLOCK_D && tile_id < BLOCK_E;
+}
+
+static inline bool IsSameAutotileAB(int current_tile_id, int neighbor_tile_id) {
+	// Special case for water tiles - allow mixing of A and B blocks
+	bool current_is_water = (IsTileFromBlock(current_tile_id, BLOCK_A) ||
+		IsTileFromBlock(current_tile_id, BLOCK_B));
+	bool neighbor_is_water = (IsTileFromBlock(neighbor_tile_id, BLOCK_A) ||
+		IsTileFromBlock(neighbor_tile_id, BLOCK_B));
+
+	if (current_is_water && neighbor_is_water) {
+		return true;
+	}
+
+	// For non-water tiles, keep original behavior of requiring same block
+	if (IsTileFromBlock(current_tile_id, BLOCK_A) && IsTileFromBlock(neighbor_tile_id, BLOCK_A)) {
+		return true;
+	}
+	if (IsTileFromBlock(current_tile_id, BLOCK_B) && IsTileFromBlock(neighbor_tile_id, BLOCK_B)) {
+		return true;
+	}
+	return false;
+}
+
+static inline bool IsSameAutotileD(int current_tile_id, int neighbor_tile_id) {
+	return ChipIdToIndex(current_tile_id) == ChipIdToIndex(neighbor_tile_id);
+}
+
+static inline void ApplyCornerFixups(uint8_t& neighbors) {
+	// Northwest corner
+	if ((neighbors & NEIGHBOR_NW) && (neighbors & (NEIGHBOR_N | NEIGHBOR_W)) != (NEIGHBOR_N | NEIGHBOR_W)) {
+		neighbors &= ~NEIGHBOR_NW;
+	}
+
+	// Northeast corner
+	if ((neighbors & NEIGHBOR_NE) && (neighbors & (NEIGHBOR_N | NEIGHBOR_E)) != (NEIGHBOR_N | NEIGHBOR_E)) {
+		neighbors &= ~NEIGHBOR_NE;
+	}
+
+	// Southwest corner
+	if ((neighbors & NEIGHBOR_SW) && (neighbors & (NEIGHBOR_S | NEIGHBOR_W)) != (NEIGHBOR_S | NEIGHBOR_W)) {
+		neighbors &= ~NEIGHBOR_SW;
+	}
+
+	// Southeast corner
+	if ((neighbors & NEIGHBOR_SE) && (neighbors & (NEIGHBOR_S | NEIGHBOR_E)) != (NEIGHBOR_S | NEIGHBOR_E)) {
+		neighbors &= ~NEIGHBOR_SE;
+	}
+}
+
+void TilemapLayer::RecalculateAutotile(int x, int y, int tile_id) {
+	static constexpr struct { int dx; int dy; uint8_t bit; } adjacent[8] = {
+		{-1, -1, NEIGHBOR_NW}, { 0, -1, NEIGHBOR_N}, { 1, -1, NEIGHBOR_NE},
+		{-1,  0, NEIGHBOR_W }, { 1,  0, NEIGHBOR_E},
+		{-1,  1, NEIGHBOR_SW}, { 0,  1, NEIGHBOR_S}, { 1,  1, NEIGHBOR_SE}
+	};
+
+	auto calculateNeighbors = [&](auto isSameAutotileFn) {
+		uint8_t neighbors = 0;
+		for (const auto& adj : adjacent) {
+			auto nx = x + adj.dx;
+			auto ny = y + adj.dy;
+			auto adj_tile_id = IsInMapBounds(nx, ny) ? GetDataCache(nx, ny).ID : tile_id;
+			if (isSameAutotileFn(tile_id, adj_tile_id)) {
+				neighbors |= adj.bit;
+			}
+		}
+		ApplyCornerFixups(neighbors);
+		return neighbors;
+		};
+
+	auto processBlock = [&](int /*blockType*/, int blockStride, int blockBase, auto isSameAutotileFn) {
+		uint8_t neighbors = calculateNeighbors(isSameAutotileFn);
+		int block = (tile_id - blockBase) / blockStride;
+		int variant = AUTOTILE_D_VARIANTS_MAP.at(neighbors);
+		int new_tile_id = blockBase + (block * blockStride) + variant;
+		RecreateTileDataAt(x, y, new_tile_id);
+		};
+
+	if (IsTileFromBlock(tile_id, BLOCK_A)) {
+		processBlock(BLOCK_A, BLOCK_A_STRIDE, BLOCK_A, IsSameAutotileAB);
+	}
+	if (IsTileFromBlock(tile_id, BLOCK_B)) {
+		processBlock(BLOCK_B, BLOCK_B_STRIDE, BLOCK_B, IsSameAutotileAB);
+	}
+	if (IsTileFromBlock(tile_id, BLOCK_D)) {
+		processBlock(BLOCK_D, BLOCK_D_STRIDE, BLOCK_D, IsSameAutotileD);
+	}
+}
 void TilemapLayer::SetPassable(std::vector<unsigned char> npassable) {
 	passable = std::move(npassable);
 
@@ -665,6 +865,8 @@ void TilemapLayer::SetPassable(std::vector<unsigned char> npassable) {
 }
 
 void TilemapLayer::OnSubstitute() {
+	substitutions = Game_Map::GetTilesLayer(layer);
+
 	// Recalculate z values of all tiles
 	CreateTileCache(map_data);
 }
@@ -682,7 +884,7 @@ void TilemapSubLayer::Draw(Bitmap& dst) {
 		return;
 	}
 
-	tilemap->Draw(dst, GetZ());
+	tilemap->Draw(dst, internal_z, GetRenderOx(), GetRenderOy());
 }
 
 void TilemapLayer::SetTone(Tone tone) {

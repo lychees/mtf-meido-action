@@ -99,9 +99,7 @@ Bitmap::Bitmap(Filesystem_Stream::InputStream stream, bool transparent, uint32_t
 		return;
 	}
 
-	int w = 0;
-	int h = 0;
-	void* pixels = nullptr;
+	ImageOut image_out;
 
 	uint8_t data[4] = {};
 	size_t bytes = stream.read(reinterpret_cast<char*>(data),  4).gcount();
@@ -109,57 +107,58 @@ Bitmap::Bitmap(Filesystem_Stream::InputStream stream, bool transparent, uint32_t
 
 	bool img_okay = false;
 
-	if (bytes >= 4 && strncmp((char*)data, "XYZ1", 4) == 0)
-		img_okay = ImageXYZ::ReadXYZ(stream, transparent, w, h, pixels);
-	else if (bytes > 2 && strncmp((char*)data, "BM", 2) == 0)
-		img_okay = ImageBMP::ReadBMP(stream, transparent, w, h, pixels);
-	else if (bytes >= 4 && strncmp((char*)(data + 1), "PNG", 3) == 0)
-		img_okay = ImagePNG::ReadPNG(stream, transparent, w, h, pixels);
-	else
+	if (bytes >= 4 && strncmp((char*)data, "XYZ1", 4) == 0) {
+		img_okay = ImageXYZ::Read(stream, transparent, image_out);
+	} else if (bytes > 2 && strncmp((char*)data, "BM", 2) == 0) {
+		img_okay = ImageBMP::Read(stream, transparent, image_out);
+	} else if (bytes >= 4 && strncmp((char*)(data + 1), "PNG", 3) == 0) {
+		img_okay = ImagePNG::Read(stream, transparent, image_out);
+	} else
 		Output::Warning("Unsupported image file {} (Magic: {:02X})", stream.GetName(), *reinterpret_cast<uint32_t*>(data));
 
 	if (!img_okay) {
-		free(pixels);
-		pixels = nullptr;
+		free(image_out.pixels);
 		return;
 	}
 
-	Init(w, h, nullptr);
+	Init(image_out.width, image_out.height, nullptr);
 
-	ConvertImage(w, h, pixels, transparent);
+	ConvertImage(image_out.width, image_out.height, image_out.pixels, transparent, flags);
 
 	CheckPixels(flags);
 
-	filename = ToString(stream.GetName());
+	original_bpp = image_out.bpp;
+
+	id = ToString(stream.GetName());
 }
 
 Bitmap::Bitmap(const uint8_t* data, unsigned bytes, bool transparent, uint32_t flags) {
 	format = (transparent ? pixel_format : opaque_pixel_format);
 	pixman_format = find_format(format);
 
-	int w = 0, h = 0;
-	void* pixels = nullptr;
+	ImageOut image_out;
 
 	bool img_okay = false;
 
 	if (bytes > 4 && strncmp((char*) data, "XYZ1", 4) == 0)
-		img_okay = ImageXYZ::ReadXYZ(data, bytes, transparent, w, h, pixels);
+		img_okay = ImageXYZ::Read(data, bytes, transparent, image_out);
 	else if (bytes > 2 && strncmp((char*) data, "BM", 2) == 0)
-		img_okay = ImageBMP::ReadBMP(data, bytes, transparent, w, h, pixels);
+		img_okay = ImageBMP::Read(data, bytes, transparent, image_out);
 	else if (bytes > 4 && strncmp((char*)(data + 1), "PNG", 3) == 0)
-		img_okay = ImagePNG::ReadPNG((const void*) data, transparent, w, h, pixels);
+		img_okay = ImagePNG::Read((const void*) data, transparent, image_out);
 	else
 		Output::Warning("Unsupported image (Magic: {:02X})", bytes >= 4 ? *reinterpret_cast<const uint32_t*>(data) : 0);
 
 	if (!img_okay) {
-		free(pixels);
-		pixels = nullptr;
+		free(image_out.pixels);
 		return;
 	}
 
-	Init(w, h, nullptr);
+	Init(image_out.width, image_out.height, nullptr);
 
-	ConvertImage(w, h, pixels, transparent);
+	ConvertImage(image_out.width, image_out.height, image_out.pixels, transparent, flags);
+
+	original_bpp = image_out.bpp;
 
 	CheckPixels(flags);
 }
@@ -173,17 +172,23 @@ Bitmap::Bitmap(Bitmap const& source, Rect const& src_rect, bool transparent) {
 	Blit(0, 0, source, src_rect, Opacity::Opaque());
 }
 
-bool Bitmap::WritePNG(Filesystem_Stream::OutputStream& os) const {
+bool Bitmap::WritePNG(std::ostream& os) const {
 	size_t const width = GetWidth(), height = GetHeight();
 	size_t const stride = width * 4;
 
 	std::vector<uint32_t> data(width * height);
 
-	auto dst = PixmanImagePtr{pixman_image_create_bits(PIXMAN_b8g8r8, width, height, &data.front(), stride)};
+#ifdef WORDS_BIGENDIAN
+	auto format = PIXMAN_r8g8b8;
+#else
+	auto format = PIXMAN_b8g8r8;
+#endif
+
+	auto dst = PixmanImagePtr{pixman_image_create_bits(format, width, height, &data.front(), stride)};
 	pixman_image_composite32(PIXMAN_OP_SRC, bitmap.get(), NULL, dst.get(),
 							 0, 0, 0, 0, 0, 0, width, height);
 
-	return ImagePNG::WritePNG(os, width, height, &data.front());
+	return ImagePNG::Write(os, width, height, &data.front());
 }
 
 size_t Bitmap::GetSize() const {
@@ -195,12 +200,16 @@ size_t Bitmap::GetSize() const {
 }
 
 ImageOpacity Bitmap::ComputeImageOpacity() const {
+	if (!GetTransparent()) {
+		return ImageOpacity::Opaque;
+	}
+
 	bool all_opaque = true;
 	bool all_transp = true;
 	bool alpha_1bit = true;
 
 	auto* p = reinterpret_cast<const uint32_t*>(pixels());
-	const auto mask = pixel_format.rgba_to_uint32_t(0, 0, 0, 0xFF);
+	const auto mask = format.rgba_to_uint32_t(0, 0, 0, 0xFF);
 
 	int n = GetSize() / sizeof(uint32_t);
 	for (int i = 0; i < n; ++i ) {
@@ -220,6 +229,10 @@ ImageOpacity Bitmap::ComputeImageOpacity() const {
 }
 
 ImageOpacity Bitmap::ComputeImageOpacity(Rect rect) const {
+	if (!GetTransparent()) {
+		return ImageOpacity::Opaque;
+	}
+
 	bool all_opaque = true;
 	bool all_transp = true;
 	bool alpha_1bit = true;
@@ -229,7 +242,7 @@ ImageOpacity Bitmap::ComputeImageOpacity(Rect rect) const {
 
 	auto* p = reinterpret_cast<const uint32_t*>(pixels());
 	const int stride = pitch() / sizeof(uint32_t);
-	const auto mask = pixel_format.rgba_to_uint32_t(0, 0, 0, 0xFF);
+	const auto mask = format.rgba_to_uint32_t(0, 0, 0, 0xFF);
 
 	int xend = (rect.x + rect.width);
 	int yend = (rect.y + rect.height);
@@ -285,6 +298,20 @@ void Bitmap::CheckPixels(uint32_t flags) {
 	}
 }
 
+Color Bitmap::GetColorAt(int x, int y) const {
+	if (x < 0 || x >= width() || y < 0 || y >= height()) {
+		return {};
+	}
+
+	Color color;
+
+	const uint8_t* pos = &reinterpret_cast<const uint8_t*>(pixels())[y * pitch() + x * bpp()];
+	uint32_t pixel = *reinterpret_cast<const uint32_t*>(pos);
+	format.uint32_to_rgba(pixel, color.red, color.green, color.blue, color.alpha);
+
+	return color;
+}
+
 void Bitmap::HueChangeBlit(int x, int y, Bitmap const& src, Rect const& src_rect_, double hue_) {
 	Rect dst_rect(x, y, 0, 0), src_rect = src_rect_;
 
@@ -319,57 +346,65 @@ void Bitmap::HueChangeBlit(int x, int y, Bitmap const& src, Rect const& src_rect
 	Blit(dst_rect.x, dst_rect.y, bmp, bmp.GetRect(), Opacity::Opaque());
 }
 
-Point Bitmap::TextDraw(Rect const& rect, int color, StringView text, Text::Alignment align) {
-	FontRef font = Font::Default();
-	Rect text_rect = font->GetSize(text);
-	int dx = text_rect.width - rect.width;
-
+Point Bitmap::TextDraw(Rect const& rect, int color, std::string_view text, Text::Alignment align) {
 	switch (align) {
 	case Text::AlignLeft:
 		return TextDraw(rect.x, rect.y, color, text);
 		break;
-	case Text::AlignCenter:
-		return TextDraw(rect.x + dx / 2, rect.y, color, text);
+	case Text::AlignCenter: {
+		auto f = font ? font : Font::Default();
+		Rect text_rect = Text::GetSize(*f, text);
+		int dx = rect.x + (rect.width - text_rect.width) / 2;
+		return TextDraw(dx, rect.y, color, text);
 		break;
-	case Text::AlignRight:
-		return TextDraw(rect.x + dx, rect.y, color, text);
+	}
+	case Text::AlignRight: {
+		auto f = font ? font : Font::Default();
+		Rect text_rect = Text::GetSize(*f, text);
+		int dx = rect.x + rect.width - text_rect.width;
+		return TextDraw(dx, rect.y, color, text);
 		break;
+	}
 	default: assert(false);
 	}
 
-	return Point();
+	return {};
 }
 
-Point Bitmap::TextDraw(int x, int y, int color, StringView text, Text::Alignment align) {
-	auto font = Font::Default();
+Point Bitmap::TextDraw(int x, int y, int color, std::string_view text, Text::Alignment align) {
+	auto f = font ? font : Font::Default();
 	auto system = Cache::SystemOrBlack();
-	return Text::Draw(*this, x, y, *font, *system, color, text, align);
+	return Text::Draw(*this, x, y, *f, *system, color, text, align);
 }
 
-Point Bitmap::TextDraw(Rect const& rect, Color color, StringView text, Text::Alignment align) {
-	FontRef font = Font::Default();
-	Rect text_rect = font->GetSize(text);
-	int dx = text_rect.width - rect.width;
-
+Point Bitmap::TextDraw(Rect const& rect, Color color, std::string_view text, Text::Alignment align) {
 	switch (align) {
 	case Text::AlignLeft:
 		return TextDraw(rect.x, rect.y, color, text);
 		break;
-	case Text::AlignCenter:
-		return TextDraw(rect.x + dx / 2, rect.y, color, text);
+	case Text::AlignCenter: {
+		auto f = font ? font : Font::Default();
+		Rect text_rect = Text::GetSize(*f, text);
+		int dx = rect.x + (rect.width - text_rect.width) / 2;
+		return TextDraw(dx, rect.y, color, text);
 		break;
-	case Text::AlignRight:
-		return TextDraw(rect.x + dx, rect.y, color, text);
+	}
+	case Text::AlignRight: {
+		auto f = font ? font : Font::Default();
+		Rect text_rect = Text::GetSize(*f, text);
+		int dx = rect.x + rect.width - text_rect.width;
+		return TextDraw(dx, rect.y, color, text);
 		break;
+	}
 	default: assert(false);
 	}
 
-	return Point();
+	return {};
 }
 
-Point Bitmap::TextDraw(int x, int y, Color color, StringView text) {
-	auto font = Font::Default();
-	return Text::Draw(*this, x, y, *font, color, text);
+Point Bitmap::TextDraw(int x, int y, Color color, std::string_view text) {
+	auto f = font ? font : Font::Default();
+	return Text::Draw(*this, x, y, *f, color, text);
 }
 
 Rect Bitmap::TransformRectangle(const Transform& xform, const Rect& rect) {
@@ -508,18 +543,37 @@ void Bitmap::Init(int width, int height, void* data, int pitch, bool destroy) {
 		pixman_image_set_destroy_function(bitmap.get(), destroy_func, data);
 }
 
-void Bitmap::ConvertImage(int& width, int& height, void*& pixels, bool transparent) {
+void Bitmap::ConvertImage(int& width, int& height, void*& pixels, bool transparent, uint32_t flags) {
 	const DynamicFormat& img_format = transparent ? image_format : opaque_image_format;
 
 	// premultiply alpha
-	for (int y = 0; y < height; y++) {
-		uint8_t* dst = (uint8_t*) pixels + y * width * 4;
-		for (int x = 0; x < width; x++) {
-			uint8_t &r = *dst++;
-			uint8_t &g = *dst++;
-			uint8_t &b = *dst++;
-			uint8_t &a = *dst++;
-			MultiplyAlpha(r, g, b, a);
+	if ((flags & Flag_SystemBgPreserveColor) == 0) {
+		for (int y = 0; y < height; y++) {
+			uint8_t* dst = (uint8_t*) pixels + y * width * 4;
+			for (int x = 0; x < width; x++) {
+				uint8_t &r = *dst++;
+				uint8_t &g = *dst++;
+				uint8_t &b = *dst++;
+				uint8_t &a = *dst++;
+				MultiplyAlpha(r, g, b, a);
+			}
+		}
+	} else {
+		for (int y = 0; y < height; y++) {
+			uint8_t* dst = (uint8_t*) pixels + y * width * 4;
+			for (int x = 0; x < width; x++) {
+				uint8_t &r = *dst++;
+				uint8_t &g = *dst++;
+				uint8_t &b = *dst++;
+				uint8_t &a = *dst++;
+
+				// Skip alpha calculation for 32x32 system background graphic
+				if (x < 32 && y < 32) {
+					continue;
+				}
+
+				MultiplyAlpha(r, g, b, a);
+			}
 		}
 	}
 
@@ -759,6 +813,9 @@ void Bitmap::ClearRect(Rect const& dst_rect) {
 		dst_rect.x + dst_rect.width,
 		dst_rect.y + dst_rect.height
 	};
+
+	box.x2 = Utils::Clamp<int32_t>(box.x2, 0, width());
+	box.y2 = Utils::Clamp<int32_t>(box.y2, 0, height());
 
 	pixman_image_fill_boxes(PIXMAN_OP_CLEAR, bitmap.get(), &pcolor, 1, &box);
 }

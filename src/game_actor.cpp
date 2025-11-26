@@ -21,7 +21,6 @@
 #include <iterator>
 #include "game_actor.h"
 #include "game_battle.h"
-#include "game_message.h"
 #include "game_party.h"
 #include "sprite_actor.h"
 #include "main_data.h"
@@ -32,10 +31,10 @@
 #include "util_macro.h"
 #include "utils.h"
 #include "pending_message.h"
-#include "compiler.h"
 #include "attribute.h"
 #include "rand.h"
 #include "algo.h"
+#include "game_message_terms.h"
 
 constexpr int max_level_2k = 50;
 constexpr int max_level_2k3 = 99;
@@ -131,6 +130,11 @@ Game_Actor::Game_Actor(int actor_id) {
 }
 
 void Game_Actor::SetSaveData(lcf::rpg::SaveActor save) {
+	if (data.ID != save.ID) {
+		Output::Debug("Game_Actor: Fixing actor ID mismatch {} != {}", save.ID, data.ID);
+		save.ID = data.ID;
+	}
+
 	data = std::move(save);
 
 	if (Player::IsRPG2k()) {
@@ -271,7 +275,7 @@ bool Game_Actor::LearnSkill(int skill_id, PendingMessage* pm) {
 		std::sort(data.skills.begin(), data.skills.end());
 
 		if (pm) {
-			pm->PushLine(GetLearningMessage(*skill));
+			pm->PushLine(ActorMessage::GetLearningMessage(*this, *skill));
 		}
 
 		return true;
@@ -288,7 +292,12 @@ int Game_Actor::LearnLevelSkills(int min_level, int max_level, PendingMessage* p
 	for (const lcf::rpg::Learning& learn : skills) {
 		// Skill learning, up to current level
 		if (learn.level >= min_level && learn.level <= max_level) {
-			count += LearnSkill(learn.skill_id, pm);
+			const auto* skill = lcf::ReaderUtil::GetElement(lcf::Data::skills, learn.skill_id);
+			if (!skill) {
+				Output::Debug("Actor {}: Level up (level={}). Ignoring invalid skill {}", GetId(), learn.level, learn.skill_id);
+			} else {
+				count += LearnSkill(learn.skill_id, pm);
+			}
 		}
 	}
 	return count;
@@ -347,6 +356,10 @@ int Game_Actor::SetEquipment(int equip_type, int new_item_id) {
 }
 
 void Game_Actor::ChangeEquipment(int equip_type, int item_id) {
+	if (item_id != 0 && !IsItemUsable(item_id)) {
+		return;
+	}
+
 	int prev_item = SetEquipment(equip_type, item_id);
 
 	if (prev_item != 0) {
@@ -385,7 +398,9 @@ void Game_Actor::RemoveWholeEquipment() {
 int Game_Actor::GetItemCount(int item_id) {
 	int number = 0;
 
-	if (item_id > 0) {
+	// quirk: 0 is "no item in slot"
+	// This can be used to count how many slots are empty
+	if (item_id >= 0) {
 		for (int16_t i : GetWholeEquipment()) {
 			if (item_id == i) {
 				++number;
@@ -623,6 +638,7 @@ void Game_Actor::MakeExpList() {
 }
 
 std::string Game_Actor::GetExpString(bool status_scene) const {
+	(void)status_scene;
 	// RPG_RT displays dashes for max level. As a customization
 	// we always display the amount of EXP.
 	// if (GetNextExp() == -1) { return (MaxExpValue() >= 1000000 || status_scene) ? "-------" : "------"; }
@@ -775,48 +791,6 @@ void Game_Actor::SetLevel(int _level) {
 
 }
 
-std::string Game_Actor::GetLevelUpMessage(int new_level) const {
-	std::stringstream ss;
-	if (Player::IsRPG2k3E()) {
-		ss << GetName();
-		ss << " " << lcf::Data::terms.level_up << " ";
-		ss << " " << lcf::Data::terms.level << " " << new_level;
-		return ss.str();
-	} else if (Player::IsRPG2kE()) {
-		ss << new_level;
-		return Utils::ReplacePlaceholders(
-			lcf::Data::terms.level_up,
-			Utils::MakeArray('S', 'V', 'U'),
-			Utils::MakeSvArray(GetName(), ss.str(), lcf::Data::terms.level)
-		);
-	} else {
-		std::string particle, space = "";
-		if (Player::IsCP932()) {
-			particle = "は";
-			space += " ";
-		}
-		else {
-			particle = " ";
-		}
-		ss << GetName();
-		ss << particle << lcf::Data::terms.level << " ";
-		ss << new_level << space << lcf::Data::terms.level_up;
-		return ss.str();
-	}
-}
-
-std::string Game_Actor::GetLearningMessage(const lcf::rpg::Skill& skill) const {
-	if (Player::IsRPG2kE()) {
-		return Utils::ReplacePlaceholders(
-			lcf::Data::terms.skill_learned,
-			Utils::MakeArray('S', 'O'),
-			Utils::MakeSvArray(GetName(), skill.name)
-		);
-	}
-
-	return ToString(skill.name) + (Player::IsRPG2k3E() ? " " : "") + ToString(lcf::Data::terms.skill_learned);
-}
-
 void Game_Actor::ChangeLevel(int new_level, PendingMessage* pm) {
 	int old_level = GetLevel();
 	SetLevel(new_level);
@@ -824,7 +798,7 @@ void Game_Actor::ChangeLevel(int new_level, PendingMessage* pm) {
 
 	if (new_level > old_level) {
 		if (pm) {
-			pm->PushLine(GetLevelUpMessage(new_level));
+			pm->PushLine(ActorMessage::GetLevelUpMessage(*this, new_level));
 		}
 
 		// Learn new skills
@@ -891,8 +865,8 @@ Point Game_Actor::GetOriginalPosition() const {
 	return { dbActor->battle_x, dbActor->battle_y };
 }
 
-StringView Game_Actor::GetSkillName() const {
-	return dbActor->rename_skill ? StringView(dbActor->skill_name) : StringView(lcf::Data::terms.command_skill);
+std::string_view Game_Actor::GetSkillName() const {
+	return dbActor->rename_skill ? std::string_view(dbActor->skill_name) : std::string_view(lcf::Data::terms.command_skill);
 }
 
 void Game_Actor::SetSprite(const std::string &file, int index, bool transparent) {
@@ -1097,7 +1071,7 @@ void Game_Actor::ChangeClass(int new_class_id,
 
 	SetLevel(new_level);
 	if (pm && new_level > 1 && (new_level > prev_level || new_skill != eSkillNoChange)) {
-		pm->PushLine(GetLevelUpMessage(new_level));
+		pm->PushLine(ActorMessage::GetLevelUpMessage(*this, new_level));
 	}
 
 	// RPG_RT always resets EXP when class is changed, even if level unchanged.
@@ -1129,11 +1103,11 @@ void Game_Actor::ChangeClass(int new_class_id,
 	}
 }
 
-StringView Game_Actor::GetClassName() const {
-    if (!GetClass()) {
-        return {};
-    }
-    return GetClass()->name;
+std::string_view Game_Actor::GetClassName() const {
+	if (!GetClass()) {
+		return {};
+	}
+	return GetClass()->name;
 }
 
 static int ClampMaxHpMod(int hp, const Game_Actor* actor) {

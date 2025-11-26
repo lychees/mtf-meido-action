@@ -26,6 +26,7 @@
 #include "input_buttons.h"
 #include "input_source.h"
 #include "keys.h"
+#include "game_config.h"
 
 /**
  * Input namespace.
@@ -39,16 +40,14 @@ namespace Input {
 	/**
 	 * Initializes Input.
 	 *
-	 * @param buttons the button mappings to use
-	 * @param directions the direction mappings to use
+	 * @param cfg input configuration
 	 * @param replay_from_path path to a log file to
 	 *  replay from, or the empty string if not replaying
 	 * @param record_to_path path to a file to record
 	 *  input to, or the empty string if not recording
 	 */
 	void Init(
-		ButtonMappingArray buttons,
-		DirectionMappingArray directions,
+		Game_ConfigInput cfg,
 		const std::string& replay_from_path,
 		const std::string& record_to_path
 	);
@@ -72,6 +71,23 @@ namespace Input {
 	 * Resets only triggered states.
 	 */
 	void ResetTriggerKeys();
+
+	/**
+	 * Resets all button states of buttons that are not system keys.
+	 */
+	void ResetNonSystemKeys();
+
+	/**
+	 * Loads the default mapping for a button
+	 *
+	 * @param button Button to restore mapping of
+	 */
+	void ResetDefaultMapping(InputButton button);
+
+	/**
+	 * Loads the default mapping for all buttons
+	 */
+	void ResetAllMappings();
 
 	/**
 	 * Gets if a button is being pressed.
@@ -265,12 +281,6 @@ namespace Input {
 	 */
 	const Input::KeyStatus& GetAllRawReleased();
 
-	/** return horizontal and vertical directions state. */
-	int getDir4();
-
-	/** return all cardinal directions state. */
-	int getDir8();
-
 	/**
 	 * @return Position of the mouse cursor relative to the screen
 	 */
@@ -281,10 +291,26 @@ namespace Input {
 	 * @param type type of data sent
 	 * @param data Sent data
 	 */
-	void AddRecordingData(RecordingData type, StringView data);
+	void AddRecordingData(RecordingData type, std::string_view data);
 
 	/** @return If the input is recorded */
 	bool IsRecording();
+
+	/**
+	 * Used to access the underlying input source.
+	 * Only use this for low level access!
+	 * @return the input source
+	 */
+	 Source* GetInputSource();
+
+	/**
+	* Used to simulate a button press. This is used for
+	* emulating the behavior of some runtime patches.
+	* Buttons for directional movement will be delegated
+	* to the underlying low level input source.
+	* @param button The input button which should be registered as being 'pressed'
+	*/
+	void SimulateButtonPress(Input::InputButton button);
 
 	/** Buttons press time (in frames). */
 	extern std::array<int, BUTTON_COUNT> press_time;
@@ -307,64 +333,11 @@ namespace Input {
 	/** Raw keys released state. */
 	extern std::bitset<Input::Keys::KEYS_COUNT> raw_released;
 
-	/** Unicode text input for usage in in-game chat. */
-	extern std::string textInput;
-
 	/** Horizontal and vertical directions state. */
 	extern int dir4;
 
 	/** All cardinal directions state. */
 	extern int dir8;
-
-	/** Whether input is being registered for game or external (chat) content */
-	extern bool gameFocused;
-	bool isGameFocused();
-	void setGameFocus(bool game);
-
-	/**
-	 * Gets if an external (chat-focused) button is being pressed.
-	 *
-	 * @param button button ID.
-	 * @return whether the button is being pressed.
-	 */
-	bool IsExternalPressed(InputButton button);
-
-	/**
-	 * Gets if an external (chat-focused) button is starting to being pressed.
-	 *
-	 * @param button button ID.
-	 * @return whether the button is being triggered.
-	 */
-	bool IsExternalTriggered(InputButton button);
-
-	/**
-	 * Gets if an external (chat-focused) button is being repeated. A button is being
-	 * repeated while it is maintained pressed and a
-	 * certain amount of frames has passed after last
-	 * repetition.
-	 *
-	 * @param button button ID.
-	 * @return whether the button is being repeated.
-	 */
-	bool IsExternalRepeated(InputButton button);
-
-	/**
-	 * Gets if an external (chat-focused) button is being released.
-	 *
-	 * @param button button ID.
-	 * @return whether the button is being released.
-	 */
-	bool IsExternalReleased(InputButton button);
-
-	/**
-	 * Gets typed in text at frame. For external focus (chat)
-	 */
-	std::string& getExternalTextInput();
-
-	/**
-	 * Gets clipboard text content.
-	 */
-	std::string getClipboardText();
 
 	bool IsWaitingInput();
 	void WaitInput(bool val);

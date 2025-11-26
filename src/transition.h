@@ -19,6 +19,7 @@
 #define EP_TRANSITION_H
 
 // Headers
+#include <cstdint>
 #include <vector>
 #include <string>
 #include "drawable.h"
@@ -147,6 +148,7 @@ private:
 
 	std::vector<int> zoom_position;
 	std::vector<uint32_t> random_blocks;
+	std::vector<int32_t> mosaic_random_offset;
 	uint32_t current_blocks_print;
 
 	void SetAttributesTransitions();

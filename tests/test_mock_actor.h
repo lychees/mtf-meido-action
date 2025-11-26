@@ -78,11 +78,8 @@ class MockActor {
 public:
 	MockActor(int eng = Player::EngineRpg2k3 | Player::EngineEnglish)
 	{
-		_engine = Player::engine;
-		Player::engine = eng;
-
-		_ll = Output::GetLogLevel();
-		Output::SetLogLevel(LogLevel::Error);
+		_config = Player::game_config;
+		Player::game_config.engine = eng;
 
 		InitEmptyDB();
 
@@ -103,12 +100,10 @@ public:
 		Main_Data::Cleanup();
 
 		lcf::Data::data = {};
-		Player::engine = _engine;
-		Output::SetLogLevel(_ll);
+		Player::game_config = _config;
 	}
 private:
-	int _engine = {};
-	LogLevel _ll = {};
+	Game_ConfigGame _config = {};
 };
 
 struct MockBattle : public MockActor {

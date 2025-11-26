@@ -1,9 +1,7 @@
 // Note: The `Module` context is already initialized as an
 // empty object by emscripten even before the pre script
-Module = {
-  EASYRPG_GAME: "",
-
-  preRun: [],
+Module = { ...Module,
+  preRun: [onPreRun],
   postRun: [],
 
   print: (...args) => {
@@ -17,12 +15,14 @@ Module = {
   canvas: (() => {
     const canvas = document.getElementById('canvas');
 
-    // As a default initial behavior, pop up an alert when webgl context is lost
     // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
     canvas.addEventListener('webglcontextlost', event => {
-      alert('WebGL context lost. You will need to reload the page.');
       event.preventDefault();
     }, false);
+
+    canvas.addEventListener('webglcontextrestored', () => {
+      Module.api.resetCanvas();
+    });
 
     return canvas;
   })(),
@@ -67,7 +67,8 @@ function parseArgs () {
 
     // Filesystem is not ready when processing arguments, store path to game
     if (tmp[0] === "game" && tmp.length > 1) {
-      Module.EASYRPG_GAME = tmp[1].toLowerCase();
+      Module.game = tmp[1];
+      continue;
     }
 
     result.push("--" + tmp[0]);
@@ -88,8 +89,27 @@ function parseArgs () {
   return result;
 }
 
+function onPreRun () {
+  // Retrieve save directory from persistent storage before using it
+  FS.mkdir("Save");
+  FS.mount(Module.saveFs, {}, 'Save');
+
+  // For preserving the configuration. Shared across website
+  FS.mkdir("/home/web_user/.config");
+  FS.mount(IDBFS, {}, '/home/web_user/.config');
+
+  FS.syncfs(true, function(err) {});
+}
+
 Module.setStatus('Downloading...');
 Module.arguments = ["easyrpg-player", ...parseArgs()];
+
+if (Module.game === undefined) {
+  Module.game = "";
+} else {
+  Module.arguments.push("--game", Module.game);
+  Module.game = Module.game.toLowerCase();
+}
 
 // Catch all errors occuring inside the window
 window.addEventListener('error', (event) => {

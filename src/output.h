@@ -21,17 +21,8 @@
 // Headers
 #include <string>
 #include <iosfwd>
-#include <fmt/core.h>
-#include <lcf/dbstring.h>
-
+#include <fmt/format.h>
 #include "filesystem_stream.h"
-
-namespace lcf {
-// FIXME: liblcf doesn't depend on fmt, so we need to add this here to enable fmtlib support for lcf::DBString
-inline fmt::basic_string_view<char> to_string_view(const lcf::DBString& s) {
-	return to_string_view(StringView(s));
-}
-}
 
 enum class LogLevel {
 	Error,
@@ -39,6 +30,10 @@ enum class LogLevel {
 	Info,
 	Debug
 };
+
+using LogCallbackUserData = void*;
+using LogCallbackFn = void (*)(LogLevel lvl, std::string const& message,
+	LogCallbackUserData userdata);
 
 /**
  * Output Namespace.
@@ -50,9 +45,9 @@ namespace Output {
 	/**
 	 * Sets the log level for filtering logs
 	 *
-	 * @param ll the new log level
+	 * @param lvl the new log level
 	 */
-	void SetLogLevel(LogLevel ll);
+	void SetLogLevel(LogLevel lvl);
 
 	/**
 	 * Sets terminal log colors
@@ -69,9 +64,10 @@ namespace Output {
 	/**
 	 * Takes screenshot and save it in the save directory.
 	 *
+	 * @param is_auto_screenshot
 	 * @return true if success, otherwise false.
 	 */
-	bool TakeScreenshot();
+	bool TakeScreenshot(bool is_auto_screenshot = false);
 
 	/**
 	 * Takes screenshot and save it to specified file.
@@ -79,7 +75,7 @@ namespace Output {
 	 * @param file file to save.
 	 * @return true if success, otherwise false.
 	 */
-	bool TakeScreenshot(StringView file);
+	bool TakeScreenshot(std::string_view file);
 
 	/**
 	 * Takes screenshot and save it to specified stream.
@@ -87,7 +83,18 @@ namespace Output {
 	 * @param os output stream that PNG will be stored.
 	 * @return true if success, otherwise false.
 	 */
-	bool TakeScreenshot(Filesystem_Stream::OutputStream& os);
+	bool TakeScreenshot(std::ostream& os);
+
+	std::string GetScreenshotName(bool is_auto_screenshot);
+
+	/**
+	 * Gets the next available file name for a screenshot
+	 *
+	 * @param fs the output path where to store the file
+	 * @param is_auto_screenshot
+	 * @return the file name
+	 */
+	std::string GetNextScreenshotFileName(FilesystemView fs, bool is_auto_screenshot);
 
 	/**
 	 * Shows/Hides the output log overlay.
@@ -100,6 +107,17 @@ namespace Output {
 	 * @param val whether to ignore pause.
 	 */
 	void IgnorePause(bool val);
+
+	/**
+	 * Outputs debug messages over custom logger. Useful for emulators.
+	 *
+	 * @param fn custom callback function
+	 * @param userdata passed as is to callback
+	 */
+	void SetLogCallback(LogCallbackFn fn, LogCallbackUserData userdata = nullptr);
+
+	/** @return the Loglevel as string */
+	std::string LogLevelToString(LogLevel lvl);
 
 	/**
 	 * Displays an info string with formatted string.

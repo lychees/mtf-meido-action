@@ -39,7 +39,7 @@ namespace AsyncHandler {
 	void CreateRequestMapping(const std::string& file);
 
 	/**
-	 * Clears all requests. They will hit the server again.
+	 * Clears all finished requests. They will hit the server again.
 	 * Called after changing the language to ensure the assets are replaced.
 	 */
 	void ClearRequests();
@@ -55,7 +55,7 @@ namespace AsyncHandler {
 	 * @param file_name Name of the requested file requested.
 	 * @return The async request.
 	 */
-	FileRequestAsync* RequestFile(StringView folder_name, StringView file_name);
+	FileRequestAsync* RequestFile(std::string_view folder_name, std::string_view file_name);
 
 	/**
 	 * Creates a request to a file.
@@ -67,7 +67,7 @@ namespace AsyncHandler {
 	 * @param file_name Name of the requested file requested.
 	 * @return The async request.
 	 */
-	FileRequestAsync* RequestFile(StringView file_name);
+	FileRequestAsync* RequestFile(std::string_view file_name);
 
 	/**
 	 * Checks if any file with important-flag hasn't finished downloading yet.
@@ -92,6 +92,12 @@ namespace AsyncHandler {
 	 * @return If any file with params is pending.
 	 */
 	bool IsFilePending(bool important, bool graphic);
+
+	/**
+	 * Saves the state of the Save filesystem.
+	 * Only works on emscripten, noop on other platforms.
+	 */
+	void SaveFilesystem();
 }
 
 using FileRequestBinding = std::shared_ptr<int>;
@@ -221,11 +227,13 @@ private:
  * Contains the result of an async request.
  * directory: Directory name
  * file: Name of requested file
+ * request_id assigned to the callback that fired
  * success: true if requested was successful, otherwise false.
  */
 struct FileRequestResult {
 	const std::string& directory;
 	const std::string& file;
+	int request_id;
 	bool success;
 };
 

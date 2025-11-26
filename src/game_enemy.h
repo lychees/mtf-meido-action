@@ -20,6 +20,7 @@
 
 // Headers
 #include "game_battler.h"
+#include "game_runtime_patches.h"
 #include "sprite_enemy.h"
 #include "player.h"
 #include <lcf/rpg/enemy.h>
@@ -59,7 +60,7 @@ public:
 
 	/**
 	 * Gets the base attribute rate when actor is damaged.
-	 * 
+	 *
 	 * @param attribute_id Attribute to query
 	 * @return Attribute rate
 	 */
@@ -84,7 +85,7 @@ public:
 	 *
 	 * @return Character name
 	 */
-	StringView GetName() const override;
+	std::string_view GetName() const override;
 
 	/** @return The troop member id in the battle lineup */
 	int GetTroopMemberId() const;
@@ -94,7 +95,7 @@ public:
 	 *
 	 * @return Filename of enemy sprite
 	 */
-	StringView GetSpriteName() const override;
+	std::string_view GetSpriteName() const override;
 
 	/**
 	 * Gets the maximum HP for the current level.
@@ -327,27 +328,39 @@ inline int Game_Enemy::GetTroopMemberId() const {
 }
 
 inline int Game_Enemy::GetBaseMaxHp() const {
-	return enemy->max_hp;
+	auto max_hp = enemy->max_hp;
+	RuntimePatches::MonSca::ModifyMaxHp(*this, max_hp);
+	return max_hp;
 }
 
 inline int Game_Enemy::GetBaseMaxSp() const {
-	return enemy->max_sp;
+	auto max_sp = enemy->max_sp;
+	RuntimePatches::MonSca::ModifyMaxSp(*this, max_sp);
+	return max_sp;
 }
 
 inline int Game_Enemy::GetBaseAtk(Weapon) const {
-	return enemy->attack;
+	auto attack = enemy->attack;
+	RuntimePatches::MonSca::ModifyAtk(*this, attack);
+	return attack;
 }
 
 inline int Game_Enemy::GetBaseDef(Weapon) const {
-	return enemy->defense;
+	auto defense = enemy->defense;
+	RuntimePatches::MonSca::ModifyDef(*this, defense);
+	return defense;
 }
 
 inline int Game_Enemy::GetBaseSpi(Weapon) const {
-	return enemy->spirit;
+	auto spirit = enemy->spirit;
+	RuntimePatches::MonSca::ModifySpi(*this, spirit);
+	return spirit;
 }
 
 inline int Game_Enemy::GetBaseAgi(Weapon) const {
-	return enemy->agility;
+	auto agility = enemy->agility;
+	RuntimePatches::MonSca::ModifyAgi(*this, agility);
+	return agility;
 }
 
 inline int Game_Enemy::GetHp() const {
@@ -366,11 +379,11 @@ inline std::vector<int16_t>& Game_Enemy::GetStates() {
 	return states;
 }
 
-inline StringView Game_Enemy::GetName() const {
+inline std::string_view Game_Enemy::GetName() const {
 	return enemy->name;
 }
 
-inline StringView Game_Enemy::GetSpriteName() const {
+inline std::string_view Game_Enemy::GetSpriteName() const {
 	return enemy->battler_name;
 }
 

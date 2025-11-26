@@ -26,6 +26,7 @@
 #include <lcf/rpg/map.h>
 #include "lcf/rpg/mapinfo.h"
 
+#include "baseui.h"
 #include "cache.h"
 #include "font.h"
 #include "main_data.h"
@@ -38,7 +39,6 @@
 
 // Name of the translate directory
 #define TRDIR_NAME "language"
-#define TRDIR_NAME_LEGACY "languages"
 
 // Name of expected files
 #define TRFILE_RPG_RT_LDB    "rpg_rt.ldb.po"
@@ -90,15 +90,17 @@ void Translation::InitTranslations()
 	// Reset
 	Reset();
 
-	// Determine if the "languages" directory exists, and convert its case.
-	auto fs = FileFinder::Game();
-	auto game_tree = fs.ListDirectory();
-	for (const auto& tr_name : *game_tree) {
-		if (tr_name.first == TRDIR_NAME_LEGACY) {
-			Output::Warning("Deprecation warning: Please rename \"languages\" directory to \"language\"");
-			translation_root_fs = fs.Subtree(tr_name.second.name);
-		} else if (tr_name.first == TRDIR_NAME) {
-			translation_root_fs = fs.Subtree(tr_name.second.name);
+	// Try the command-line --language-path option first before checking Language folder.
+	translation_root_fs = FileFinder::Language();
+	if (!translation_root_fs) {
+		// Determine if the "languages" directory exists, and convert its case.
+		auto fs = FileFinder::Game();
+		auto game_tree = fs.ListDirectory();
+		for (const auto& tr_name : *game_tree) {
+			if (tr_name.first == TRDIR_NAME) {
+				translation_root_fs = fs.Subtree(tr_name.second.name);
+				break;
+			}
 		}
 	}
 	if (translation_root_fs) {
@@ -119,6 +121,7 @@ void Translation::InitTranslations()
 				item.lang_desc = ini.GetString("Language", "Description", "");
 				item.lang_code = ini.GetString("Language", "Code", "");
 				item.lang_term = ini.GetString("Language", "Term", "Language");
+				item.game_title = ini.GetString("Language", "GameTitle", "");
 				item.use_builtin_font = Utils::LowerCase(ini.GetString("Language", "Font", "")) == "builtin";
 
 				if (item.lang_dir == "default") {
@@ -159,7 +162,7 @@ const std::vector<Language>& Translation::GetLanguages() const
 }
 
 
-void Translation::SelectLanguage(StringView lang_id)
+void Translation::SelectLanguage(std::string_view lang_id)
 {
 	// Try to read in our language files.
 	Output::Debug("Changing language to: '{}'", (!lang_id.empty() ? lang_id : "<Default>"));
@@ -169,7 +172,7 @@ void Translation::SelectLanguage(StringView lang_id)
 	if (!lang_id.empty()) {
 		auto root = GetRootTree();
 		if (!root) {
-			Output::Error("Cannot load translation. 'Language' folder does not exist");
+			Output::Warning("Cannot load translation. 'Language' folder does not exist");
 			return;
 		}
 
@@ -193,7 +196,7 @@ void Translation::SelectLanguage(StringView lang_id)
 	}
 }
 
-void Translation::SelectLanguageAsync(FileRequestResult*, StringView lang_id) {
+void Translation::SelectLanguageAsync(FileRequestResult*, std::string_view lang_id) {
 	--request_counter;
 	if (request_counter == 0) {
 		requests.clear();
@@ -223,6 +226,12 @@ void Translation::SelectLanguageAsync(FileRequestResult*, StringView lang_id) {
 		RewriteTreemapNames();
 		RewriteBattleEventMessages();
 		RewriteCommonEventMessages();
+	}
+
+	if (!current_language.game_title.empty()) {
+		Player::UpdateTitle(current_language.game_title);
+	} else if (!Player::game_title_original.empty()) {
+		Player::UpdateTitle(Player::game_title_original);
 	}
 
 	// Reset the cache, so that all images load fresh.
@@ -259,7 +268,7 @@ void Translation::RequestAndAddMap(int map_id) {
 	request->Start();
 }
 
-bool Translation::ParseLanguageFiles(StringView lang_id)
+bool Translation::ParseLanguageFiles(std::string_view lang_id)
 {
 	FilesystemView language_tree;
 
@@ -311,7 +320,7 @@ bool Translation::ParseLanguageFiles(StringView lang_id)
 			if (is) {
 				ParsePoFile(std::move(is), *mapnames);
 			}
-		} else if (StringView(tr_name.first).ends_with(".po")) {
+		} else if (EndsWith(tr_name.first, ".po")) {
 			// This will fail in the web player but is intentional
 			// The fetching happens on map load instead
 			// Still parsing all files locally to get syntax errors early
@@ -484,6 +493,11 @@ namespace {
 				CurrentCmdParam(0) == 5 && CurrentCmdParam(2) == 1;
 		}
 
+		/** Returns true if the current Event Command is ShowStringPicture */
+		bool CurrentIsShowStringPicture() const {
+			return CurrentCmdCode() == lcf::rpg::EventCommand::Code::Maniac_ShowStringPicture;
+		}
+
 		/**
 		 * Add each line of a [ShowMessage,ShowMessage_2,...] chain to "msg_str" (followed by a newline)
 		 * and save to "indexes" the index of each ShowMessage(2) command that was used to populate this
@@ -550,7 +564,7 @@ namespace {
 		}
 
 		/** Change the string value of the EventCommand at position "idx" to "newStr" */
-		void ReWriteString(size_t idx, StringView newStr) {
+		void ReWriteString(size_t idx, std::string_view newStr) {
 			if (idx < commands.size()) {
 				commands[idx].string = lcf::DBString(newStr);
 			}
@@ -561,7 +575,7 @@ namespace {
 		 * Sets the string value to "line". Note that ShowMessage_2 is chosen if baseMsgBox is false.
 		 * This also updates the index if relevant, but it does not update external index caches.
 		 */
-		void PutShowMessageBeforeIndex(StringView line, size_t idx, bool baseMsgBox) {
+		void PutShowMessageBeforeIndex(std::string_view line, size_t idx, bool baseMsgBox) {
 			// We need a reference index for the indent.
 			size_t refIndent = 0;
 			if (idx < commands.size()) {
@@ -749,14 +763,31 @@ void Translation::RewriteEventCommandMessage(const Dictionary& dict, std::vector
 			}
 
 			// Note that commands.Advance() has already happened within the above code.
-		} else if (commands.CurrentIsChangeHeroName()) {
+		} else if (commands.CurrentIsChangeHeroName() || commands.CurrentIsConditionActorName()) {
 			dict.TranslateString("actors.name", commands.CurrentCmdString());
 			commands.Advance();
 		} else if (commands.CurrentIsChangeHeroTitle()) {
 			dict.TranslateString("actors.title", commands.CurrentCmdString());
 			commands.Advance();
-		} else if (commands.CurrentIsConditionActorName()) {
-			dict.TranslateString("actors.name", commands.CurrentCmdString());
+		} else if (commands.CurrentIsShowStringPicture()) {
+			std::string_view cmdstr = commands.CurrentCmdString();
+			if (!cmdstr.empty() && cmdstr[0] == '\x01') {
+				size_t escape_idx = 1;
+				for (escape_idx = 1; escape_idx < cmdstr.size(); ++escape_idx) {
+					char c = cmdstr[escape_idx];
+					if (c == '\x01' || c == '\x02' || c == '\x03') {
+						break;
+					}
+				}
+
+				// String Picture use \r\n linebreaks
+				// Rewrite them to \n
+				std::string term = Utils::ReplaceAll(ToString(cmdstr.substr(1, escape_idx - 1)), "\r\n", "\n");
+				dict.TranslateString("strpic", term);
+				// Reintegrate the term
+				commands.CurrentCmdString() = lcf::DBString("\x01" + term + ToString(cmdstr.substr(escape_idx)));
+			}
+
 			commands.Advance();
 		} else {
 			commands.Advance();
@@ -764,7 +795,7 @@ void Translation::RewriteEventCommandMessage(const Dictionary& dict, std::vector
 	}
 }
 
-void Translation::RewriteMapMessages(StringView map_name, lcf::rpg::Map& map) {
+void Translation::RewriteMapMessages(std::string_view map_name, lcf::rpg::Map& map) {
 	// Retrieve lookup for this map.
 	auto mapIt = maps.find(ToString(map_name));
 	if (mapIt==maps.end()) { return; }
@@ -808,18 +839,18 @@ void Dictionary::addEntry(const Entry& entry)
 }
 
 // Returns success
-void Dictionary::FromPo(Dictionary& res, std::istream& in) {
+void Dictionary::FromPo(Dictionary& res, Filesystem_Stream::InputStream& in) {
 	std::string line;
-	lcf::StringView line_view;
+	std::string_view line_view;
 	bool found_header = false;
 	bool parse_item = false;
 	int line_number = 0;
 
 	Entry e;
 
-	auto extract_string = [&](int offset) -> std::string {
+	auto extract_string = [&](size_t offset) -> std::string {
 		if (offset >= line_view.size()) {
-			Output::Error("Parse error (Line {}) is empty", line_number);
+			Output::Error("{}\n\nParse error (Line {}) is empty", FileFinder::GetPathInsideGamePath(in.GetName()), line_number);
 			return "";
 		}
 
@@ -835,7 +866,7 @@ void Dictionary::FromPo(Dictionary& res, std::istream& in) {
 					first_quote = true;
 					continue;
 				}
-				Output::Error("Parse error (Line {}): Expected \", got \"{}\": {}", line_number, c, line);
+				Output::Error("{}\n\nParse error (Line {}): Expected \", got \"{}\":\n{}", FileFinder::GetPathInsideGamePath(in.GetName()), line_number, c, line);
 				return "";
 			}
 
@@ -853,9 +884,10 @@ void Dictionary::FromPo(Dictionary& res, std::istream& in) {
 					case '"':
 						out << '"';
 						break;
-					default:
-						Output::Error("Parse error (Line {}): Expected \\, \\n or \", got \"{}\": {}", line_number, c, line);
+					default: {
+						Output::Error("{}\n\nParse error (Line {}): Expected \\, \\n or \", got \"{}\":\n{}", FileFinder::GetPathInsideGamePath(in.GetName()), line_number, c, line);
 						break;
+					}
 				}
 			} else {
 				// no-slash
@@ -867,7 +899,7 @@ void Dictionary::FromPo(Dictionary& res, std::istream& in) {
 			}
 		}
 
-		Output::Error("Parse error (Line {}): Unterminated line: {}", line_number, line);
+		Output::Error("{}\n\nParse error (Line {}): Unterminated line:\n{}", FileFinder::GetPathInsideGamePath(in.GetName()), line_number, line);
 		return out.str();
 	};
 
@@ -878,7 +910,7 @@ void Dictionary::FromPo(Dictionary& res, std::istream& in) {
 		while (Utils::ReadLine(in, line)) {
 			line_view = Utils::TrimWhitespace(line);
 			++line_number;
-			if (line_view.empty() || line_view.starts_with("#")) {
+			if (line_view.empty() || StartsWith(line_view, "#")) {
 				break;
 			}
 			e.translation += extract_string(0);
@@ -896,7 +928,7 @@ void Dictionary::FromPo(Dictionary& res, std::istream& in) {
 		while (Utils::ReadLine(in, line)) {
 			line_view = Utils::TrimWhitespace(line);
 			++line_number;
-			if (line_view.empty() || line_view.starts_with("msgstr")) {
+			if (line_view.empty() || StartsWith(line_view, "msgstr")) {
 				read_msgstr();
 				return;
 			}
@@ -908,25 +940,25 @@ void Dictionary::FromPo(Dictionary& res, std::istream& in) {
 		line_view = Utils::TrimWhitespace(line);
 		++line_number;
 		if (!found_header) {
-			if (line_view.starts_with("msgstr")) {
+			if (StartsWith(line_view, "msgstr")) {
 				found_header = true;
 			}
 			continue;
 		}
 
 		if (!parse_item) {
-			if (line_view.starts_with("msgctxt")) {
+			if (StartsWith(line_view, "msgctxt")) {
 				e.context = extract_string(7);
 
 				parse_item = true;
-			} else if (line_view.starts_with("msgid")) {
+			} else if (StartsWith(line_view, "msgid")) {
 				parse_item = true;
 				read_msgid();
 			}
 		} else {
-			if (line_view.starts_with("msgid")) {
+			if (StartsWith(line_view, "msgid")) {
 				read_msgid();
-			} else if (line_view.starts_with("msgstr")) {
+			} else if (StartsWith(line_view, "msgstr")) {
 				read_msgstr();
 			}
 		}

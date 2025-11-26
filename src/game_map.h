@@ -19,8 +19,13 @@
 #define EP_GAME_MAP_H
 
 // Headers
+#include <cstdint>
+#include <initializer_list>
 #include <vector>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include "async_op.h"
 #include "system.h"
 #include "game_commonevent.h"
 #include "game_event.h"
@@ -35,41 +40,38 @@
 #include <lcf/rpg/savepartylocation.h>
 #include <lcf/rpg/savevehiclelocation.h>
 #include <lcf/rpg/savecommonevent.h>
-#include "async_op.h"
 
 class FileRequestAsync;
 struct BattleArgs;
 
 // These are in sixteenths of a pixel.
 constexpr int SCREEN_TILE_SIZE = 256;
-constexpr int SCREEN_WIDTH = (SCREEN_TARGET_WIDTH / 16) * SCREEN_TILE_SIZE;
-constexpr int SCREEN_HEIGHT = (SCREEN_TARGET_HEIGHT / 16) * SCREEN_TILE_SIZE;
 
 class MapUpdateAsyncContext {
-	public:
-		MapUpdateAsyncContext() = default;
+public:
+	MapUpdateAsyncContext() = default;
 
-		static MapUpdateAsyncContext FromCommonEvent(int ce, AsyncOp aop);
-		static MapUpdateAsyncContext FromMapEvent(int ce, AsyncOp aop);
-		static MapUpdateAsyncContext FromForegroundEvent(AsyncOp aop);
-		static MapUpdateAsyncContext FromMessage(AsyncOp aop);
+	static MapUpdateAsyncContext FromCommonEvent(int ce, AsyncOp aop);
+	static MapUpdateAsyncContext FromMapEvent(int ce, AsyncOp aop);
+	static MapUpdateAsyncContext FromForegroundEvent(AsyncOp aop);
+	static MapUpdateAsyncContext FromMessage(AsyncOp aop);
 
-		AsyncOp GetAsyncOp() const;
+	AsyncOp GetAsyncOp() const;
 
-		int GetParallelCommonEvent() const;
-		int GetParallelMapEvent() const;
+	int GetParallelCommonEvent() const;
+	int GetParallelMapEvent() const;
 
-		bool IsForegroundEvent() const;
-		bool IsParallelCommonEvent() const;
-		bool IsParallelMapEvent() const;
-		bool IsMessage() const;
-		bool IsActive() const;
-	private:
-		AsyncOp async_op = {};
-		int common_event = 0;
-		int map_event = 0;
-		bool foreground_event = false;
-		bool message = false;
+	bool IsForegroundEvent() const;
+	bool IsParallelCommonEvent() const;
+	bool IsParallelMapEvent() const;
+	bool IsMessage() const;
+	bool IsActive() const;
+private:
+	AsyncOp async_op = {};
+	int common_event = 0;
+	int map_event = 0;
+	bool foreground_event = false;
+	bool message = false;
 };
 
 /**
@@ -82,12 +84,47 @@ namespace Game_Map {
 	void Init();
 
 	/**
+	 * Initialized Common Events.
+	 */
+	void InitCommonEvents();
+
+	/**
 	 * Quits (frees) Game_Map.
 	 */
 	void Quit();
 
-	/** Disposes Game_Map.  */
+	/** Disposes Game_Map. */
 	void Dispose();
+
+	/**
+	 * Clones a map event.
+	 *
+	 * @param src_map_id Source map where to clone the event from
+	 * @param src_event_id Source event ID to clone
+	 * @param target_x Where to place the new event (X coordinate)
+	 * @param target_y Where to place the new event (Y coordinate)
+	 * @param target_event_id New event ID. When <= 0 a free ID is selected. When the ID exists the event is overwritten.
+	 * @param target_name New name of the event. When empty the original name is used.
+	 * @return Whether the cloning was successful. It will fail when source map or the src/target event do not exist.
+	 */
+	bool CloneMapEvent(int src_map_id, int src_event_id, int target_x, int target_y, int target_event_id, std::string_view target_name);
+
+	/**
+	 * Deletes a map event.
+	 *
+	 * @param event_id Event ID to delete
+	 * @param from_clone When true this function was invoked by CloneMapEvent. This silences warnings and skips refreshes.
+	 * @return Whether the event was deleted. This will fail when the event does not exist.
+	 */
+	bool DestroyMapEvent(const int event_id, bool from_clone = false);
+
+	void TranslateMapMessages(int mapId, lcf::rpg::Map& map);
+	void CreateMapEvents();
+	void UpdateUnderlyingEventReferences();
+	void AddEventToCache(const lcf::rpg::Event& ev);
+	void RemoveEventFromCache(const lcf::rpg::Event& ev);
+	const lcf::rpg::Event* FindEventById(const std::vector<lcf::rpg::Event>& events, int event_id);
+	int GetNextAvailableEventId();
 
 	/**
 	 * Loads the map from disk
@@ -95,7 +132,7 @@ namespace Game_Map {
 	 * @param map_id the id of the map to load
 	 * @return the map, or nullptr if it couldn't be loaded
 	 */
-	std::unique_ptr<lcf::rpg::Map> loadMapFile(int map_id);
+	std::unique_ptr<lcf::rpg::Map> LoadMapFile(int map_id);
 
 	/**
 	 * Setups a new map.
@@ -106,7 +143,7 @@ namespace Game_Map {
 
 	/**
 	 * Setups a map from a savegame.
-	 * 
+	 *
 	 * @param map - The map data
 	 * @param save_map - The map state
 	 * @param save_boat - The boat state
@@ -194,6 +231,60 @@ namespace Game_Map {
 			int to_x, int to_y);
 
 	/**
+	 * Check if a move of self is possible to (to_x,to_y).
+	 * Any events that are blocked will also be checked for collision.
+	 *
+	 * Returns true if move is possible.
+	 *
+	 * @param self Character to move.
+	 * @param from_x from tile x.
+	 * @param from_y from tile y.
+	 * @param to_x to new tile x.
+	 * @param to_y to new tile y.
+	 * @param check_events_and_events (Optional) Whether to check
+	 * events, or only consider map collision.
+	 * @param ignore_some_events_by_id (Optional) A set of
+	 * specific event IDs to ignore.
+	 * @return whether move is possible.
+	 */
+	bool CheckWay(const Game_Character& self,
+			int from_x, int from_y,
+			int to_x, int to_y,
+			bool check_events_and_vehicles,
+			Span<int> ignore_some_events_by_id);
+
+	/** Shorter version of CheckWay. */
+	bool CheckWay(const Game_Character& self,
+			int from_x, int from_y,
+			int to_x, int to_y);
+
+	/**
+	 * Extended function behind MakeWay and CheckWay
+	 * that allows controlling exactly which events are
+	 * ignored in the collision, and whether events should
+	 * be prompted to make way with side effects (for MakeWay)
+	 * or not (for CheckWay).
+	 *
+	 * @param self See CheckWay or MakeWay.
+	 * @param from_x See CheckWay or MakeWay.
+	 * @param from_y See CheckWay or MakeWay.
+	 * @param to_x See CheckWay or MakeWay.
+	 * @param to_y See CheckWay or MakeWay.
+	 * @param check_events_and_vehicles whether to check
+	 * events, or only consider map collision.
+	 * @param make_way Whether to cause side effects.
+	 * @param ignore_some_events_by_id A set of
+	 * specific event IDs to ignore.
+	 * @return See CheckWay or MakeWay.
+	 */
+	 bool CheckOrMakeWayEx(const Game_Character& self,
+			int from_x, int from_y,
+			int to_x, int to_y,
+			bool check_events_and_vehicles,
+			Span<int> ignore_some_events_by_id,
+			bool make_way);
+
+	/**
 	 * Gets if possible to land the airship at (x,y)
 	 *
 	 * @param x tile x.
@@ -227,7 +318,7 @@ namespace Game_Map {
 	 *
 	 * @param layer which layer to return
 	 */
-	const std::vector<uint8_t>& GetTilesLayer(int layer);
+	std::vector<uint8_t> GetTilesLayer(int layer);
 
 	/**
 	 * Gets the bush depth at a certain tile.
@@ -276,11 +367,36 @@ namespace Game_Map {
 	void Update(MapUpdateAsyncContext& actx, bool is_preupdate = false);
 
 	/**
-	 * Gets current map_info.
+	 * Gets current map info.
 	 *
 	 * @return current map_info.
 	 */
-	lcf::rpg::MapInfo const& GetMapInfo();
+	const lcf::rpg::MapInfo& GetMapInfo();
+
+	/**
+	 * Gets map info of the specified map id.
+	 *
+	 * @param map_id map id
+	 * @return map_info.
+	 */
+	const lcf::rpg::MapInfo& GetMapInfo(int map_id);
+
+	/**
+	 * Gets the map info of the parent map of the current map.
+	 * The root of the tree has ID 0.
+	 *
+	 * @return parent map info
+	 */
+	const lcf::rpg::MapInfo& GetParentMapInfo();
+
+	/**
+	 * Gets map info of the parent map.
+	 * The root of the tree has ID 0.
+	 *
+	 * @param map_info map info whose parent to retrieve
+	 * @return parent map info
+	 */
+	const lcf::rpg::MapInfo& GetParentMapInfo(const lcf::rpg::MapInfo& map_info);
 
 	/**
 	 * Gets current map.
@@ -297,38 +413,28 @@ namespace Game_Map {
 	int GetMapId();
 
 	/**
-	 * Gets current map width.
-	 *
-	 * @return current map width.
+	 * Outputs the path in the map tree to reach the current map.
 	 */
-	int GetWidth();
+	void PrintPathToMap();
 
-	/**
-	 * Gets current map height.
-	 *
-	 * @return current map height.
-	 */
-	int GetHeight();
+	/** @return amount of tiles in x direction */
+	int GetTilesX();
 
-	/**
-	 * Gets battle encounters list.
-	 *
-	 * @return battle encounters list.
-	 */
-	std::vector<lcf::rpg::Encounter>& GetEncounterList();
+	/** @return amount of tiles in y direction */
+	int GetTilesY();
 
 	/** @return original map battle encounter rate steps. */
-	int GetOriginalEncounterRate();
+	int GetOriginalEncounterSteps();
 
-	/** @return battle encounter rate steps. */
-	int GetEncounterRate();
+	/** @return battle encounter steps. */
+	int GetEncounterSteps();
 
 	/**
-	 * Sets battle encounter rate.
+	 * Sets battle encounter steps.
 	 *
 	 * @param step encounter steps.
 	 */
-	void SetEncounterRate(int step);
+	void SetEncounterSteps(int step);
 
 	/**
 	 * Gets possible encounters at a location.
@@ -379,7 +485,7 @@ namespace Game_Map {
 	int GetChipset();
 
 	/** @return chipset filename.  */
-	StringView GetChipsetName();
+	std::string_view GetChipsetName();
 
 	/**
 	 * Gets the offset of the screen from the left edge
@@ -493,8 +599,6 @@ namespace Game_Map {
 	 */
 	std::vector<Game_CommonEvent>& GetCommonEvents();
 
-	void GetEventsXY(std::vector<Game_Event*>& events, int x, int y);
-
 	/**
 	 * @param x x position on the map
 	 * @param y y position on the map
@@ -516,37 +620,12 @@ namespace Game_Map {
 	int YwithDirection(int y, int direction);
 
 	/**
-	 * Gets the map index from MapInfo vector using map ID.
-	 *
-	 * @param id map ID.
-	 * @return map index from MapInfo vector.
-	 */
-	int GetMapIndex(int id);
-
-	/**
 	 * Gets the map name from MapInfo vector using map ID.
 	 *
 	 * @param id map ID.
 	 * @return map name from MapInfo vector.
 	 */
-	StringView GetMapName(int id);
-
-	/**
-	 * Gets the type (1 = normal, 2 = area) of the map.
-	 *
-	 * @param map_id map id
-	 * @return type of the map
-	 */
-	int GetMapType(int map_id);
-
-	/**
-	 * Gets the ID of the parent map.
-	 * The root of the tree has ID 0.
-	 *
-	 * @param map_id map id
-	 * @return parent map id
-	 */
-	int GetParentId(int map_id);
+	std::string_view GetMapName(int id);
 
 	/**
 	 * Sets the chipset.
@@ -562,6 +641,10 @@ namespace Game_Map {
 	Game_Vehicle* GetVehicle(Game_Vehicle::Type which);
 	int SubstituteDown(int old_id, int new_id);
 	int SubstituteUp(int old_id, int new_id);
+	void ReplaceTileAt(int x, int y, int new_id, int layer);
+
+	int GetTileIdAt(int x, int y, int layer, bool chip_id_or_index = false);
+	std::vector<int> GetTilesIdAt(Rect coords, int layer, bool chip_id_or_index = false);
 
 	/**
 	 * Checks if its possible to step onto the tile at (x,y)
@@ -574,8 +657,14 @@ namespace Game_Map {
 	 * @param bit which direction bits to check
 	 * @param x target tile x.
 	 * @param y target tile y.
+	 * @param check_events_and_vehicles Whether to consider events and vehicles.
+	 * @param check_map_geometry Whether to take map collision into account.
 	 * @return whether is passable.
 	 */
+	bool IsPassableTile(
+		const Game_Character* self, int bit, int x, int y,
+		bool check_events_and_vehicles, bool check_map_geometry
+		);
 	bool IsPassableTile(const Game_Character* self, int bit, int x, int y);
 
 	/**
@@ -616,12 +705,53 @@ namespace Game_Map {
 	 * Construct a map name, either for EasyRPG or RPG Maker projects
 	 *
 	 * @param map_id The ID of the map to construct
-	 * @param isEasyRpg Is the an easyrpg (emu) project, or an RPG Maker (lmu) one?
+	 * @param is_easyrpg Is the an easyrpg (emu) project, or an RPG Maker (lmu) one?
 	 * @return The map name, as Map<map_id>.<map_extension>
 	 */
-	std::string ConstructMapName(int map_id, bool isEasyRpg);
+	std::string ConstructMapName(int map_id, bool is_easyrpg);
 
 	FileRequestAsync* RequestMap(int map_id);
+
+	namespace Caching {
+		class MapEventCache {
+		public:
+			void AddEvent(const lcf::rpg::Event& ev);
+			void RemoveEvent(const lcf::rpg::Event& ev);
+
+		private:
+			std::vector<int> event_ids;
+		};
+
+		using MapEventCacheData_t = std::unordered_map<int, MapEventCache>;
+
+		enum ObservedVarOps {
+			SwitchSet = 0,
+			VarSet,
+
+			ObservedVarOps_END
+		};
+
+		class MapCache {
+		public:
+			template <ObservedVarOps Op>
+			void AddEventAsRefreshTarget(int var_id, const lcf::rpg::Event& ev);
+
+			template <ObservedVarOps Op>
+			void RemoveEventAsRefreshTarget(int var_id, const lcf::rpg::Event& ev);
+
+			template <ObservedVarOps Op>
+			bool GetNeedRefresh(int var_id);
+
+			void Clear();
+		private:
+			MapEventCacheData_t refresh_targets_by_varid[ObservedVarOps_END];
+		};
+	}
+
+	void SetNeedRefreshForSwitchChange(int switch_id);
+	void SetNeedRefreshForVarChange(int var_id);
+	void SetNeedRefreshForSwitchChange(std::initializer_list<int> switch_ids);
+	void SetNeedRefreshForVarChange(std::initializer_list<int> var_ids);
 
 	namespace Parallax {
 		struct Params {
@@ -696,9 +826,14 @@ namespace Game_Map {
 		 * the map properties.
 		 */
 		void ClearChangedBG();
+
+		/** @return Whether ox adjustment is required for fake resolution mode */
+		bool FakeXPosition();
+
+		/** @return Whether oy adjustment is required for fake resolution mode */
+		bool FakeYPosition();
 	}
 }
-
 
 inline AsyncOp MapUpdateAsyncContext::GetAsyncOp() const {
 	return async_op;
@@ -766,6 +901,30 @@ inline bool MapUpdateAsyncContext::IsMessage() const {
 
 inline bool MapUpdateAsyncContext::IsActive() const {
 	return GetAsyncOp().IsActive();
+}
+
+template <Game_Map::Caching::ObservedVarOps Op>
+inline void Game_Map::Caching::MapCache::AddEventAsRefreshTarget(int var_id, const lcf::rpg::Event& ev) {
+	static_assert(static_cast<int>(Op) >= 0 && Op < ObservedVarOps_END);
+
+	auto& events_cache = refresh_targets_by_varid[static_cast<int>(Op)];
+	events_cache[var_id].AddEvent(ev);
+}
+
+template <Game_Map::Caching::ObservedVarOps Op>
+inline void Game_Map::Caching::MapCache::RemoveEventAsRefreshTarget(int var_id, const lcf::rpg::Event& ev) {
+	static_assert(static_cast<int>(Op) >= 0 && Op < ObservedVarOps_END);
+
+	auto& events_cache = refresh_targets_by_varid[static_cast<int>(Op)];
+	events_cache[var_id].RemoveEvent(ev);
+}
+
+template <Game_Map::Caching::ObservedVarOps Op>
+inline bool Game_Map::Caching::MapCache::GetNeedRefresh(int var_id) {
+	static_assert(static_cast<int>(Op) >= 0 && Op < ObservedVarOps_END);
+
+	auto& events_cache = refresh_targets_by_varid[static_cast<int>(Op)];
+	return events_cache.find(var_id) != events_cache.end();
 }
 
 #endif

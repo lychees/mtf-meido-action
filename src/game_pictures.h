@@ -25,10 +25,9 @@
 #include <lcf/rpg/savepicture.h>
 #include "sprite_picture.h"
 
-#include "rect.h"
-
 class Sprite_Picture;
 class Scene;
+class Window_Base;
 
 /**
  * Pictures class.
@@ -47,7 +46,6 @@ public:
 	struct Params {
 		int position_x = 0;
 		int position_y = 0;
-		int magnify = 100;
 		int top_trans = 0;
 		int bottom_trans = 0;
 		int red = 100;
@@ -61,8 +59,8 @@ public:
 		bool flip_y = false;
 		int blend_mode = 0;
 		int origin = 0;
-
-		Rect myRect;
+		int magnify_width = 100; // RPG_RT supports magnify, but not independent for w/h
+		int magnify_height = 100;
 	};
 	struct ShowParams : Params {
 		std::string name;
@@ -96,10 +94,10 @@ public:
 	void OnMapScrolled(int dx, int dy);
 
 	struct Picture {
-		Picture(int id) { data.ID = id; }
-		Picture(lcf::rpg::SavePicture data);
+		explicit Picture(int id) { data.ID = id; }
+		explicit Picture(lcf::rpg::SavePicture data);
 
-		Sprite_Picture* sprite = nullptr;
+		std::unique_ptr<Sprite_Picture> sprite;
 		lcf::rpg::SavePicture data;
 		FileRequestBinding request_id;
 		bool needs_update = false;
@@ -119,12 +117,17 @@ public:
 		void Erase();
 		bool Exists() const;
 
+		void CreateSprite();
+
 		bool IsRequestPending() const;
 		void MakeRequestImportant() const;
 
 		void OnPictureSpriteReady();
 		void ApplyOrigin(bool is_move);
 		void OnMapScrolled(int dx, int dy);
+
+		void AttachWindow(const Window_Base& window);
+		bool IsWindowAttached() const;
 	};
 
 	Picture& GetPicture(int id);
@@ -135,7 +138,6 @@ private:
 	void OnPictureSpriteReady(FileRequestResult*, int id);
 
 	std::vector<Picture> pictures;
-	std::deque<Sprite_Picture> sprites;
 	int frame_counter = 0;
 };
 

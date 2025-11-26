@@ -24,6 +24,7 @@
 #include "rect.h"
 #include "system.h"
 
+#include <array>
 #include <SDL.h>
 
 extern "C" {
@@ -45,9 +46,9 @@ public:
 	 *
 	 * @param width window client width.
 	 * @param height window client height.
-	 * @param cfg video config options
+	 * @param cfg config options
 	 */
-	Sdl2Ui(long width, long height, const Game_ConfigVideo& cfg);
+	Sdl2Ui(long width, long height, const Game_Config& cfg);
 
 	/**
 	 * Destructor.
@@ -58,15 +59,21 @@ public:
 	 * Inherited from BaseUi.
 	 */
 	/** @{ */
-
+	bool vChangeDisplaySurfaceResolution(int new_width, int new_height) override;
 	void ToggleFullscreen() override;
 	void ToggleZoom() override;
 	void UpdateDisplay() override;
-	std::string getClipboardText() override;
-	void setClipboardText(std::string text) override;
 	void SetTitle(const std::string &title) override;
 	bool ShowCursor(bool flag) override;
-	void ProcessEvents() override;
+	bool ProcessEvents() override;
+	void SetScalingMode(ConfigEnum::ScalingMode) override;
+	void ToggleStretch() override;
+	void ToggleVsync() override;
+	void SetScreenScale(int scale) override;
+	void vGetConfig(Game_ConfigVideo& cfg) const override;
+	bool OpenURL(std::string_view url) override;
+	Rect GetWindowMetrics() const override;
+	bool HandleErrorOutput(const std::string &message) override;
 
 #ifdef SUPPORT_AUDIO
 	AudioInterface& GetAudio() override;
@@ -128,6 +135,8 @@ private:
 	SDL_Renderer* sdl_renderer = nullptr;
 	SDL_Joystick *sdl_joystick = nullptr;
 
+	Rect window_mode_metrics;
+	SDL_Rect viewport = {};
 	struct {
 		int width = 0;
 		int height = 0;
@@ -137,7 +146,9 @@ private:
 
 	uint32_t texture_format = SDL_PIXELFORMAT_UNKNOWN;
 
+#ifdef SUPPORT_AUDIO
 	std::unique_ptr<AudioInterface> audio_;
+#endif
 };
 
 #endif

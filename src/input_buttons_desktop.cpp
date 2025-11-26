@@ -16,11 +16,12 @@
  */
 
 // FIXME: Move in platform/generic (?) and handle with CMake
-#if !(defined(OPENDINGUX) || defined(GEKKO) || defined(USE_LIBRETRO) || defined(__vita__) || defined(__3DS__) || defined(__SWITCH__))
+#if !(defined(OPENDINGUX) || defined(PLAYER_NINTENDO) || defined(PLAYER_UI))
 
 // Headers
 #include "input_buttons.h"
 #include "keys.h"
+#include "game_config.h"
 
 Input::ButtonMappingArray Input::GetDefaultButtonMappings() {
 	return {
@@ -41,7 +42,6 @@ Input::ButtonMappingArray Input::GetDefaultButtonMappings() {
 		{RIGHT, Keys::KP6},
 		{RIGHT, Keys::D},
 		{DECISION, Keys::Z},
-		{DECISION, Keys::Y},
 		{DECISION, Keys::SPACE},
 		{DECISION, Keys::RETURN},
 		{DECISION, Keys::SELECT},
@@ -85,6 +85,7 @@ Input::ButtonMappingArray Input::GetDefaultButtonMappings() {
 		{DIVIDE, Keys::SEMICOLON},
 		{PERIOD, Keys::KP_PERIOD},
 		{PERIOD, Keys::PERIOD},
+		{SETTINGS_MENU, Keys::F1},
 		{DEBUG_MENU, Keys::F9},
 		{DEBUG_THROUGH, Keys::LCTRL},
 		{DEBUG_THROUGH, Keys::RCTRL},
@@ -98,27 +99,13 @@ Input::ButtonMappingArray Input::GetDefaultButtonMappings() {
 		{PAGE_UP, Keys::PGUP},
 		{PAGE_DOWN, Keys::PGDN},
 		{RESET, Keys::F12},
-		{FAST_FORWARD, Keys::F},
-		{FAST_FORWARD_PLUS, Keys::G},
-		{CHAT_FOCUS, Keys::TAB}, // chat inputs
-		{CHAT_UNFOCUS, Keys::TAB}, // chat inputs
-		{CHAT_UP, Keys::UP}, // chat inputs
-		{CHAT_DOWN, Keys::DOWN}, // chat inputs
-		{CHAT_LEFT, Keys::LEFT}, // chat inputs
-		{CHAT_RIGHT, Keys::RIGHT}, // chat inputs
-		{CHAT_DEL_BACKWARD, Keys::BACKSPACE}, // chat inputs
-		{CHAT_DEL_FORWARD, Keys::DEL}, // chat inputs
-		{CHAT_SEND, Keys::RETURN}, // chat inputs
-		{CHAT_TOGGLE_GLOBAL, Keys::F8}, // chat inputs
-		{CHAT_COPY, Keys::C}, // chat inputs (check for CTRL modifier done separately)
-		{CHAT_PASTE, Keys::V}, // chat inputs (check for CTRL modifier done separately)
-		{CHAT_CTRL, Keys::LCTRL}, // chat inputs
-		{CHAT_CTRL, Keys::RCTRL}, // chat inputs
+		{FAST_FORWARD_A, Keys::F},
+		{FAST_FORWARD_B, Keys::G},
 
 #if defined(USE_MOUSE) && defined(SUPPORT_MOUSE)
-		{DECISION, Keys::MOUSE_LEFT},
-		{CANCEL, Keys::MOUSE_RIGHT},
-		{SHIFT, Keys::MOUSE_MIDDLE},
+		{MOUSE_LEFT, Keys::MOUSE_LEFT},
+		{MOUSE_RIGHT, Keys::MOUSE_RIGHT},
+		{MOUSE_MIDDLE, Keys::MOUSE_MIDDLE},
 		{SCROLL_UP, Keys::MOUSE_SCROLLUP},
 		{SCROLL_DOWN, Keys::MOUSE_SCROLLDOWN},
 #endif
@@ -132,8 +119,8 @@ Input::ButtonMappingArray Input::GetDefaultButtonMappings() {
 		{CANCEL, Keys::JOY_B},
 		{CANCEL, Keys::JOY_X},
 		{SHIFT, Keys::JOY_Y},
-		{N0, Keys::JOY_STICK_PRIMARY},
-		{N5, Keys::JOY_STICK_SECONDARY},
+		{N0, Keys::JOY_LSTICK},
+		{N5, Keys::JOY_RSTICK},
 		{MULTIPLY, Keys::JOY_REAR_LEFT_1},
 		{DIVIDE, Keys::JOY_REAR_LEFT_2},
 		{PLUS, Keys::JOY_REAR_RIGHT_1},
@@ -156,43 +143,42 @@ Input::ButtonMappingArray Input::GetDefaultButtonMappings() {
 #endif
 
 #if defined(USE_JOYSTICK_AXIS)  && defined(SUPPORT_JOYSTICK_AXIS)
-		{UP, Keys::JOY_STICK_PRIMARY_UP},
-		{DOWN, Keys::JOY_STICK_PRIMARY_DOWN},
-		{LEFT, Keys::JOY_STICK_PRIMARY_LEFT},
-		{RIGHT, Keys::JOY_STICK_PRIMARY_RIGHT},
-		{N1, Keys::JOY_STICK_SECONDARY_DOWN_LEFT},
-		{N2, Keys::JOY_STICK_SECONDARY_DOWN},
-		{N3, Keys::JOY_STICK_SECONDARY_DOWN_RIGHT},
-		{N4, Keys::JOY_STICK_SECONDARY_LEFT},
-		{N6, Keys::JOY_STICK_SECONDARY_RIGHT},
-		{N7, Keys::JOY_STICK_SECONDARY_UP_LEFT},
-		{N8, Keys::JOY_STICK_SECONDARY_UP},
-		{N9, Keys::JOY_STICK_SECONDARY_UP_RIGHT},
-		{FAST_FORWARD, Keys::JOY_TRIGGER_RIGHT_PARTIAL},
-		{FAST_FORWARD_PLUS, Keys::JOY_TRIGGER_RIGHT_FULL},
-		{DEBUG_THROUGH, Keys::JOY_TRIGGER_LEFT_PARTIAL},
-		{DEBUG_MENU, Keys::JOY_TRIGGER_LEFT_FULL},
+		{UP, Keys::JOY_LSTICK_UP},
+		{DOWN, Keys::JOY_LSTICK_DOWN},
+		{LEFT, Keys::JOY_LSTICK_LEFT},
+		{RIGHT, Keys::JOY_LSTICK_RIGHT},
+		{N1, Keys::JOY_RSTICK_DOWN_LEFT},
+		{N2, Keys::JOY_RSTICK_DOWN},
+		{N3, Keys::JOY_RSTICK_DOWN_RIGHT},
+		{N4, Keys::JOY_RSTICK_LEFT},
+		{N6, Keys::JOY_RSTICK_RIGHT},
+		{N7, Keys::JOY_RSTICK_UP_LEFT},
+		{N8, Keys::JOY_RSTICK_UP},
+		{N9, Keys::JOY_RSTICK_UP_RIGHT},
+		{FAST_FORWARD_A, Keys::JOY_RTRIGGER_SOFT},
+		{FAST_FORWARD_B, Keys::JOY_RTRIGGER_FULL},
+		{DEBUG_THROUGH, Keys::JOY_LTRIGGER_SOFT},
+		{DEBUG_MENU, Keys::JOY_LTRIGGER_FULL},
 #endif
 
 #if defined(USE_TOUCH) && defined(SUPPORT_TOUCH)
-		{DECISION, Keys::ONE_FINGER},
-		{CANCEL, Keys::TWO_FINGERS},
-		{SHIFT, Keys::THREE_FINGERS},
+		{MOUSE_LEFT, Keys::ONE_FINGER},
+		{MOUSE_RIGHT, Keys::TWO_FINGERS},
+		{MOUSE_MIDDLE, Keys::THREE_FINGERS},
 #endif
-	};
-}
-
-Input::DirectionMappingArray Input::GetDefaultDirectionMappings() {
-	return {
-		{ Direction::DOWN, DOWN },
-		{ Direction::LEFT, LEFT },
-		{ Direction::RIGHT, RIGHT },
-		{ Direction::UP, UP },
 	};
 }
 
 Input::KeyNamesArray Input::GetInputKeyNames() {
 	return {};
+}
+
+void Input::GetSupportedConfig(Game_ConfigInput& cfg) {
+#if defined(USE_JOYSTICK) && defined(SUPPORT_JOYSTICK)
+	cfg.gamepad_swap_ab_and_xy.SetOptionVisible(true);
+	cfg.gamepad_swap_analog.SetOptionVisible(true);
+	cfg.gamepad_swap_dpad_with_buttons.SetOptionVisible(true);
+#endif
 }
 
 #if USE_SDL==1

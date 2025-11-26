@@ -147,8 +147,8 @@ int Game_Vehicle::GetAltitude() const {
 		return SCREEN_TILE_SIZE / (SCREEN_TILE_SIZE / TILE_SIZE);
 }
 
-int Game_Vehicle::GetScreenY(bool apply_shift, bool apply_jump) const {
-	return Game_Character::GetScreenY(apply_shift, apply_jump) - GetAltitude();
+int Game_Vehicle::GetScreenY(bool apply_jump) const {
+	return Game_Character::GetScreenY(apply_jump) - GetAltitude();
 }
 
 bool Game_Vehicle::CanLand() const {
@@ -203,7 +203,7 @@ void Game_Vehicle::Update() {
 	Game_Character::Update();
 }
 
-StringView Game_Vehicle::GetOrigSpriteName() const {
+std::string_view Game_Vehicle::GetOrigSpriteName() const {
 	if (!data()->orig_sprite_name.empty()) {
 		return data()->orig_sprite_name;
 	}

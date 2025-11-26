@@ -20,6 +20,7 @@
 #include "clock.h"
 #include "bitmap.h"
 #include "color.h"
+#include "filefinder.h"
 #include "graphics.h"
 #include "input.h"
 #include "keys.h"
@@ -28,6 +29,7 @@
 #include "output.h"
 #include "player.h"
 #include "scene.h"
+#include "utils.h"
 
 #include <cstring>
 #include <cstdio>
@@ -51,16 +53,21 @@ AudioInterface& LibretroUi::GetAudio() {
 retro_environment_t LibretroUi::environ_cb = nullptr;
 retro_input_poll_t LibretroUi::input_poll_cb = nullptr;
 bool LibretroUi::player_exit_called = false;
+Game_ConfigInput LibretroUi::cfg_input;
 
 #if defined(USE_JOYSTICK) && defined(SUPPORT_JOYSTICK)
 static Input::Keys::InputKey RetroJKey2InputKey(int button_index);
 #endif
 
-LibretroUi::LibretroUi(int width, int height, const Game_ConfigVideo& cfg) : BaseUi(cfg)
+// libretro needs an upper limit for the framebuffer set in av_info
+const int fb_max_width = 1920;
+const int fb_max_height = 1080;
+
+LibretroUi::LibretroUi(int width, int height, const Game_Config& cfg) : BaseUi(cfg)
 {
 	// Handled by libretro
 	// FIXME: There is currently no callback from libretro telling us whether or not fullscreen is enabled.
-	SetIsFullscreen(false);
+	SetIsFullscreen(true);
 
 	current_display_mode.width = width;
 	current_display_mode.height = height;
@@ -78,7 +85,7 @@ LibretroUi::LibretroUi(int width, int height, const Game_ConfigVideo& cfg) : Bas
 		PF::NoAlpha);
 
 	Bitmap::SetFormat(Bitmap::ChooseFormat(format));
-	main_surface.reset();
+
 	main_surface = Bitmap::Create(current_display_mode.width,
 		current_display_mode.height,
 		false,
@@ -86,8 +93,10 @@ LibretroUi::LibretroUi(int width, int height, const Game_ConfigVideo& cfg) : Bas
 	);
 
 	#ifdef SUPPORT_AUDIO
-	audio_.reset(new LibretroAudio());
+	audio_ = std::make_unique<LibretroAudio>(cfg.audio);
 	#endif
+
+	cfg_input = cfg.input;
 
 	UpdateVariables();
 }
@@ -100,10 +109,39 @@ void LibretroUi::UpdateDisplay() {
 	UpdateWindow(main_surface->pixels(), current_display_mode.width, current_display_mode.height, main_surface->pitch());
 }
 
-void LibretroUi::ProcessEvents() {
+bool LibretroUi::vChangeDisplaySurfaceResolution(int new_width, int new_height) {
+	if (new_width > fb_max_width || new_height > fb_max_height) {
+		Output::Warning("ChangeDisplaySurfaceResolution: {}x{} is too large", new_width, new_height);
+		return false;
+	}
+
+	BitmapRef new_main_surface = Bitmap::Create(new_width, new_height, false, current_display_mode.bpp);
+
+	if (!new_main_surface) {
+		Output::Warning("ChangeDisplaySurfaceResolution Bitmap::Create failed");
+		return false;
+	}
+
+	retro_game_geometry geom = {};
+	geom.base_width = new_width;
+	geom.base_height = new_height;
+	if (!LibretroUi::environ_cb(RETRO_ENVIRONMENT_SET_GEOMETRY, &geom)) {
+		Output::Warning("ChangeDisplaySurfaceResolution SET_GEOMETRY failed");
+		return false;
+	}
+
+	main_surface = new_main_surface;
+
+	current_display_mode.width = new_width;
+	current_display_mode.height = new_height;
+
+	return true;
+}
+
+bool LibretroUi::ProcessEvents() {
 #	if defined(USE_JOYSTICK) && defined(SUPPORT_JOYSTICK)
 	if (CheckInputState == nullptr) {
-		return;
+		return true;
 	}
 
 	LibretroUi::input_poll_cb();
@@ -146,6 +184,8 @@ void LibretroUi::ProcessEvents() {
 	analog_input.trigger_right = normalize(CheckInputState(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_BUTTON, RETRO_DEVICE_ID_JOYPAD_R2));
 #	endif
 #	endif
+
+	return true;
 }
 
 retro_video_refresh_t LibretroUi::UpdateWindow = nullptr;
@@ -180,13 +220,18 @@ Input::Keys::InputKey RetroJKey2InputKey(int button_index) {
 		case RETRO_DEVICE_ID_JOYPAD_SELECT	: return Input::Keys::JOY_BACK;
 		case RETRO_DEVICE_ID_JOYPAD_L		: return Input::Keys::JOY_SHOULDER_LEFT;
 		case RETRO_DEVICE_ID_JOYPAD_R		: return Input::Keys::JOY_SHOULDER_RIGHT;
-		case RETRO_DEVICE_ID_JOYPAD_L3		: return Input::Keys::JOY_STICK_PRIMARY;
-		case RETRO_DEVICE_ID_JOYPAD_R3		: return Input::Keys::JOY_STICK_SECONDARY;
+		case RETRO_DEVICE_ID_JOYPAD_L3		: return Input::Keys::JOY_LSTICK;
+		case RETRO_DEVICE_ID_JOYPAD_R3		: return Input::Keys::JOY_RSTICK;
 
 		default : return Input::Keys::NONE;
 	}
 }
 #endif
+
+void LibretroUi::vGetConfig(Game_ConfigVideo& cfg) const {
+	cfg.renderer.Lock("Libretro (Software)");
+	cfg.game_resolution.SetOptionVisible(true);
+}
 
 /* libretro api implementation */
 static const unsigned AUDIO_SAMPLERATE = 48000;
@@ -215,6 +260,20 @@ static void fallback_log(enum retro_log_level level, const char *fmt, ...) {
 
 static retro_log_printf_t log_cb = fallback_log;
 
+static void easyrpg_log(LogLevel lvl, std::string const& msg, LogCallbackUserData) {
+	retro_log_level level = RETRO_LOG_DEBUG;
+
+	if (lvl == LogLevel::Error) {
+		level = RETRO_LOG_ERROR;
+	} else if (lvl == LogLevel::Warning) {
+		level = RETRO_LOG_WARN;
+	} else if (lvl == LogLevel::Info) {
+		level = RETRO_LOG_INFO;
+	}
+
+	log_cb(level, "%s\n", msg.c_str());
+}
+
 /* Sets callbacks. retro_set_environment() is guaranteed to be called
  * before retro_init().
  *
@@ -241,10 +300,16 @@ RETRO_API void retro_set_environment(retro_environment_t cb) {
 	cb(RETRO_ENVIRONMENT_SET_AUDIO_CALLBACK, &audio_callback_definition);
 	cb(RETRO_ENVIRONMENT_SET_FRAME_TIME_CALLBACK, &frame_time_definition);
 
-	if (cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &logging))
+	if (cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &logging)) {
 		log_cb = logging.log;
-	else
+		Output::SetLogCallback(easyrpg_log);
+	} /* else {
+		// Bug in RetroArch:
+		// retro_set_environment is called multiple times and only the first time
+		// callbacks will work and return true.
 		log_cb = fallback_log;
+		Output::SetLogCallback(nullptr);
+	} */
 
 	struct retro_variable variables[] = {
 		{ Options::debug_mode, "Debug menu and walk through walls; Disabled|Enabled" },
@@ -280,10 +345,7 @@ static void init_easy_rpg() {
 
 	Player::Init(args);
 
-	auto buttons = Input::GetDefaultButtonMappings();
-	auto directions = Input::GetDefaultDirectionMappings();
-
-	Input::Init(std::move(buttons), std::move(directions), "", "");
+	Input::Init(LibretroUi::cfg_input, "", "");
 }
 
 /* Library global initialization/deinitialization. */
@@ -309,7 +371,7 @@ RETRO_API void retro_get_system_info(struct retro_system_info* info) {
 	info->library_name = GAME_TITLE;
 	info->library_version = PLAYER_VERSION_FULL;
 	info->need_fullpath = true;
-	info->valid_extensions = "ldb|zip|easyrpg";
+	info->valid_extensions = "ldb|zip|lzh|easyrpg";
 	info->block_extract = true;
 }
 
@@ -322,8 +384,8 @@ RETRO_API void retro_get_system_info(struct retro_system_info* info) {
 RETRO_API void retro_get_system_av_info(struct retro_system_av_info* info) {
 	info->geometry.base_width = SCREEN_TARGET_WIDTH;
 	info->geometry.base_height = SCREEN_TARGET_HEIGHT;
-	info->geometry.max_width = SCREEN_TARGET_WIDTH;
-	info->geometry.max_height = SCREEN_TARGET_HEIGHT;
+	info->geometry.max_width = fb_max_width;
+	info->geometry.max_height = fb_max_height;
 	info->geometry.aspect_ratio = 0.0f;
 	info->timing.fps = Game_Clock::GetTargetGameFps();
 	info->timing.sample_rate = AUDIO_SAMPLERATE;
@@ -366,23 +428,8 @@ RETRO_API void retro_run() {
 	}
 }
 
-static void extract_directory(char *buf, const char *path, size_t size) {
-	strncpy(buf, path, size - 1);
-	buf[size - 1] = '\0';
-
-	char *base = strrchr(buf, '/');
-	if (!base)
-		base = strrchr(buf, '\\');
-
-	if (base)
-		*base = '\0';
-	else
-		buf[0] = '\0';
-}
-
 /* Loads a game. */
 RETRO_API bool retro_load_game(const struct retro_game_info* game) {
-	char parent_dir[1024];
 	enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_XRGB8888;
 
 	if (!game)
@@ -395,12 +442,19 @@ RETRO_API bool retro_load_game(const struct retro_game_info* game) {
 
 	Output::IgnorePause(true);
 
-	auto fs = FileFinder::Root().Create(game->path);
+	std::string game_path = game->path;
+
+	// Convert RetroArch archive paths to paths our VFS understands
+	game_path = Utils::ReplaceAll(game_path, ".zip#", ".zip/");
+	game_path = Utils::ReplaceAll(game_path, ".easyrpg#", ".easyrpg/");
+	game_path = FileFinder::MakeCanonical(game_path, 0);
+
+	auto fs = FileFinder::Root().Create(game_path);
 	if (!fs) {
-		extract_directory(parent_dir, game->path, sizeof(parent_dir));
-		fs = FileFinder::Root().Create(parent_dir);
+		std::tie(game_path, std::ignore) = FileFinder::GetPathAndFilename(game_path);
+		fs = FileFinder::Root().Create(game_path);
 		if (!fs || !FileFinder::IsValidProject(fs)) {
-			log_cb(RETRO_LOG_ERROR, "Unsupported game %s\n", parent_dir);
+			log_cb(RETRO_LOG_ERROR, "Unsupported game %s\n", game_path.c_str());
 			return false;
 		}
 	}
@@ -426,6 +480,8 @@ RETRO_API void retro_unload_game() {
 		// Shutdown requested by the frontend and not via Title scene
 		Player::Exit();
 	}
+
+	Output::SetLogCallback(nullptr);
 }
 
 // unused stuff required by libretro api

@@ -25,6 +25,7 @@
 #include "async_handler.h"
 #include "game_character.h"
 #include "game_actor.h"
+#include "game_interpreter_shared.h"
 #include <lcf/dbarray.h>
 #include <lcf/rpg/fwd.h>
 #include <lcf/rpg/eventcommand.h>
@@ -37,10 +38,13 @@ class Game_Event;
 class Game_CommonEvent;
 class PendingMessage;
 
+
+using InterpreterPush = std::tuple<InterpreterExecutionType, InterpreterEventType>;
+
 /**
  * Game_Interpreter class
  */
-class Game_Interpreter
+class Game_Interpreter : public Game_BaseInterpreterContext
 {
 public:
 	using Cmd = lcf::rpg::EventCommand::Code;
@@ -63,39 +67,59 @@ public:
 
 	void Update(bool reset_loop_count=true);
 
+	template<InterpreterExecutionType type_ex, InterpreterEventType type_ev>
 	void Push(
-			const std::vector<lcf::rpg::EventCommand>& _list,
-			int _event_id,
-			bool started_by_decision_key = false
+		std::vector<lcf::rpg::EventCommand> _list,
+		int _event_id,
+		int event_page_id = 0
 	);
+
+	template<InterpreterExecutionType type_ex>
 	void Push(Game_Event* ev);
-	void Push(Game_Event* ev, const lcf::rpg::EventPage* page, bool triggered_by_decision_key);
+
+	template<InterpreterExecutionType type_ex>
+	void Push(Game_Event* ev, const lcf::rpg::EventPage* page);
+
+	template<InterpreterExecutionType type_ex>
 	void Push(Game_CommonEvent* ev);
 
 	void InputButton();
 	void SetupChoices(const std::vector<std::string>& choices, int indent, PendingMessage& pm);
 
-	virtual bool ExecuteCommand();
+	bool ExecuteCommand();
+	virtual bool ExecuteCommand(lcf::rpg::EventCommand const& com);
 
+
+	/**
+	 * Returns the interpreters current state information.
+	 * For saving state into a save file, use GetSaveState instead.
+	 */
+	const lcf::rpg::SaveEventExecState& GetState() const override;
 
 	/**
 	 * Returns a SaveEventExecState needed for the savefile.
 	 *
 	 * @return interpreter commands stored in SaveEventCommands
 	 */
-	lcf::rpg::SaveEventExecState GetState() const;
+	lcf::rpg::SaveEventExecState GetSaveState();
 
 	/** @return Game_Character of the passed event_id */
-	Game_Character* GetCharacter(int event_id) const;
+	Game_Character* GetCharacter(int event_id, std::string_view origin) const override;
 
 	/** @return the event_id of the current frame */
 	int GetCurrentEventId() const;
 
 	/** @return the event_id used by "ThisEvent" in commands */
-	int GetThisEventId() const;
+	int GetThisEventId() const override;
 
 	/** @return the event_id of the event at the base of the call stack */
 	int GetOriginalEventId() const;
+
+	/**
+	 * Sets the ID of the event at the base of the call stack to 0.
+	 * Used by DestroyMapEvent to prevent triggering a sanity check when the event is destroyed.
+	 */
+	void ClearOriginalEventId();
 
 	/** Return true if the interpreter is waiting for an async operation and needs to be resumed */
 	bool IsAsyncPending();
@@ -105,13 +129,13 @@ public:
 
 	/** @return true if wait command (time or key) is active. Used by 2k3 battle system */
 	bool IsWaitingForWaitCommand() const;
-	bool CommandShowMessage(lcf::rpg::EventCommand const& com);
+
 protected:
 	static constexpr int loop_limit = 10000;
 	static constexpr int call_stack_limit = 1000;
 	static constexpr int subcommand_sentinel = 255;
 
-	const lcf::rpg::SaveEventExecFrame& GetFrame() const;
+	const lcf::rpg::SaveEventExecFrame& GetFrame() const override;
 	lcf::rpg::SaveEventExecFrame& GetFrame();
 	const lcf::rpg::SaveEventExecFrame* GetFramePtr() const;
 	lcf::rpg::SaveEventExecFrame* GetFramePtr();
@@ -156,13 +180,17 @@ protected:
 	void SetupWait(int duration);
 
 	/**
+	 * Sets up a wait using frames (and closes the message box)
+	 */
+	void SetupWaitFrames(int duration);
+
+	/**
 	 * Calculates list of actors.
 	 *
 	 * @param mode 0: party, 1: specific actor, 2: actor referenced by variable.
 	 * @param id actor ID (mode = 1) or variable ID (mode = 2).
 	 */
 	static std::vector<Game_Actor*> GetActors(int mode, int id);
-	static int ValueOrVariable(int mode, int val);
 
 	/**
 	 * When current frame finishes executing we pop the stack
@@ -178,7 +206,7 @@ protected:
 
 	bool CommandOptionGeneric(lcf::rpg::EventCommand const& com, int option_sub_idx, std::initializer_list<Cmd> next);
 
-	//bool CommandShowMessage(lcf::rpg::EventCommand const& com);
+	bool CommandShowMessage(lcf::rpg::EventCommand const& com);
 	bool CommandMessageOptions(lcf::rpg::EventCommand const& com);
 	bool CommandChangeFaceGraphic(lcf::rpg::EventCommand const& com);
 	bool CommandShowChoices(lcf::rpg::EventCommand const& com);
@@ -239,7 +267,7 @@ protected:
 	bool CommandKeyInputProc(lcf::rpg::EventCommand const& com);
 	bool CommandChangeMapTileset(lcf::rpg::EventCommand const& com);
 	bool CommandChangePBG(lcf::rpg::EventCommand const& com);
-	bool CommandChangeEncounterRate(lcf::rpg::EventCommand const& com);
+	bool CommandChangeEncounterSteps(lcf::rpg::EventCommand const& com);
 	bool CommandTileSubstitution(lcf::rpg::EventCommand const& com);
 	bool CommandTeleportTargets(lcf::rpg::EventCommand const& com);
 	bool CommandChangeTeleportAccess(lcf::rpg::EventCommand const& com);
@@ -261,6 +289,7 @@ protected:
 	bool CommandChangeBattleCommands(lcf::rpg::EventCommand const& com);
 	bool CommandExitGame(lcf::rpg::EventCommand const& com);
 	bool CommandToggleFullscreen(lcf::rpg::EventCommand const& com);
+	bool CommandOpenVideoOptions(lcf::rpg::EventCommand const& com);
 	bool CommandManiacGetSaveInfo(lcf::rpg::EventCommand const& com);
 	bool CommandManiacSave(lcf::rpg::EventCommand const& com);
 	bool CommandManiacLoad(lcf::rpg::EventCommand const& com);
@@ -275,11 +304,13 @@ protected:
 	bool CommandManiacControlGlobalSave(lcf::rpg::EventCommand const& com);
 	bool CommandManiacChangePictureId(lcf::rpg::EventCommand const& com);
 	bool CommandManiacSetGameOption(lcf::rpg::EventCommand const& com);
+	bool CommandManiacControlStrings(lcf::rpg::EventCommand const& com);
 	bool CommandManiacCallCommand(lcf::rpg::EventCommand const& com);
-
-	int DecodeInt(lcf::DBArray<int32_t>::const_iterator& it);
-	const std::string DecodeString(lcf::DBArray<int32_t>::const_iterator& it);
-	lcf::rpg::MoveCommand DecodeMove(lcf::DBArray<int32_t>::const_iterator& it);
+	bool CommandEasyRpgSetInterpreterFlag(lcf::rpg::EventCommand const& com);
+	bool CommandEasyRpgProcessJson(lcf::rpg::EventCommand const& com);
+	bool CommandEasyRpgCloneMapEvent(lcf::rpg::EventCommand const& com);
+	bool CommandEasyRpgDestroyMapEvent(lcf::rpg::EventCommand const& com);
+	bool CommandManiacGetGameInfo(lcf::rpg::EventCommand const& com);
 
 	void SetSubcommandIndex(int indent, int idx);
 	uint8_t& ReserveSubcommandIndex(int indent);
@@ -287,6 +318,9 @@ protected:
 
 	void ForegroundTextPush(PendingMessage pm);
 	void EndEventProcessing();
+
+	std::optional<bool> HandleDynRpgScript(const lcf::rpg::EventCommand& com);
+	std::optional<bool> HandleDestinyScript(const lcf::rpg::EventCommand& com);
 
 	FileRequestBinding request_id;
 	enum class Keys {
@@ -320,13 +354,68 @@ protected:
 		void toSave(lcf::rpg::SaveEventExecState& save) const;
 	};
 
-	bool CheckOperator(int val, int val2, int op) const;
-	bool ManiacCheckContinueLoop(int val, int val2, int type, int op) const;
+	int ManiacBitmask(int value, int mask) const;
 
 	lcf::rpg::SaveEventExecState _state;
 	KeyInputState _keyinput;
 	AsyncOp _async_op = {};
+
+	private:
+		void PushInternal(
+			InterpreterPush push_info,
+			std::vector<lcf::rpg::EventCommand> _list,
+			int _event_id,
+			int event_page_id = 0
+		);
+
+		void PushInternal(Game_Event* ev, InterpreterExecutionType ex_type);
+		void PushInternal(Game_Event* ev, const lcf::rpg::EventPage* page, InterpreterExecutionType ex_type);
+		void PushInternal(Game_CommonEvent* ev, InterpreterExecutionType ex_type);
+
+	friend class Game_Interpreter_Inspector;
 };
+
+class Game_Interpreter_Inspector {
+public:
+	bool IsInActiveExcecution(Game_Event const& ev, bool background_only);
+
+	bool IsInActiveExcecution(Game_CommonEvent const& ce, bool background_only);
+
+	lcf::rpg::SaveEventExecState const& GetForegroundExecState();
+	lcf::rpg::SaveEventExecState& GetForegroundExecStateUnsafe();
+
+	lcf::rpg::SaveEventExecState const& GetExecState(Game_Event const& ev);
+	lcf::rpg::SaveEventExecState const& GetExecState(Game_CommonEvent const& ce);
+
+	lcf::rpg::SaveEventExecState& GetExecStateUnsafe(Game_Event& ev);
+	lcf::rpg::SaveEventExecState& GetExecStateUnsafe(Game_CommonEvent& ce);
+};
+
+template<InterpreterExecutionType type_ex, InterpreterEventType type_ev>
+inline void Game_Interpreter::Push(std::vector<lcf::rpg::EventCommand> _list, int _event_id, int event_page_id) {
+	PushInternal({ type_ex, type_ev }, _list, _event_id, event_page_id);
+}
+
+template<InterpreterExecutionType type_ex>
+inline void Game_Interpreter::Push(Game_Event* ev) {
+	static_assert(type_ex <= InterpreterExecutionType::Call || type_ex == InterpreterExecutionType::DebugCall, "Unexpected ExecutionType for MapEvent");
+	PushInternal(ev, type_ex);
+}
+
+template<InterpreterExecutionType type_ex>
+inline void Game_Interpreter::Push(Game_Event* ev, const lcf::rpg::EventPage* page) {
+	static_assert(type_ex <= InterpreterExecutionType::Call || type_ex == InterpreterExecutionType::DebugCall, "Unexpected ExecutionType for MapEvent");
+	PushInternal(ev, page, type_ex);
+}
+
+template<InterpreterExecutionType type_ex>
+inline void Game_Interpreter::Push(Game_CommonEvent* ev) {
+	static_assert(type_ex == InterpreterExecutionType::AutoStart || type_ex == InterpreterExecutionType::Parallel
+		|| type_ex == InterpreterExecutionType::Call || type_ex == InterpreterExecutionType::DeathHandler
+		|| type_ex == InterpreterExecutionType::DebugCall || type_ex == InterpreterExecutionType::ManiacHook, "Unexpected ExecutionType for CommonEvent"
+	);
+	PushInternal(ev, type_ex);
+}
 
 inline const lcf::rpg::SaveEventExecFrame* Game_Interpreter::GetFramePtr() const {
 	return !_state.stack.empty() ? &_state.stack.back() : nullptr;
@@ -355,6 +444,12 @@ inline int Game_Interpreter::GetCurrentEventId() const {
 
 inline int Game_Interpreter::GetOriginalEventId() const {
 	return !_state.stack.empty() ? _state.stack.front().event_id : 0;
+}
+
+inline void Game_Interpreter::ClearOriginalEventId() {
+	if (!_state.stack.empty()) {
+		_state.stack.front().event_id = 0;
+	}
 }
 
 inline int Game_Interpreter::GetLoopCount() const {

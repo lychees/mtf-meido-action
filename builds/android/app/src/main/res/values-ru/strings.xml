@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--GameBrowser Activity-->
+    <string name="autodetect">Автовыбор региона (рекоммендуется)</string>
+    <string name="west_europe">Западноевропейский</string>
+    <string name="east_europe">Центрально- или восточноевропейский</string>
+    <string name="cyrillic">Кириллический</string>
+    <string name="japan">Японский</string>
+    <string name="korean">Корейский</string>
+    <string name="chinese_simple">Китайский (упрощённые формы)</string>
+    <string name="chinese_traditional">Китайский (традиционные формы)</string>
+    <string name="greek">Греческий</string>
+    <string name="turkish">Турецкий</string>
+    <string name="hebrew">Иврит</string>
+    <string name="arabic">Арабский</string>
+    <string name="baltic">Балтийский</string>
+    <string name="thai">Тайский</string>
+    <string name="vietnamese">Вьетнамский</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Отмена</string>
+    <string name="do_want_quit">Вы действительно хотите выйти\?</string>
+    <string name="yes">Да</string>
+    <string name="no">Нет</string>
+    <string name="creating_dir_failed">Не удалось создать директорию $PATH</string>
+    <string name="path_not_readable">Невозможно прочитать $PATH</string>
+    <string name="no_external_storage">Не найден внешний диск (например, SD-карта)</string>
+    <string name="not_valid_game">$PATH не является поддерживаемой игрой</string>
+    <string name="select_game_region">Выбрать регион игры</string>
+    <string name="change_the_layout">Изменить интерфейс</string>
+    <string name="choose_layout">Выбрать интерфейс</string>
+    <string name="unknown_region">Неизвестный регион</string>
+    <string name="region_modification_failed">Не удалось изменить регион</string>
+    <string name="refresh">Обновить</string>
+    <string name="change_default_mapping">Изменить стандартные значения кнопок</string>
+    <string name="how_to_use_easy_rpg">Как использовать EasyRPG Player</string>
+    <!--Ingame menu-->
+    <string name="toggle_ui">Показ виртуальных кнопок</string>
+    <string name="end_game">Закончить игру</string>
+    <string name="report_bug">Сообщить об ошибке</string>
+    <string name="report_bug_msg">Эта функция откроет почтовую программу (напр. Gmail), чтобы послать сообщение об ошибке.
+\n
+\nЕсли вы не хотите отправлять письмо, или у вас не настроена почтовая программа, можно создать новое описание проблемы на https://github.com/EasyRPG/Player/issues</string>
+    <string name="report_bug_mail">Спасибо за поддержку EasyRPG Player! \n К этому письму прикреплены журнальный файл и сохранённые игры. \n Пожалуйста, не удаляйте журнальный файл! Нам нужно сохранение рядом с тем местом, где происходит ошибка. \n Пожалуйста, подробно опишите, в чём проблема.</string>
+    <!--Settings Activities-->
+    <string name="video">Видео</string>
+    <string name="audio">Аудио</string>
+    <string name="input">Ввод</string>
+    <string name="settings">Настройки</string>
+    <string name="enable_vibration">Включить вибрацию</string>
+    <string name="vibrate_when_sliding_direction">Вибрировать, когда произошло перемещение в другом направлении одним прикосновением</string>
+    <string name="input_layout_transparency">Прозрачность интерфейса ввода:</string>
+    <string name="ignore_size_settings">Игнорировать размер кнопок и установить его таким:</string>
+    <string name="no_read_access_on_dir">Нет доступа для чтения к %1$s</string>
+    <string name="quick_access">Быстрый доступ</string>
+    <string name="force_landscape_mode">Зафиксировать горизонтальную ориентацию</string>
+    <string name="fast_forward">Режим кнопки ускорения:</string>
+    <string-array name="fast_forward_mode">
+        <item>удерживание</item>
+        <item>нажатие</item>
+    </string-array>
+    <string name="fast_forward_factor">Коэффициент ускорения:</string>
+    <!--InputLayout Managing-->
+    <string name="manage_input_layouts">Управление интерфейсами ввода:</string>
+    <string name="edit_name">Изменить название</string>
+    <string name="edit_layout">Изменить интерфейс</string>
+    <string name="delete">Удалить</string>
+    <string name="default_layout">По умолчанию</string>
+    <!--ButtonMapping Activity-->
+    <string name="add_a_button">Добавить кнопку</string>
+    <string name="reset_button_mapping">Сбросить значения кнопок</string>
+    <string name="exit_without_saving">Выйти без сохранения</string>
+    <string name="save_and_quit">Сохранить и выйти</string>
+    <string name="key_enter">Enter (Z)</string>
+    <string name="key_cancel">Отмена (ESC и X)</string>
+    <string name="key_shift">Shift</string>
+    <string name="key_fast_forward">Ускорение</string>
+    <!--GameBrowserAPI15-->
+    <string name="navigation_drawer_open">Открыть боковое меню</string>
+    <string name="navigation_drawer_close">Закрыть боковое меню</string>
+    <string name="menu">Открыть меню Android</string>
+    <string name="no_games_found_and_explanation_android_30">RPG Maker 2000/2003 игр не найдено. Положите их в подраздел папки с играми.
+\nИгры могут находится в этом разделе в виде ZIP файла. EasyRPG папка может изменять эти настройки.</string>
+    <string name="easyrpg_folders">Папки EasyRPG</string>
+    <string name="screen_size">Разрешение экрана:</string>
+    <string name="settings_custom_soundfont">Пользовательские звуковые эффекты:</string>
+    <string name="open_the_sound_fonts_folder">Откройте папку звуковых эффектов</string>
+    <string name="scale_bilinear">Масштабирование до размера экрана и применение билинейного фильтра (медленно, но хорошее качество)</string>
+    <string name="stretch">Игнорировать соотношение сторон (растягивать по ширине экрана)</string>
+    <string name="launch_debug_mode">Запустите debug</string>
+    <string name="visit_website">Посетите наш веб-сайт</string>
+    <string name="error_games_no_rw">Папка с играми (games) недоступна для чтения и записи. Выберите другое место для папки EasyRPG. Папку EasyRPG можно изменить в настройках.</string>
+    <string name="settings_resolution">Разрешение экрана в игре:</string>
+    <string name="settings_resolution_desc">Изменение разрешения может вызвать графические ошибки или сломать игру. Вы предупреждены!</string>
+    <string name="settings_resolution_original">Изначально (320х240, 4:3, рекомендовано)</string>
+    <string name="settings_resolution_widescreen">Широкоформатный (416x240, 16:9, Экспериментальный)</string>
+    <string name="settings_resolution_ultrawide">Сверхшироформатный (560x240, 21:9, экспериментальный)</string>
+    <string name="open_games_folder">Открыть папку с играми (games)</string>
+    <string name="how_to_use_easy_rpg_explanation_android_30">Поместите свои игры RPG Maker 2000/2003 в подкаталоги папки «games».
+\nИгры должны быть в несжатом виде или в ZIP-архиве.
+\nФайлы RAR, LZH и EXE НЕ поддерживаются.
+\n
+\nДополнительные функции (см. настройки):
+\n- Может быть предоставлен RTP (общие активы, используемые некоторыми играми).
+\n- Пользовательский звуковой шрифт для изменения того, как могут быть предоставлены звуки MIDI-музыки.</string>
+    <string name="settings_soundfont_explanation">Поместите звуковые шрифты в формате SF2 в папку «soundfonts». Soundfonts изменяют звучание MIDI-музыки.</string>
+    <string name="settings_default_soundfont">Обычный soundfount</string>
+    <string name="select_the_games_folder">Выберите папку EasyRPG</string>
+    <string name="id_select_games_folder_explanation">Для EasyRPG Player требуется отдельная папка. После нажатия на кнопку вам будет предложено выбрать папку.
+\n
+\nЕсли вы используете это приложение впервые, папки EasyRPG не будет. Создайте новую папку EasyRPG а затем выберите еë.
+\n
+\nЕсли вы использовали это приложение раньше, выберите существующую папку EasyRPG.</string>
+    <string name="Loading">Загрузка…</string>
+    <string name="enable_rtp_support">Включить поддержку RTP</string>
+    <string name="rtp_explanation">RTP предоставляет общие активы, используемые некоторыми играми.
+\nПоместите RPG Maker 2000 RTP в «rtp/2000», а RPG Maker 2003 RTP в «rtp/2003».
+\nОбратите внимание, что включение поддержки RTP значительно увеличит время загрузки игры.</string>
+    <string name="open_rtp_folder">Откройте папку \"rtp\"</string>
+    <string name="horizontal_input_layout">Горизонтальный (альбомный) интерфейс ввода</string>
+    <string name="vertical_input_layout">Вертикальный (книжный) интерфейс ввода</string>
+    <string name="scale_nearest">Масштабирование до размера экрана с использованием ближайших пикселей (быстро, плохое качество)</string>
+    <string name="scale_integer">Масштабирование до кратного разрешению игры (быстро, изображение меньшего размера, хорошее качество)</string>
+    <string name="music_volume">Громкость музыки</string>
+    <string name="sound_volume">Громкость музыкальных эффектов</string>
+    <string name="error_no_games_folder">Папка \"games\" не существует или не является папкой. Пожалуйста, создайте его вручную или выберите другое место для папки EasyRPG. Папку EasyRPG можно изменить в настройках.</string>
+    <string name="watch_explanation_video">Начало работы и добавление игр (видеогайд)</string>
+    <string name="error_saf_title">Плохой выбор папки</string>
+    <string name="error_saf_select_easyrpg">Пожалуйста, создайте пустую папку EasyRPG и выберите ее.</string>
+    <string name="error_saf_download_selected">Папка Download не может использоваться как папка EasyRPG.</string>
+    <string name="error_saf_folder_not_empty">Выбранная папка содержит другие файлы и не может использоваться в качестве папки EasyRPG. Когда вы удалите все файлы внутри папки, вы сможете использовать ее как папку EasyRPG.</string>
+    <string name="error_saf_bad_content_provider">Выбранную папку нельзя использовать в качестве папки EasyRPG. Эта проблема может возникнуть по разным причинам, например, если вы выбрали корневой каталог или место хранения в облаке.
+\n
+\n</string>
+    <string name="fast_forward_mode_hold">Удерживать</string>
+    <string name="fast_forward_mode_tap">Нажимать</string>
+</resources>

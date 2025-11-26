@@ -1,0 +1,7 @@
+Amb EasyRPG Player pots jugar a jocs creats amb RPG Maker 2000 i RPG Maker 2003. Nous motors com XP, VX i MZ no són compatibles.
+
+EasyRPG Player no és un editor. No pots crear els teus jocs amb ell.
+
+Pàgina web: https://easyrpg.org/
+
+Aquest programari no té cap relació amb Kadokawa Corporation.

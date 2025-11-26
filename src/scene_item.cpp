@@ -30,6 +30,7 @@
 #include "scene_teleport.h"
 #include "output.h"
 #include "transition.h"
+#include "player.h"
 
 Scene_Item::Scene_Item(int item_index) :
 	item_index(item_index) {
@@ -39,8 +40,8 @@ Scene_Item::Scene_Item(int item_index) :
 void Scene_Item::Start() {
 	// Create the windows
 	int menu_help_height = 32;
-	help_window.reset(new Window_Help(MENU_OFFSET_X, MENU_OFFSET_Y, MENU_WIDTH, menu_help_height));
-	item_window.reset(new Window_Item(MENU_OFFSET_X, MENU_OFFSET_Y + menu_help_height, MENU_WIDTH, MENU_HEIGHT - menu_help_height));
+	help_window.reset(new Window_Help(Player::menu_offset_x, Player::menu_offset_y, MENU_WIDTH, menu_help_height));
+	item_window.reset(new Window_Item(Player::menu_offset_x, Player::menu_offset_y + menu_help_height, MENU_WIDTH, MENU_HEIGHT - menu_help_height));
 	item_window->SetHelpWindow(help_window.get());
 	item_window->Refresh();
 	item_window->SetIndex(item_index);
@@ -50,7 +51,7 @@ void Scene_Item::Continue(SceneType /* prev_scene */) {
 	item_window->Refresh();
 }
 
-void Scene_Item::Update() {
+void Scene_Item::vUpdate() {
 	help_window->Update();
 	item_window->Update();
 

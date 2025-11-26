@@ -8,10 +8,6 @@
 *~
 *.orig
 *.bak
-*.obj
-*.tlog
-
-
 
 # autotools
 /autom4te.cache/
@@ -65,6 +61,8 @@ install_manifest.txt
 *.ilk
 *.pdb
 /resources/player.rc
+.vs/
+vcpkg/
 
 # ninja
 .ninja_*
@@ -105,8 +103,6 @@ __MACOSX
 # Xcode
 /*.xcodeproj
 /*.xcworkspace
-# /Debug/
-/x64
 /Release/
 /MinSizeRel/
 /RelWithDebInfo/
@@ -142,6 +138,10 @@ eboot.bin
 *.vpk
 *.velf
 
+# ps4
+*.prx
+*.sprx
+
 # flatpak
 /.flatpak-builder
 
@@ -149,24 +149,10 @@ eboot.bin
 *.pem
 *.keystore
 *.jks
-EasyRPG_Player_exe.dir/Debug/player.res
-EasyRPG_Player_exe.dir/Debug/Player.exe.recipe
-EasyRPG_Player.sln
-EasyRPG_Player.dir/Debug/EasyRPG_Playerd.lib.recipe
-resources/windows/player.rc
-EasyRPG_Player.dir/Debug/EasyRPG_Player.lib.recipe
-.vs/EasyRPG_Player/FileContentIndex/dbf5d1f7-2aa7-41da-99c0-292cbd1b6b15.vsidx
-.vs/EasyRPG_Player/FileContentIndex/read.lock
-.vs/EasyRPG_Player/v17/fileList.bin
-.vs/EasyRPG_Player/v17/fileList.bin
-.vs/EasyRPG_Player/v17/Browse.VC.db
-.vs/EasyRPG_Player/v17/Solution.VC.db
-/icu-easyrpg
-/fluidsynth-easyrpg
-/lhasa-easyrpg
+/x64/Debug
 /lib/1
-/EasyRPG_Player_exe.dir/Debug
-/EasyRPG_Player.dir/Debug
-setup_env.cmd
-/test_runner_player.dir/Debug
-/vcpkg
+/lib/2
+/EasyRPG_Player_exe.dir
+/EasyRPG_Player.dir
+*.sln
+*.dll

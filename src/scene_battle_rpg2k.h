@@ -135,7 +135,7 @@ public:
 	~Scene_Battle_Rpg2k() override;
 
 	void Start() override;
-	void Update() override;
+	void vUpdate() override;
 
 protected:
 	bool UpdateBattleState();
@@ -151,10 +151,9 @@ protected:
 	void RefreshTargetWindow();
 
 	bool CheckBattleEndConditions();
-	bool RefreshEventsAndCheckBattleEnd();
 
 	void ResetWindows(bool make_invisible);
-	void SetCommandWindows(int x);
+	void SetCommandWindowsX();
 	void MoveCommandWindows(int x, int frames);
 	void RefreshCommandWindow();
 

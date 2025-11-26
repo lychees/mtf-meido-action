@@ -21,6 +21,7 @@
 #include <iterator>
 
 #include "compiler.h"
+#include "utils.h"
 #include "window_message.h"
 #include "game_actors.h"
 #include "game_map.h"
@@ -38,12 +39,13 @@
 #include "cache.h"
 #include "text.h"
 
-#include "sliding_puzzle.h"
-
 // FIXME: Off by 1 bug in window base class
 constexpr int message_animation_frames = 7;
 constexpr int gold_window_width = 88;
 constexpr int gold_window_height = 32;
+
+//#define EP_DEBUG_MESSAGE
+//#define EP_DEBUG_MESSAGE_TEXT
 
 namespace {
 #if defined(EP_DEBUG_MESSAGE) || defined(EP_DEBUG_MESSAGE_TEXT)
@@ -89,7 +91,8 @@ void DebugLogText(const char*, Args&&...) { }
 Window_Message::Window_Message(int ix, int iy, int iwidth, int iheight) :
 	Window_Selectable(ix, iy, iwidth, iheight),
 	number_input_window(new Window_NumberInput(0, 0)),
-	gold_window(new Window_Gold(SCREEN_TARGET_WIDTH - gold_window_width, 0, gold_window_width, gold_window_height))
+	gold_window(new Window_Gold(Player::screen_width - Player::menu_offset_x - gold_window_width, Player::menu_offset_y, gold_window_width, gold_window_height)),
+	pending_message(Game_Message::CommandCodeInserter)
 {
 	SetContents(Bitmap::Create(width - 16, height - 16));
 
@@ -103,6 +106,7 @@ Window_Message::Window_Message(int ix, int iy, int iwidth, int iheight) :
 		&& (Player::IsRPG2k3E() || lcf::Data::battlecommands.battle_type != lcf::rpg::BattleCommands::BattleType_traditional);
 	if (msg_transparent) {
 		SetBackOpacity(160);
+		SetBackgroundPreserveTransparentColor(true);
 	}
 	gold_window->SetBackOpacity(GetBackOpacity());
 
@@ -165,7 +169,7 @@ void Window_Message::StartMessageProcessing(PendingMessage pm) {
 			Game_Message::WordWrap(
 					line,
 					width - 24,
-					[&](StringView wrapped_line) {
+					[&](std::string_view wrapped_line) {
 						append(std::string(wrapped_line));
 					}
 			);
@@ -217,7 +221,7 @@ void Window_Message::StartChoiceProcessing() {
 void Window_Message::StartNumberInputProcessing() {
 	number_input_window->SetMaxDigits(pending_message.GetNumberInputDigits());
 	if (IsFaceEnabled() && !Main_Data::game_system->IsMessageFaceRightPosition()) {
-		number_input_window->SetX(MESSAGE_BOX_OFFSET_X + LeftMargin + FaceSize + RightFaceMargin);
+		number_input_window->SetX(Player::message_box_offset_x + LeftMargin + FaceSize + RightFaceMargin);
 	} else {
 		number_input_window->SetX(x);
 	}
@@ -234,7 +238,7 @@ void Window_Message::ShowGoldWindow() {
 		return;
 	}
 	if (!gold_window->IsVisible()) {
-		gold_window->SetY(y == 0 ? SCREEN_TARGET_HEIGHT - 32 : 0);
+		gold_window->SetY(y == 0 ? Player::screen_height - Player::menu_offset_y - 32 : Player::menu_offset_y);
 		gold_window->SetOpenAnimation(message_animation_frames);
 	} else if (gold_window->IsClosing()) {
 		gold_window->SetOpenAnimation(0);
@@ -262,21 +266,23 @@ void Window_Message::InsertNewPage() {
 	prev_char_printable = false;
 	prev_char_waited = true;
 
+	if (GetFont()) {
+		page_font = GetFont();
+	} else {
+		page_font = Font::Default();
+	}
+
 	// Position the message box vertically
 	// Game_Message::GetRealPosition() specify top/middle/bottom
-	float factor = Game_Message::GetRealPosition() / (float)2;
-	// In case of hight vertical resolution, we add a margin for top/bottom
-	int off_set_y = 0;
-	if (SCREEN_TARGET_HEIGHT > 240) {
-		int margin_y = SCREEN_TARGET_HEIGHT * 0.03;
-		if (Game_Message::GetRealPosition() == 0) {
-			off_set_y = margin_y;
-		}
-		else if (Game_Message::GetRealPosition() == 2) {
-			off_set_y = (-1) * margin_y;
-		}
+	if (Game_Message::GetRealPosition() == 0) {
+		y = Player::menu_offset_y;
 	}
-	y = (SCREEN_TARGET_HEIGHT * factor) - (MESSAGE_BOX_HEIGHT * factor) + off_set_y;
+	else if (Game_Message::GetRealPosition() == 1) {
+		y = static_cast<int>((Player::screen_height - MESSAGE_BOX_HEIGHT) / 2.f);
+	}
+	else if (Game_Message::GetRealPosition() == 2) {
+		y = Player::screen_height - Player::menu_offset_y - MESSAGE_BOX_HEIGHT ;
+	}
 
 	if (Main_Data::game_system->IsMessageTransparent()) {
 		SetOpacity(0);
@@ -284,6 +290,25 @@ void Window_Message::InsertNewPage() {
 	} else {
 		SetOpacity(255);
 		gold_window->SetBackOpacity(GetBackOpacity());
+	}
+
+	// In some cases the gold window is always opaque
+	bool gold_window_opaque =
+		// 2k does not support system graphic transparency setting
+		Player::IsRPG2k() ||
+		// system graphic set to opaque
+		lcf::Data::battlecommands.transparency == lcf::rpg::BattleCommands::Transparency_opaque ||
+		// RPG2k3 < 1.10 and traditional battle (mode A)
+		(!Player::IsRPG2k3E() && lcf::Data::battlecommands.battle_type == lcf::rpg::BattleCommands::BattleType_traditional);
+
+	if (gold_window_opaque) {
+		gold_window->SetBackOpacity(255);
+	}
+
+	// 2k3 applies transparent color to gold window
+	if (Player::IsRPG2k3()) {
+		gold_window->SetBackgroundAlpha(Main_Data::game_system->IsMessageTransparent());
+		gold_window->SetBackgroundPreserveTransparentColor(GetBackgroundPreserveTransparentColor() && !gold_window->GetBackgroundAlpha());
 	}
 
 	if (IsFaceEnabled()) {
@@ -319,7 +344,6 @@ void Window_Message::InsertNewPage() {
 			ShowGoldWindow();
 		}
 	}
-
 }
 
 void Window_Message::InsertNewLine() {
@@ -361,7 +385,7 @@ void Window_Message::FinishMessageProcessing() {
 	line_char_counter = 0;
 	SetIndex(-1);
 
-	pending_message = {};
+	pending_message = PendingMessage(Game_Message::CommandCodeInserter);
 
 	auto close_frames = Game_Battle::IsBattleRunning() ? 0 : message_animation_frames;
 
@@ -460,7 +484,6 @@ void Window_Message::UpdateMessage() {
 	}
 
 	auto system = Cache::SystemOrBlack();
-	auto font = Font::Default();
 
 	while (true) {
 		const auto* end = text.data() + text.size();
@@ -469,6 +492,15 @@ void Window_Message::UpdateMessage() {
 			DebugLog("{}: MSG WAIT LOOP {}", wait_count);
 			--wait_count;
 			break;
+		}
+
+		if (!shape_ret.empty()) {
+			if (!DrawGlyph(*page_font, *system, shape_ret[0])) {
+				continue;
+			}
+
+			shape_ret.erase(shape_ret.begin());
+			continue;
 		}
 
 		if (GetPause() || GetIndex() >= 0 || number_input_window->GetActive()) {
@@ -490,7 +522,7 @@ void Window_Message::UpdateMessage() {
 
 		const auto ch = tret.ch;
 		if (tret.is_exfont) {
-			if (!DrawGlyph(*font, *system, ch, true)) {
+			if (!DrawGlyph(*page_font, *system, ch, true)) {
 				text_index = text_prev;
 			}
 			continue;
@@ -565,7 +597,7 @@ void Window_Message::UpdateMessage() {
 				break;
 			case '_':
 				// Insert half size space
-				contents_x += Font::Default()->GetSize(" ").width / 2;
+				contents_x += Text::GetSize(*page_font, " ").width / 2;
 				DebugLogText("{}: MSG HalfWait \\_");
 				SetWaitForCharacter(1);
 				break;
@@ -623,9 +655,39 @@ void Window_Message::UpdateMessage() {
 			continue;
 		}
 
-		if (!DrawGlyph(*font, *system, ch, false)) {
-			text_index = text_prev;
+		if (page_font->CanShape()) {
+			assert(shape_ret.empty());
+
+			auto text_index_shape = text_index;
+			std::u32string text32;
+			text32 += ch;
+
+			while (true) {
+				tret = Utils::TextNext(text_index_shape, end, Player::escape_char);
+
+				if (EP_UNLIKELY(!tret)) {
+					break;
+				}
+
+				auto text_prev_shape = text_index_shape;
+				text_index_shape = tret.next;
+				auto chs = tret.ch;
+
+				if (text_index_shape == end || tret.is_exfont || tret.is_escape || Utils::IsControlCharacter(chs)) {
+					text_index = text_prev_shape;
+					break;
+				}
+
+				text32 += tret.ch;
+			}
+
+			shape_ret = page_font->Shape(text32);
 			continue;
+		} else {
+			if (!DrawGlyph(*page_font, *system, ch, false)) {
+				text_index = text_prev;
+				continue;
+			}
 		}
 	}
 }
@@ -643,6 +705,7 @@ bool Window_Message::DrawGlyph(Font& font, const Bitmap& system, char32_t glyph,
 
 	// RPG_RT compatible for half-width (6) and full-width (12)
 	// generalizes the algo for even bigger glyphs
+	// FIXME: When using Freetype this can cause slow rendering speeds due to dynamic width
 	auto get_width = [](int w) {
 		return (w > 0) ? (w - 1) / 6 + 1 : 0;
 	};
@@ -662,7 +725,37 @@ bool Window_Message::DrawGlyph(Font& font, const Bitmap& system, char32_t glyph,
 
 	auto rect = Text::Draw(*contents, contents_x, contents_y, font, system, text_color, glyph, is_exfont);
 
-	// FIXME: When using Freetype the detection is incorrect due to dynamic width
+	int glyph_width = rect.x;
+	contents_x += glyph_width;
+	int width = get_width(glyph_width);
+	SetWaitForCharacter(width);
+
+	return true;
+}
+
+bool Window_Message::DrawGlyph(Font& font, const Bitmap& system, const Font::ShapeRet& shape) {
+	// RPG_RT compatible for half-width (6) and full-width (12)
+	// generalizes the algo for even bigger glyphs
+	// FIXME: This can cause slow rendering speeds for complex shapes
+	auto get_width = [](int w) {
+		return (w > 0) ? (w - 1) / 6 + 1 : 0;
+	};
+
+	DebugLogText("{}: MSG DrawGlyph Shape {}, {}", static_cast<uint32_t>(shape.code), get_width(shape.advance.x));
+
+	// Wide characters cause an extra wait if the last printed character did not wait.
+	if (prev_char_printable && !prev_char_waited) {
+		auto width = get_width(shape.advance.x);
+		if (width >= 2) {
+			prev_char_waited = true;
+			++line_char_counter;
+			SetWait(1);
+			return false;
+		}
+	}
+
+	auto rect = font.Render(*contents, contents_x, contents_y, system, text_color, shape);
+
 	int glyph_width = rect.x;
 	contents_x += glyph_width;
 	int width = get_width(glyph_width);
@@ -704,10 +797,8 @@ void Window_Message::UpdateCursorRect() {
 }
 
 void Window_Message::WaitForInput() {
-
 	if (Input::IsTriggered(Input::DECISION) ||
-			Input::IsTriggered(Input::CANCEL) ||
-			Input::IsRawKeyPressed(Input::Keys::LCTRL)) {
+			Input::IsTriggered(Input::CANCEL)) {
 		SetPause(false);
 	}
 }
@@ -769,11 +860,18 @@ void Window_Message::SetWaitForNonPrintable(int frames) {
 void Window_Message::SetWaitForCharacter(int width) {
 	int frames = 0;
 	if (!instant_speed && width > 0) {
-		bool is_last_for_page = (text.data() + text.size() - text_index) < 2 || (*text_index == '\n' && *(text_index + 1) == '\f');
+		bool is_last_for_page;
+		if (!shape_ret.empty()) {
+			is_last_for_page = (shape_ret.size() == 1) && (
+				(text.data() + text.size() - text_index) <= 1 || (*text_index == '\n' && *(text_index + 1) == '\f'));
+		} else {
+			is_last_for_page = (text.data() + text.size() - text_index) <= 1 || (*text_index == '\n' && *(text_index + 1) == '\f');
+		}
 
 		if (is_last_for_page) {
 			// RPG_RT always waits 2 frames for last character on the page.
 			// FIXME: Exfonts / wide last on page?
+			DebugLogText("{}: is_last_for_page");
 			frames = 2;
 		} else {
 			if (speed > 1) {
@@ -781,7 +879,15 @@ void Window_Message::SetWaitForCharacter(int width) {
 			} else {
 				frames = width / 2;
 				if (width & 1) {
-					bool is_last_for_line = (*text_index == '\n');
+					bool is_last_for_line;
+					if (!shape_ret.empty()) {
+						is_last_for_line = shape_ret.size() == 1 && (*text_index == '\n');
+					} else {
+						is_last_for_line = (*text_index == '\n');
+					}
+					if (is_last_for_line) {
+						DebugLogText("{}: is_last_for_line");
+					}
 
 					// RPG_RT waits for every even character. Also always waits
 					// for the last character.

@@ -1,2 +1,21 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+*         text=auto
+*.cpp     text
+*.h       text linguist-language=C++
+*.md      text
+*.cmake   text
+*.py      text
+*.rb      text
+*.sh      text
+*.ac      text
+*.am      text
+
+tests/doctest.h -diff linguist-vendored
+builds/autoconf/m4/ax_*.m4 -diff linguist-vendored
+src/external/* -diff linguist-vendored
+src/midiprogram.h -diff linguist-vendored
+src/midisequencer.* -diff linguist-vendored
+src/midisynth.* -diff linguist-vendored
+CMakePresets.json -diff linguist-generated
+builds/android/app/src/main/java/org/libsdl/app/*.java -diff linguist-vendored
+builds/android/app/src/main/java/org/libsdl/app/SDLActivity.java diff
+src/generated/* -diff linguist-generated

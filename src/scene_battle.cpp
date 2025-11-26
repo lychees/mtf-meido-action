@@ -40,6 +40,7 @@
 #include "scene_battle_rpg2k.h"
 #include "scene_battle_rpg2k3.h"
 #include "scene_gameover.h"
+#include "scene_settings.h"
 #include "scene_debug.h"
 #include "game_interpreter.h"
 #include "rand.h"
@@ -142,7 +143,7 @@ void Scene_Battle::InitEscapeChance() {
 	int avg_actor_agi = Main_Data::game_party->GetAverageAgility();
 
 	int base_chance = Utils::RoundTo<int>(100.0 * static_cast<double>(avg_enemy_agi) / static_cast<double>(avg_actor_agi));
-	this->escape_chance = Utils::Clamp(150 - base_chance, 64, 100);
+	this->escape_chance = Utils::Clamp(150 - base_chance, 0, 100);
 }
 
 bool Scene_Battle::TryEscape() {
@@ -188,16 +189,18 @@ void Scene_Battle::DrawBackground(Bitmap& dst) {
 	dst.Clear();
 }
 
-void Scene_Battle::CreateUi() {
+void Scene_Battle::CreateOptions() {
 	std::vector<std::string> commands;
 
-	for (auto option: lcf::Data::system.easyrpg_battle_options) {
+	battle_options.clear();
+
+	for (auto option : lcf::Data::system.easyrpg_battle_options) {
 		battle_options.push_back((BattleOptionType)option);
 	}
 
 	// Add all menu items
-	for (auto option: battle_options) {
-		switch(option) {
+	for (auto option : battle_options) {
+		switch (option) {
 		case Battle:
 			commands.push_back(ToString(lcf::Data::terms.battle_fight));
 			break;
@@ -207,25 +210,36 @@ void Scene_Battle::CreateUi() {
 		case Escape:
 			commands.push_back(ToString(lcf::Data::terms.battle_escape));
 			break;
+		case Win:
+			commands.push_back("Win");
+			break;
+		case Lose:
+			commands.push_back("Lose");
+			break;
 		}
 	}
 
 	options_window.reset(new Window_Command(commands, option_command_mov));
 	options_window->SetHeight(80);
-	options_window->SetY(SCREEN_TARGET_HEIGHT - 80);
+	options_window->SetX(Player::menu_offset_x);
+	options_window->SetY(Player::menu_offset_y + MENU_HEIGHT - 80);
+}
 
-	help_window.reset(new Window_Help(0, 0, SCREEN_TARGET_WIDTH, 32));
+void Scene_Battle::CreateUi() {
+	CreateOptions();
+
+	help_window.reset(new Window_Help(Player::menu_offset_x, Player::menu_offset_y, MENU_WIDTH, 32));
 	help_window->SetVisible(false);
 
-	item_window.reset(new Window_Item(0, (SCREEN_TARGET_HEIGHT-80), SCREEN_TARGET_WIDTH, 80));
+	item_window.reset(new Window_Item(Player::menu_offset_x, (Player::menu_offset_y + MENU_HEIGHT - 80), MENU_WIDTH, 80));
 	item_window->SetHelpWindow(help_window.get());
 	item_window->Refresh();
 	item_window->SetIndex(0);
 
-	skill_window.reset(new Window_BattleSkill(0, (SCREEN_TARGET_HEIGHT-80), SCREEN_TARGET_WIDTH, 80));
+	skill_window.reset(new Window_BattleSkill(Player::menu_offset_x, (Player::menu_offset_y + MENU_HEIGHT - 80), MENU_WIDTH, 80));
 	skill_window->SetHelpWindow(help_window.get());
 
-	message_window.reset(new Window_Message(0, (SCREEN_TARGET_HEIGHT - 80), SCREEN_TARGET_WIDTH, 80));
+	message_window.reset(new Window_Message(Player::menu_offset_x, (Player::menu_offset_y + MENU_HEIGHT - 80), MENU_WIDTH, 80));
 	Game_Message::SetWindow(message_window.get());
 }
 
@@ -268,7 +282,7 @@ bool Scene_Battle::UpdateEvents() {
 	}
 
 	auto call = TakeRequestedScene();
-	if (call && call->type == Scene::Gameover) {
+	if (call && (call->type == Scene::Gameover || call->type == Scene::Settings)) {
 		Scene::Push(std::move(call));
 	}
 
@@ -555,6 +569,21 @@ void Scene_Battle::RemoveCurrentAction() {
 
 void Scene_Battle::ActionSelectedCallback(Game_Battler* for_battler) {
 	assert(for_battler->GetBattleAlgorithm() != nullptr);
+
+	auto single_target = for_battler->GetBattleAlgorithm()->GetOriginalSingleTarget();
+	auto group_targets = for_battler->GetBattleAlgorithm()->GetOriginalPartyTarget();
+	// Target: 0 None, 1 Single Enemy, 2 All Enemies, 3 Single Ally, 4 All Allies
+	Game_Battle::ManiacBattleHook(
+		Game_Interpreter_Battle::ManiacBattleHookType::Targetting,
+		for_battler->GetType() == Game_Battler::Type_Enemy,
+		for_battler->GetPartyIndex(),
+		for_battler->GetBattleAlgorithm()->GetActionType(),
+		for_battler->GetBattleAlgorithm()->GetActionId(),
+		single_target
+			? (single_target->GetType() != Game_Battler::Type_Enemy ? 1 : 3)
+			: (group_targets->GetRandomActiveBattler()->GetType() != Game_Battler::Type_Enemy ? 2 : 4),
+		single_target ? single_target->GetPartyIndex() : 0
+	);
 
 	if (for_battler->GetBattleAlgorithm() == nullptr) {
 		Output::Warning("ActionSelectedCallback: Invalid action for battler {} ({})",

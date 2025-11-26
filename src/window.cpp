@@ -25,7 +25,7 @@
 #include "bitmap.h"
 #include "drawable_mgr.h"
 
-constexpr int pause_animation_frames = 20;
+constexpr int arrow_animation_frames = 20;
 
 Window::Window(Drawable::Flags flags): Drawable(Priority_Window, flags)
 {
@@ -57,8 +57,24 @@ void Window::SetCloseAnimation(int frames) {
 	}
 }
 
+void Window::SetBackgroundAlpha(bool alpha) {
+	if (alpha == background_alpha) {
+		return;
+	}
+
+	background_needs_refresh = true;
+	background_alpha = alpha;
+}
+
+void Window::SetBackgroundPreserveTransparentColor(bool preserve) {
+	if (preserve == bg_preserve_transparent_color) {
+		return;
+	}
+
+	bg_preserve_transparent_color = preserve;
+}
+
 void Window::Draw(Bitmap& dst) {
-	if (!IsVisible()) return;
 	if (width <= 0 || height <= 0) return;
 	if (x < -width || x > dst.GetWidth() || y < -height || y > dst.GetHeight()) return;
 
@@ -80,26 +96,39 @@ void Window::Draw(Bitmap& dst) {
 		if (width > 0 && height > 0 && opacity > 0) {
 			if (frame_needs_refresh) RefreshFrame();
 
+			int fopacity = frame_opacity * opacity / 255;
+
 			if (animation_frames > 0) {
 				int ianimation_count = (int)animation_count;
 
 				if (ianimation_count > 8) {
 					Rect src_rect(0, height / 2 - ianimation_count, 8, ianimation_count * 2 - 16);
 
-					dst.Blit(x, y + 8 + src_rect.y, *frame_left, src_rect, opacity);
-					dst.Blit(x + width - 8, y + 8 + src_rect.y, *frame_right, src_rect, opacity);
+					if (frame_left) {
+						dst.Blit(x, y + 8 + src_rect.y, *frame_left, src_rect, fopacity);
+					}
 
-					dst.Blit(x, y + height / 2 - ianimation_count, *frame_up, frame_up->GetRect(), opacity);
-					dst.Blit(x, y + height / 2 + ianimation_count - 8, *frame_down, frame_down->GetRect(), opacity);
+					if (frame_right) {
+						dst.Blit(x + width - 8, y + 8 + src_rect.y, *frame_right, src_rect, fopacity);
+					}
+
+					dst.Blit(x, y + height / 2 - ianimation_count, *frame_up, frame_up->GetRect(), fopacity);
+					dst.Blit(x, y + height / 2 + ianimation_count - 8, *frame_down, frame_down->GetRect(), fopacity);
 				} else {
-					dst.Blit(x, y + height / 2 - ianimation_count, *frame_up, Rect(0, 0, width, ianimation_count), opacity);
-					dst.Blit(x, y + height / 2 , *frame_down, Rect(0, 8 - ianimation_count, width, ianimation_count), opacity);
+					dst.Blit(x, y + height / 2 - ianimation_count, *frame_up, Rect(0, 0, width, ianimation_count), fopacity);
+					dst.Blit(x, y + height / 2 , *frame_down, Rect(0, 8 - ianimation_count, width, ianimation_count), fopacity);
 				}
 			} else {
-				dst.Blit(x, y, *frame_up, frame_up->GetRect(), opacity);
-				dst.Blit(x, y + height - 8, *frame_down, frame_down->GetRect(), opacity);
-				dst.Blit(x, y + 8, *frame_left, frame_left->GetRect(), opacity);
-				dst.Blit(x + width - 8, y + 8, *frame_right, frame_right->GetRect(), opacity);
+				dst.Blit(x, y, *frame_up, frame_up->GetRect(), fopacity);
+				dst.Blit(x, y + height - 8, *frame_down, frame_down->GetRect(), fopacity);
+
+				if (frame_left) {
+					dst.Blit(x, y + 8, *frame_left, frame_left->GetRect(), fopacity);
+				}
+
+				if (frame_right) {
+					dst.Blit(x + width - 8, y + 8, *frame_right, frame_right->GetRect(), fopacity);
+				}
 			}
 		}
 
@@ -134,22 +163,30 @@ void Window::Draw(Bitmap& dst) {
 		}
 	}
 
-	if ((pause && pause_frame < pause_animation_frames && animation_frames <= 0) || down_arrow) {
+	auto show_arrow = [&](bool which) {
+		if (!which || !animate_arrows) {
+			return which;
+		}
+
+		return (arrow_animation_frame < arrow_animation_frames) && animation_frames <= 0;
+	};
+
+	if ((pause && arrow_animation_frame < arrow_animation_frames && animation_frames <= 0) || show_arrow(down_arrow)) {
 		Rect src_rect(40, 16, 16, 8);
 		dst.Blit(x + width / 2 - 8, y + height - 8, *windowskin, src_rect, 255);
 	}
 
-	if (up_arrow) {
+	if (show_arrow(up_arrow)) {
 		Rect src_rect(40, 8, 16, 8);
 		dst.Blit(x + width / 2 - 8, y, *windowskin, src_rect, 255);
 	}
 
-	if (right_arrow) {
+	if (show_arrow(right_arrow)) {
 		Rect src_rect(40, 16, 16, 8);
 		dst.RotateZoomOpacityBlit(x + width - 8, y + height / 2 - 8, 16, 0, *windowskin, src_rect, -M_PI / 2, 1.0, 1.0, 255);
 	}
 
-	if (left_arrow) {
+	if (show_arrow(left_arrow)) {
 		Rect src_rect(40, 8, 16, 8);
 		dst.RotateZoomOpacityBlit(x, y + height / 2 - 8, 16, 0, *windowskin, src_rect, -M_PI / 2, 1.0, 1.0, 255);
 	}
@@ -158,7 +195,7 @@ void Window::Draw(Bitmap& dst) {
 void Window::RefreshBackground() {
 	background_needs_refresh = false;
 
-	BitmapRef bitmap = Bitmap::Create(width, height, false);
+	BitmapRef bitmap = Bitmap::Create(width, height, background_alpha);
 
 	if (stretch) {
 		bitmap->StretchBlit(*windowskin, Rect(0, 0, 32, 32), 255);
@@ -208,9 +245,6 @@ void Window::RefreshFrame() {
 	if (height > 16) {
 		BitmapRef left_bitmap = Bitmap::Create(8, height - 16);
 		BitmapRef right_bitmap = Bitmap::Create(8, height - 16);
-
-		left_bitmap->Clear();
-		right_bitmap->Clear();
 
 		// Border Left
 		src_rect = { 32, 8, 8, 16 };
@@ -293,8 +327,8 @@ void Window::Update() {
 	if (active) {
 		cursor_frame += 1;
 		if (cursor_frame > 20) cursor_frame = 0;
-		if (pause) {
-			pause_frame = (pause_frame + 1) % (pause_animation_frames * 2);
+		if (pause || animate_arrows) {
+			arrow_animation_frame = (arrow_animation_frame + 1) % (arrow_animation_frames * 2);
 		}
 	}
 
@@ -313,6 +347,7 @@ void Window::SetWindowskin(BitmapRef const& nwindowskin) {
 	if (windowskin == nwindowskin) {
 		return;
 	}
+
 	background_needs_refresh = true;
 	frame_needs_refresh = true;
 	cursor_needs_refresh = true;

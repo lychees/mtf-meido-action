@@ -18,6 +18,8 @@
 #ifndef EP_IMAGE_BMP_H
 #define EP_IMAGE_BMP_H
 
+#include <cstdint>
+#include "bitmap.h"
 #include "filesystem_stream.h"
 
 namespace ImageBMP {
@@ -32,8 +34,8 @@ namespace ImageBMP {
 		int palette_size = 0;
 	};
 
-	bool ReadBMP(const uint8_t* data, unsigned len, bool transparent, int& width, int& height, void*& pixels);
-	bool ReadBMP(Filesystem_Stream::InputStream& stream, bool transparent, int& width, int& height, void*& pixels);
+	bool Read(const uint8_t* data, unsigned len, bool transparent, ImageOut& output);
+	bool Read(Filesystem_Stream::InputStream& stream, bool transparent, ImageOut& output);
 
 	BitmapHeader ParseHeader(const uint8_t*& ptr, uint8_t const* e);
 }

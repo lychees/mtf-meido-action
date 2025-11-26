@@ -28,8 +28,6 @@
 
 #include <lcf/inireader.h>
 
-constexpr std::array<Game_Ineluki::Mapping, 61> Game_Ineluki::key_to_ineluki;
-
 namespace {
 #if defined(SUPPORT_KEYBOARD)
 	void mask_kb(bool mask) {
@@ -47,32 +45,12 @@ namespace {
 		Input::SetMask(keymask);
 	}
 #endif
-
-#if defined(USE_MOUSE) && defined(SUPPORT_MOUSE)
-	void mask_mouse(bool mask) {
-		constexpr std::array<Input::Keys::InputKey, 2> keys = {
-			Input::Keys::MOUSE_LEFT,
-			Input::Keys::MOUSE_RIGHT
-		};
-
-		auto keymask = Input::GetMask();
-		for (auto k : keys) {
-			keymask[k] = mask;
-		}
-		Input::SetMask(keymask);
-	}
-#endif
 }
 
 Game_Ineluki::~Game_Ineluki() {
 #if defined(SUPPORT_KEYBOARD)
 	if (key_support) {
 		mask_kb(false);
-	}
-#endif
-#if defined(USE_MOUSE) && defined(SUPPORT_MOUSE)
-	if (mouse_support) {
-		mask_mouse(false);
 	}
 #endif
 }
@@ -95,7 +73,7 @@ bool Game_Ineluki::Execute(const lcf::rpg::Sound& se) {
 	return false;
 }
 
-bool Game_Ineluki::Execute(StringView ini_file) {
+bool Game_Ineluki::Execute(std::string_view ini_file) {
 	auto ini_file_s = ToString(ini_file);
 
 	if (functions.find(ini_file_s) == functions.end()) {
@@ -111,10 +89,10 @@ bool Game_Ineluki::Execute(StringView ini_file) {
 			Output::InfoStr(cmd.arg);
 		} else if (cmd.name == "execprogram") {
 			// Fake execute some known programs
-			if (StringView(cmd.arg).starts_with("exitgame") ||
-					StringView(cmd.arg).starts_with("taskkill")) {
+			if (StartsWith(cmd.arg, "exitgame") ||
+					StartsWith(cmd.arg, "taskkill")) {
 				Player::exit_flag = true;
-			} else if (StringView(cmd.arg).starts_with("SaveCount.dat")) {
+			} else if (StartsWith(cmd.arg, "SaveCount.dat")) {
 				// no-op, detected through saves.script access
 			} else {
 				Output::Warning("Ineluki ExecProgram {}: Not supported", cmd.arg);
@@ -168,45 +146,74 @@ bool Game_Ineluki::Execute(StringView ini_file) {
 			mouse_support = Utils::LowerCase(cmd.arg) == "true";
 			mouse_id_prefix = atoi(cmd.arg2.c_str());
 			// TODO: automatic (append mouse pos every 500ms) not implemented
-#if !defined(USE_MOUSE) || !defined(SUPPORT_MOUSE)
+#if !defined(USE_MOUSE_OR_TOUCH) || !defined(SUPPORT_MOUSE_OR_TOUCH)
 			if (mouse_support) {
 				Output::Warning("Ineluki: Mouse input is not supported on this platform");
 			}
-#else
+#endif
 			if (prev_mouse_support != mouse_support) {
 				Output::Debug("Ineluki: Mouse support is now {}", mouse_support ? "Enabled" : "Disabled");
 			}
-
-			mask_mouse(mouse_support);
-#endif
 		} else if (cmd.name == "getmouseposition") {
-#if defined(USE_MOUSE) && defined(SUPPORT_MOUSE)
 			if (!mouse_support) {
 				return true;
 			}
 
 			Point mouse_pos = Input::GetMousePosition();
 
-			bool left = Input::IsRawKeyPressed(Input::Keys::MOUSE_LEFT);
-			bool right = Input::IsRawKeyPressed(Input::Keys::MOUSE_RIGHT);
+			bool left = Input::IsPressed(Input::MOUSE_LEFT);
+			bool right = Input::IsPressed(Input::MOUSE_RIGHT);
 			int key = left && right ? 3 : right ? 2 : left ? 1 : 0;
 
 			output_list.push_back(key);
 			output_list.push_back(mouse_pos.y);
 			output_list.push_back(mouse_pos.x);
 			output_list.push_back(mouse_id_prefix);
-#endif
 		} else if (cmd.name == "setdebuglevel") {
 			// no-op
 		} else if (cmd.name == "registercheatevent") {
 			cheatlist.emplace_back(Utils::LowerCase(cmd.arg), atoi(cmd.arg2.c_str()));
+		} else if (cmd.name == "setmouseasreturn") {
+			// This command is only found in a few uncommon versions of the patch
+			if (!mouse_support) {
+				return true;
+			}
+			std::string arg_lower = Utils::LowerCase(cmd.arg);
+			if (arg_lower == "left") {
+				mouse_decision_binding = MouseReturnMode::Left;
+			} else if (arg_lower == "right") {
+				mouse_decision_binding = MouseReturnMode::Right;
+			} else if (arg_lower == "both") {
+				mouse_decision_binding = MouseReturnMode::Both;
+			} else if (arg_lower == "none") {
+				mouse_decision_binding = MouseReturnMode::None;
+			} else {
+				Output::Warning("Ineluki: Invalid value for setMouseAsReturn");
+				mouse_decision_binding = MouseReturnMode::None;
+			}
+		} else if (cmd.name == "setmousewheelaskeys") {
+			// This command is only found in a few uncommon versions of the patch
+			if (!mouse_support) {
+				return true;
+			}
+			std::string arg_lower = Utils::LowerCase(cmd.arg);
+			if (arg_lower == "updown") {
+				mouse_wheel_binding = MouseWheelMode::UpDown;
+			} else if (arg_lower == "leftright") {
+				mouse_wheel_binding = MouseWheelMode::LeftRight;
+			} else if (arg_lower == "none") {
+				mouse_wheel_binding = MouseWheelMode::None;
+			} else {
+				Output::Warning("Ineluki: Invalid value for setMouseWheelAsKeys");
+				mouse_wheel_binding = MouseWheelMode::None;
+			}
 		}
 	}
 
 	return true;
 }
 
-bool Game_Ineluki::ExecuteScriptList(StringView list_file) {
+bool Game_Ineluki::ExecuteScriptList(std::string_view list_file) {
 	auto is = FileFinder::Game().OpenInputStream(ToString(list_file));
 	assert(async_scripts.empty());
 
@@ -235,7 +242,7 @@ bool Game_Ineluki::ExecuteScriptList(StringView list_file) {
 	return true;
 }
 
-bool Game_Ineluki::Parse(StringView ini_file) {
+bool Game_Ineluki::Parse(std::string_view ini_file) {
 	auto ini_file_s = ToString(ini_file);
 
 	auto is = FileFinder::Game().OpenInputStream(ini_file_s);
@@ -290,6 +297,10 @@ bool Game_Ineluki::Parse(StringView ini_file) {
 		} else if (cmd.name == "registercheatevent") {
 			cmd.arg = ini.Get(section, "cheat", std::string());
 			cmd.arg2 = ini.Get(section, "value", std::string());
+		} else if (cmd.name == "setmouseasreturn") {
+			cmd.arg = ini.Get(section, "value", std::string());
+		} else if (cmd.name == "setmousewheelaskeys") {
+			cmd.arg = ini.Get(section, "value", std::string());
 		} else {
 			Output::Debug("Ineluki: Unknown command {}", cmd.name);
 			valid = false;
@@ -321,10 +332,15 @@ int Game_Ineluki::GetMidiTicks() {
 }
 
 void Game_Ineluki::Update() {
-	if (!key_support) {
-		return;
+	if (key_support) {
+		UpdateKeys();
 	}
+	if (mouse_support) {
+		UpdateMouse();
+	}
+}
 
+void Game_Ineluki::UpdateKeys() {
 	for (const auto& key : keylist_down) {
 		if (Input::IsRawKeyTriggered(key.key)) {
 			output_list.push_back(key.value);
@@ -357,6 +373,34 @@ void Game_Ineluki::Update() {
 			}
 		}
 	}
+}
+
+void Game_Ineluki::UpdateMouse() {
+#if defined(USE_MOUSE) && defined(SUPPORT_MOUSE)
+	if (Input::IsRawKeyTriggered(Input::Keys::MOUSE_LEFT)) {
+		if ((mouse_decision_binding == MouseReturnMode::Left || mouse_decision_binding == MouseReturnMode::Both)) {
+			Input::SimulateButtonPress(Input::DECISION);
+		}
+	} else if (Input::IsRawKeyTriggered(Input::Keys::MOUSE_RIGHT)) {
+		if ((mouse_decision_binding == MouseReturnMode::Right || mouse_decision_binding == MouseReturnMode::Both)) {
+			Input::SimulateButtonPress(Input::DECISION);
+		}
+	}
+
+	if (Input::IsRawKeyTriggered(Input::Keys::MOUSE_SCROLLUP)) {
+		if (mouse_wheel_binding == MouseWheelMode::UpDown) {
+			Input::SimulateButtonPress(Input::UP);
+		} else if (mouse_wheel_binding == MouseWheelMode::LeftRight) {
+			Input::SimulateButtonPress(Input::LEFT);
+		}
+	} else if (Input::IsRawKeyTriggered(Input::Keys::MOUSE_SCROLLDOWN)) {
+		if (mouse_wheel_binding == MouseWheelMode::UpDown) {
+			Input::SimulateButtonPress(Input::DOWN);
+		} else if (mouse_wheel_binding == MouseWheelMode::LeftRight) {
+			Input::SimulateButtonPress(Input::RIGHT);
+		}
+	}
+#endif
 }
 
 void Game_Ineluki::OnScriptFileReady(FileRequestResult* result) {

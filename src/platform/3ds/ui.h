@@ -36,9 +36,9 @@ public:
 	 *
 	 * @param width window client width.
 	 * @param height window client height.
-	 * @param cfg video config options
+	 * @param cfg config options
 	 */
-	CtrUi(int width, int height, const Game_ConfigVideo& cfg);
+	CtrUi(int width, int height, const Game_Config& cfg);
 
 	/**
 	 * Destructor.
@@ -50,8 +50,11 @@ public:
 	 */
 	/** @{ */
 	void UpdateDisplay() override;
-	bool LogMessage(const std::string &message) override;
-	void ProcessEvents() override;
+	bool ProcessEvents() override;
+	void ToggleStretch() override;
+	void ToggleTouchUi() override;
+	void vGetConfig(Game_ConfigVideo& cfg) const override;
+	bool HandleErrorOutput(const std::string &message) override;
 
 #ifdef SUPPORT_AUDIO
 	AudioInterface& GetAudio();
@@ -60,7 +63,6 @@ public:
 
 private:
 	C3D_RenderTarget *top_screen, *bottom_screen;
-	C2D_Image top_image, bottom_image;
 	void ToggleBottomScreen(bool state);
 
 #ifdef SUPPORT_AUDIO

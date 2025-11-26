@@ -21,7 +21,13 @@
 #ifdef WANT_DRWAV
 
 #define DR_WAV_IMPLEMENTATION
-#include "external/dr_wav.h"
+// Use system dr_wav header if available
+#if __has_include(<dr_wav.h>)
+#  include <dr_wav.h>
+#else
+#  include "external/dr_wav.h"
+#endif
+
 
 DrWavDecoder::DrWavDecoder() {
 	music_type = "wav";
@@ -46,9 +52,21 @@ drwav_bool32 seek_func(void* userdata, int offset, drwav_seek_origin origin) {
 	return DRWAV_TRUE;
 }
 
+drwav_bool32 tell_func(void* userdata, drwav_int64* cursor) {
+	auto* f = reinterpret_cast<Filesystem_Stream::InputStream*>(userdata);
+
+	*cursor = f->GetPosition();
+
+	return DRWAV_TRUE;
+}
+
 bool DrWavDecoder::Open(Filesystem_Stream::InputStream stream_) {
 	this->stream = std::move(stream_);
+#if DRWAV_VERSION_MINOR < 14
 	init = drwav_init_ex(&handle, read_func, seek_func, nullptr, &this->stream, nullptr, DRWAV_SEQUENTIAL, nullptr) == DRWAV_TRUE;
+#else
+	init = drwav_init_ex(&handle, read_func, seek_func, tell_func, nullptr, &this->stream, nullptr, DRWAV_SEQUENTIAL, nullptr) == DRWAV_TRUE;
+#endif
 	return init;
 }
 
@@ -56,6 +74,7 @@ bool DrWavDecoder::Seek(std::streamoff offset, std::ios_base::seekdir origin) {
 	if (origin == std::ios_base::beg) {
 		finished = false;
 		drwav_seek_to_pcm_frame(&handle, offset);
+		decoded_samples = 0;
 		return true;
 	}
 	return false;
@@ -93,7 +112,7 @@ int DrWavDecoder::FillBuffer(uint8_t* buffer, int length) {
 		return 0;
 	}
 
-	drwav_uint64 decoded = drwav_read_pcm_frames_s16(&handle, length / (handle.channels * 2), reinterpret_cast<drwav_int16*>(buffer));
+	int decoded = static_cast<int>(drwav_read_pcm_frames_s16(&handle, length / (handle.channels * 2), reinterpret_cast<drwav_int16*>(buffer)));
 	decoded_samples += decoded;
 	decoded *= handle.channels * 2;
 

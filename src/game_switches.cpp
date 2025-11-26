@@ -21,12 +21,6 @@
 #include <lcf/reader_util.h>
 #include <lcf/data.h>
 
-constexpr int Game_Switches::kMaxWarnings;
-
-Game_Switches::Game_Switches() {
-	_switches.reserve(lcf::Data::switches.size());
-}
-
 void Game_Switches::WarnGet(int variable_id) const {
 	Output::Debug("Invalid read sw[{}]!", variable_id);
 	--_warnings;
@@ -92,7 +86,7 @@ void Game_Switches::FlipRange(int first_id, int last_id) {
 	}
 }
 
-StringView Game_Switches::GetName(int _id) const {
+std::string_view Game_Switches::GetName(int _id) const {
 	const auto* sw = lcf::ReaderUtil::GetElement(lcf::Data::switches, _id);
 
 	if (!sw) {

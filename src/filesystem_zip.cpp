@@ -21,23 +21,24 @@
 #include "utils.h"
 
 #include <zlib.h>
+#include <lcf/encoder.h>
 #include <lcf/reader_util.h>
 #include <lcf/scope_guard.h>
 #include <iostream>
 #include <sstream>
 #include <cassert>
 #include <algorithm>
-#include <fmt/core.h>
+#include <fmt/format.h>
 
-constexpr uint32_t end_of_central_directory = 0x06054b50;
-constexpr int32_t end_of_central_directory_size = 22;
+constexpr char end_of_central_directory[] = "\x50\x4b\x05\x06";
+constexpr int32_t end_of_central_directory_size = 18;
 
 constexpr uint32_t central_directory_entry = 0x02014b50;
 constexpr uint32_t local_header = 0x04034b50;
 constexpr uint32_t local_header_size = 30;
 
-static std::string normalize_path(StringView path) {
-	if (path == "." || path == "/" || path == "") {
+static std::string normalize_path(std::string_view path) {
+	if (path == "." || path == "/" || path.empty()) {
 		return "";
 	};
 	std::string inner_path = FileFinder::MakeCanonical(path, 1);
@@ -51,10 +52,10 @@ static std::string normalize_path(StringView path) {
 	return inner_path;
 }
 
-ZipFilesystem::ZipFilesystem(std::string base_path, FilesystemView parent_fs, StringView enc) :
+ZipFilesystem::ZipFilesystem(std::string base_path, FilesystemView parent_fs, std::string_view enc) :
 	Filesystem(base_path, parent_fs) {
-	auto zipfile = parent_fs.OpenInputStream(GetPath());
-	if (!zipfile) {
+	zip_is = parent_fs.OpenInputStream(GetPath());
+	if (!zip_is) {
 		return;
 	}
 
@@ -69,119 +70,141 @@ ZipFilesystem::ZipFilesystem(std::string base_path, FilesystemView parent_fs, St
 	bool is_utf8;
 
 	encoding = ToString(enc);
-	if (FindCentralDirectory(zipfile, central_directory_offset, central_directory_size, central_directory_entries)) {
-		if (encoding.empty()) {
-			zipfile.seekg(central_directory_offset);
-			std::stringstream filename_guess;
+	if (!FindCentralDirectory(zip_is, central_directory_offset, central_directory_size, central_directory_entries)) {
+		Output::Debug("ZipFS: {} is not a valid archive", GetPath());
+		return;
+	}
 
-			// Guess the encoding first
-			int items = 0;
-			while (ReadCentralDirectoryEntry(zipfile, filepath, entry, is_utf8)) {
-				// Only consider Non-ASCII & Non-UTF8 for encoding detection
-				// Skip directories, files already contain the paths
-				if (is_utf8 || filepath.back() == '/' || Utils::StringIsAscii(filepath)) {
+	if (encoding.empty()) {
+		zip_is.seekg(central_directory_offset);
+		std::stringstream filename_guess;
+
+		// Guess the encoding first
+		int items = 0;
+		while (ReadCentralDirectoryEntry(zip_is, filepath, entry, is_utf8)) {
+			// Only consider Non-ASCII & Non-UTF8 for encoding detection
+			// Directories are skipped as most of them are usually ASCII and do not help with the detection
+			if (is_utf8 || filepath.back() == '/' || Utils::StringIsAscii(std::get<1>(FileFinder::GetPathAndFilename(filepath)))) {
+				continue;
+			}
+			// Codepath will be only entered by Windows "compressed folder" ZIPs (uses local encoding) and
+			// 7zip (uses CP932 for Western European filenames)
+
+			auto pos = filepath.find_last_of('/');
+			if (pos == std::string::npos) {
+				filename_guess << filepath;
+			} else {
+				filename_guess << filepath.substr(pos + 1);
+			}
+
+			++items;
+
+			if (items == 10) {
+				break;
+			}
+		}
+
+		if (items == 0) {
+			// Only ASCII or UTF-8 flags set
+			encoding = "UTF-8";
+		} else {
+			std::vector<std::string> encodings = lcf::ReaderUtil::DetectEncodings(filename_guess.str());
+			for (const auto &enc_ : encodings) {
+				lcf::Encoder lcf_encoder(enc_);
+				if (!lcf_encoder.IsOk()) {
+					// Bad encoding
+					Output::Debug("Bad encoding: {}. Trying next.", enc_);
 					continue;
 				}
-				// Codepath will be only entered by Windows "compressed folder" ZIPs (uses local encoding) and
-				// 7zip (uses CP932 for Western European filenames)
-
-				auto pos = filepath.find_last_of('/');
-				if (pos == std::string::npos) {
-					filename_guess << filepath;
-				} else {
-					filename_guess << filepath.substr(pos + 1);
-				}
-
-				++items;
-
-				if (items == 10) {
-					break;
-				}
-			}
-
-			if (items == 0) {
-				// Only ASCII or UTF-8 flags set
-				encoding = "UTF-8";
-			} else {
-				std::vector<std::string> encodings = lcf::ReaderUtil::DetectEncodings(filename_guess.str());
-				for (const auto &enc_ : encodings) {
-					std::string enc_test = lcf::ReaderUtil::Recode("\\", enc_);
-					if (enc_test.empty()) {
-						// Bad encoding
-						Output::Debug("Bad encoding: {}. Trying next.", enc_);
-						continue;
-					}
-					encoding = enc_;
-					break;
-				}
-			}
-			Output::Debug("Detected ZIP encoding: {}", encoding);
-		}
-		bool enc_is_utf8 = encoding == "UTF-8";
-
-		zipfile.clear();
-		zipfile.seekg(central_directory_offset);
-
-		std::vector<std::string> paths;
-		while (ReadCentralDirectoryEntry(zipfile, filepath, entry, is_utf8)) {
-			if (is_utf8 || enc_is_utf8 || Utils::StringIsAscii(filepath)) {
-				// No reencoding necessary
-				filepath_cp437.clear();
-			} else {
-				// also store CP437 to ensure files inside 7zip zip archives are found
-				filepath_cp437 = lcf::ReaderUtil::Recode(filepath, "437");
-				filepath = lcf::ReaderUtil::Recode(filepath, encoding);
-			}
-
-			// check if the entry is an directory or not (indicated by trailing /)
-			// this will fail when the (game) directory has cp437, but the users can rename it before
-			if (filepath.back() == '/') {
-				filepath = filepath.substr(0, filepath.size() - 1);
-
-				// Determine intermediate directories
-				while (!filepath.empty()) {
-					paths.push_back(filepath);
-					filepath = std::get<0>(FileFinder::GetPathAndFilename(filepath));
-				}
-			} else {
-				zip_entries.emplace_back(filepath, entry);
-				if (!filepath_cp437.empty()) {
-					zip_entries_cp437.emplace_back(filepath_cp437, entry);
-				}
-
-				// Determine intermediate directories
-				for (;;) {
-					filepath = std::get<0>(FileFinder::GetPathAndFilename(filepath));
-					if (filepath.empty()) {
-						break;
-					}
-					paths.push_back(filepath);
-				}
+				encoding = enc_;
+				break;
 			}
 		}
-		// Build directories
-		entry = {};
-		entry.is_directory = true;
-
-		// add root path
-		paths.emplace_back("");
-
-		std::sort(paths.begin(), paths.end());
-		auto del = std::unique(paths.begin(), paths.end());
-		paths.erase(del, paths.end());
-		for (const auto& e : paths) {
-			zip_entries.emplace_back(e, entry);
-		}
-
-		std::sort(zip_entries.begin(), zip_entries.end(), [](auto& a, auto& b) {
-			return a.first < b.first;
-		});
-		std::sort(zip_entries_cp437.begin(), zip_entries_cp437.end(), [](auto& a, auto& b) {
-			return a.first < b.first;
-		});
-	} else {
-		Output::Warning("ZipFS: {} is not a valid archive", GetPath());
+		Output::Debug("Detected ZIP encoding: {}", encoding);
 	}
+	bool enc_is_utf8 = encoding == "UTF-8";
+
+	zip_is.clear();
+	zip_is.seekg(central_directory_offset);
+
+	lcf::Encoder detected_encoder(encoding);
+	lcf::Encoder cp437_encoder("437");
+	std::vector<std::string> paths;
+	while (ReadCentralDirectoryEntry(zip_is, filepath, entry, is_utf8)) {
+		if (is_utf8 || enc_is_utf8 || Utils::StringIsAscii(filepath)) {
+			// No reencoding necessary
+			filepath_cp437.clear();
+		} else {
+			// also store CP437 to ensure files inside 7zip zip archives are found
+			filepath_cp437 = filepath;
+			cp437_encoder.Encode(filepath_cp437);
+			detected_encoder.Encode(filepath);
+		}
+
+		// Workaround ZIP archives containing invalid "\" paths created by .net or Powershell
+		std::replace(filepath_cp437.begin(), filepath_cp437.end(), '\\', '/');
+		std::replace(filepath.begin(), filepath.end(), '\\', '/');
+
+		// check if the entry is an directory or not (indicated by trailing /)
+		// this will fail when the (game) directory has cp437, but the users can rename it before
+		if (filepath.back() == '/') {
+			filepath = filepath.substr(0, filepath.size() - 1);
+
+			// Determine intermediate directories
+			while (!filepath.empty()) {
+				paths.push_back(filepath);
+				filepath = std::get<0>(FileFinder::GetPathAndFilename(filepath));
+			}
+		} else {
+			zip_entries.emplace_back(filepath, entry);
+			if (!filepath_cp437.empty()) {
+				zip_entries_cp437.emplace_back(filepath_cp437, entry);
+			}
+
+			// Determine intermediate directories
+			for (;;) {
+				filepath = std::get<0>(FileFinder::GetPathAndFilename(filepath));
+				if (filepath.empty()) {
+					break;
+				}
+				paths.push_back(filepath);
+			}
+		}
+	}
+	// Build directories
+	entry = {};
+	entry.is_directory = true;
+
+	// add root path
+	paths.emplace_back("");
+
+	std::sort(paths.begin(), paths.end());
+	auto del = std::unique(paths.begin(), paths.end());
+	paths.erase(del, paths.end());
+	for (const auto& e : paths) {
+		zip_entries.emplace_back(e, entry);
+	}
+
+	// entries can be duplicated in the archive, e.g. when appending to the archive.
+	// Use a stable sort to preserve this order.
+	std::stable_sort(zip_entries.begin(), zip_entries.end(), [](auto& a, auto& b) {
+		return a.first < b.first;
+	});
+	std::stable_sort(zip_entries_cp437.begin(), zip_entries_cp437.end(), [](auto& a, auto& b) {
+		return a.first < b.first;
+	});
+
+	// Then remove all duplicates but keep the last
+	// The archive of the game "Steamed Hams" has a file with the same name as a folder. This filtering also helps against this issue.
+	auto entries_del_it = std::unique(zip_entries.rbegin(), zip_entries.rend(), [](auto& a, auto& b) {
+		return a.first == b.first;
+	});
+	zip_entries.erase(zip_entries.begin(), entries_del_it.base());
+
+	entries_del_it = std::unique(zip_entries_cp437.rbegin(), zip_entries_cp437.rend(), [](auto& a, auto& b) {
+		return a.first == b.first;
+	});
+	zip_entries_cp437.erase(zip_entries_cp437.begin(), entries_del_it.base());
 }
 
 bool ZipFilesystem::FindCentralDirectory(std::istream& zipfile, uint32_t& offset, uint32_t& size, uint16_t& num_entries) const {
@@ -189,23 +212,31 @@ bool ZipFilesystem::FindCentralDirectory(std::istream& zipfile, uint32_t& offset
 	bool found = false;
 
 	// seek to the first position where the end_of_central_directory Signature may occur
-	zipfile.seekg(-end_of_central_directory_size, std::ios_base::end);
+	zipfile.seekg(-end_of_central_directory_size - UINT16_MAX, std::ios_base::end);
+	zipfile.clear();
 
 	// The only variable length field in the end of central directory is the comment which
 	// has a maximum length of UINT16_MAX - so if we seek longer, this is no zip file
-	for (size_t i = 0; i < UINT16_MAX && zipfile.good() && !found; i++) {
-		zipfile.read(reinterpret_cast<char*>(&magic), sizeof(magic));
-		Utils::SwapByteOrder(magic); // Take care of big endian systems
-		if (magic == end_of_central_directory) {
+	std::vector<char> items(UINT16_MAX);
+	zipfile.read(items.data(), items.size());
+	zipfile.clear();
+
+	items.resize(zipfile.gcount());
+	if (items.size() < sizeof(magic)) {
+		return false;
+	}
+
+	int i = static_cast<int>(items.size()) - sizeof(magic);
+	// The data is read once and then scanned backwards in memory (faster)
+	for (; i >= 0 && !found; --i) {
+		if (!memcmp(items.data() + i, end_of_central_directory, 4)) {
 			found = true;
-		}
-		else {
-			// if not yet found the magic number step one byte back in the file
-			zipfile.seekg(-(static_cast<int>(sizeof(magic)) + 1), std::ios_base::cur);
+			break;
 		}
 	}
 
 	if (found) {
+		zipfile.seekg(-(static_cast<int>(items.size()) - i - 4), std::ios_base::cur); // Move right after the magic
 		zipfile.seekg(6, std::ios_base::cur); // Jump over multiarchive related fields
 		zipfile.read(reinterpret_cast<char*>(&num_entries), sizeof(uint16_t));
 		Utils::SwapByteOrder(num_entries);
@@ -248,15 +279,13 @@ bool ZipFilesystem::ReadCentralDirectoryEntry(std::istream& zipfile, std::string
 	zipfile.seekg(8, std::ios_base::cur); // Jump over currently not needed entries
 	zipfile.read(reinterpret_cast<char*>(&entry.fileoffset), sizeof(uint32_t));
 	Utils::SwapByteOrder(entry.fileoffset);
-	if (filename_buffer.capacity() < filepath_length + 1) {
-		filename_buffer.resize(filepath_length + 1);
+	if (filename_buffer.capacity() < filepath_length + 1u) {
+		filename_buffer.resize(filepath_length + 1u);
 	}
 	zipfile.read(reinterpret_cast<char*>(filename_buffer.data()), filepath_length);
 	filename = std::string(filename_buffer.data(), filepath_length);
 	// Jump over currently not needed entries
 	zipfile.seekg(comment_length + extra_field_length, std::ios_base::cur);
-	// Workaround ZIP archives containing invalid "\" paths created by .net or Powershell
-	std::replace(filename.begin(), filename.end(), '\\', '/');
 	return true;
 }
 
@@ -300,7 +329,7 @@ bool ZipFilesystem::ReadLocalHeader(std::istream& zipfile, StorageMethod& method
 	return true;
 }
 
-bool ZipFilesystem::IsFile(StringView path) const {
+bool ZipFilesystem::IsFile(std::string_view path) const {
 	std::string path_normalized = normalize_path(path);
 	auto entry = Find(path);
 	if (entry) {
@@ -309,7 +338,7 @@ bool ZipFilesystem::IsFile(StringView path) const {
 	return false;
 }
 
-bool ZipFilesystem::IsDirectory(StringView path, bool) const {
+bool ZipFilesystem::IsDirectory(std::string_view path, bool) const {
 	std::string path_normalized = normalize_path(path);
 	auto entry = Find(path);
 	if (entry) {
@@ -318,13 +347,13 @@ bool ZipFilesystem::IsDirectory(StringView path, bool) const {
 	return false;
 }
 
-bool ZipFilesystem::Exists(StringView path) const {
+bool ZipFilesystem::Exists(std::string_view path) const {
 	std::string path_normalized = normalize_path(path);
 	auto entry = Find(path);
 	return entry != nullptr;
 }
 
-int64_t ZipFilesystem::GetFilesize(StringView path) const {
+int64_t ZipFilesystem::GetFilesize(std::string_view path) const {
 	std::string path_normalized = normalize_path(path);
 	auto entry = Find(path);
 	if (entry) {
@@ -333,16 +362,15 @@ int64_t ZipFilesystem::GetFilesize(StringView path) const {
 	return 0;
 }
 
-std::streambuf* ZipFilesystem::CreateInputStreambuffer(StringView path, std::ios_base::openmode) const {
+std::streambuf* ZipFilesystem::CreateInputStreambuffer(std::string_view path, std::ios_base::openmode) const {
 	std::string path_normalized = normalize_path(path);
 	auto central_entry = Find(path);
 	if (central_entry && !central_entry->is_directory) {
-		auto zip_file = GetParent().OpenInputStream(GetPath());
-		zip_file.seekg(central_entry->fileoffset);
+		zip_is.clear();
+		zip_is.seekg(central_entry->fileoffset);
 		StorageMethod method;
-		uint32_t local_offset = 0;
 		ZipEntry local_entry = {};
-		if (ReadLocalHeader(zip_file, method, local_entry)) {
+		if (ReadLocalHeader(zip_is, method, local_entry)) {
 			if (central_entry->compressed_size != local_entry.compressed_size) {
 				if (local_entry.compressed_size == 0) {
 					local_entry.compressed_size = central_entry->compressed_size;
@@ -366,15 +394,15 @@ std::streambuf* ZipFilesystem::CreateInputStreambuffer(StringView path, std::ios
 				return nullptr;
 			}
 
-			zip_file.seekg(central_entry->fileoffset + local_entry.fileoffset);
+			zip_is.seekg(central_entry->fileoffset + local_entry.fileoffset);
 			if (method == StorageMethod::Plain) {
 				auto data = std::vector<uint8_t>(local_entry.uncompressed_size);
-				zip_file.read(reinterpret_cast<char*>(data.data()), data.size());
+				zip_is.read(reinterpret_cast<char*>(data.data()), data.size());
 				return new Filesystem_Stream::InputMemoryStreamBuf(std::move(data));
 			} else if (method == StorageMethod::Deflate) {
 				std::vector<uint8_t> comp_buf;
 				comp_buf.resize(local_entry.compressed_size);
-				zip_file.read(reinterpret_cast<char*>(comp_buf.data()), comp_buf.size());
+				zip_is.read(reinterpret_cast<char*>(comp_buf.data()), comp_buf.size());
 				auto dec_buf = std::vector<uint8_t>(local_entry.uncompressed_size);
 				z_stream zlib_stream = {};
 				zlib_stream.next_in = reinterpret_cast<Bytef*>(comp_buf.data());
@@ -405,7 +433,7 @@ std::streambuf* ZipFilesystem::CreateInputStreambuffer(StringView path, std::ios
 	return nullptr;
 }
 
-bool ZipFilesystem::GetDirectoryContent(StringView path, std::vector<DirectoryTree::Entry>& entries) const {
+bool ZipFilesystem::GetDirectoryContent(std::string_view path, std::vector<DirectoryTree::Entry>& entries) const {
 	if (!IsDirectory(path, false)) {
 		return false;
 	}
@@ -416,7 +444,7 @@ bool ZipFilesystem::GetDirectoryContent(StringView path, std::vector<DirectoryTr
 	}
 
 	auto check = [&](auto& it) {
-		if (StringView(it.first).starts_with(path_normalized) &&
+		if (StartsWith(it.first, path_normalized) &&
 			it.first.substr(path_normalized.size(), it.first.size() - path_normalized.size()).find_last_of('/') == std::string::npos) {
 			// Everything that starts with the path but isn't the path and does contain no slash
 			auto filename = it.first.substr(path_normalized.size(), it.first.size() - path_normalized.size());
@@ -441,7 +469,7 @@ bool ZipFilesystem::GetDirectoryContent(StringView path, std::vector<DirectoryTr
 	return true;
 }
 
-const ZipFilesystem::ZipEntry* ZipFilesystem::Find(StringView what) const {
+const ZipFilesystem::ZipEntry* ZipFilesystem::Find(std::string_view what) const {
 	auto it = std::lower_bound(zip_entries.begin(), zip_entries.end(), what, [](const auto& e, const auto& w) {
 		return e.first < w;
 	});

@@ -24,11 +24,16 @@
 #include "player.h"
 #include "output.h"
 #include "audio.h"
+#include "filefinder.h"
 #include "transition.h"
 #include "game_actors.h"
 #include "game_interpreter.h"
 #include "game_system.h"
 #include "main_data.h"
+#include "scene_language.h"
+#include "scene_settings.h"
+#include "scene_title.h"
+#include "game_map.h"
 
 #ifndef NDEBUG
 #define DEBUG_VALIDATE(x) Scene::DebugValidate(x)
@@ -36,9 +41,6 @@
 #define DEBUG_VALIDATE(x) do {} while(0)
 #endif
 
-
-constexpr int Scene::kStartGameDelayFrames;
-constexpr int Scene::kReturnTitleDelayFrames;
 std::shared_ptr<Scene> Scene::instance;
 std::vector<std::shared_ptr<Scene> > Scene::old_instances;
 std::vector<std::shared_ptr<Scene> > Scene::instances;
@@ -65,7 +67,9 @@ const char Scene::scene_names[SceneMax][12] =
 	"Logo",
 	"Order",
 	"GameBrowser",
-	"Teleport"
+	"Teleport",
+	"Settings",
+	"Language"
 };
 
 enum PushPopOperation {
@@ -95,6 +99,8 @@ lcf::rpg::SaveSystem::Scene Scene::rpgRtSceneFromSceneType(SceneType t) {
 		case Teleport:
 		case Order:
 		case End:
+		case Settings:
+		case LanguageMenu:
 			return lcf::rpg::SaveSystem::Scene_menu;
 		case File:
 		case Save:
@@ -239,6 +245,16 @@ bool Scene::IsAsyncPending() {
 }
 
 void Scene::Update() {
+	// Allow calling of settings scene everywhere except from Logo (Player is currently starting up)
+	// and from Map (has own handling to prevent breakage)
+	if (instance->type != Scene::Logo &&
+		instance->type != Scene::Map &&
+		Input::IsTriggered(Input::SETTINGS_MENU) &&
+		!Scene::Find(Scene::Settings)) {
+			Scene::Push(std::make_shared<Scene_Settings>());
+	}
+
+	vUpdate();
 }
 
 void Scene::Push(std::shared_ptr<Scene> const& new_scene, bool pop_stack_top) {
@@ -253,6 +269,12 @@ void Scene::Push(std::shared_ptr<Scene> const& new_scene, bool pop_stack_top) {
 	push_pop_operation = ScenePushed;
 
 	DEBUG_VALIDATE("Push");
+}
+
+std::shared_ptr<Scene> Scene::Peek() {
+	if (instances.size() == 1)
+		return nullptr;
+	return instances[instances.size() - 2];
 }
 
 void Scene::Pop() {
@@ -345,6 +367,25 @@ inline void Scene::DebugValidate(const char* caller) {
 	}
 }
 
+void Scene::PushTitleScene(bool pop_stack_top) {
+	auto title_scene = Scene::Find(Scene::Title);
+	if (title_scene) {
+		return;
+	}
+
+	if (!Player::startup_language.empty()) {
+		Player::translation.SelectLanguage(Player::startup_language);
+	} else if (Player::translation.HasTranslations()) {
+		if (Player::player_config.lang_select_on_start.Get() == ConfigEnum::StartupLangSelect::Always
+			|| (!FileFinder::HasSavegame() && Player::player_config.lang_select_on_start.Get() == ConfigEnum::StartupLangSelect::FirstStartup)) {
+			Scene::Push(std::make_shared<Scene_Language>(), pop_stack_top);
+			return;
+		}
+	}
+
+	Scene::Push(std::make_shared<Scene_Title>(), pop_stack_top);
+}
+
 bool Scene::ReturnToTitleScene() {
 	if (Scene::instance && Scene::instance->type == Scene::Title) {
 		return false;
@@ -389,4 +430,5 @@ void Scene::OnTranslationChanged() {
 	if (Main_Data::game_actors) {
 		Main_Data::game_actors->ReloadActors();
 	}
+	Game_Map::OnTranslationChanged();
 }

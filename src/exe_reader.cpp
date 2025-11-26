@@ -21,53 +21,143 @@
 #include "exe_reader.h"
 #include "image_bmp.h"
 #include "output.h"
+#include "utils.h"
+#include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <zlib.h>
 
-EXEReader::EXEReader(Filesystem_Stream::InputStream& core) : corefile(core) {
-	// The Incredibly Dumb Resource Grabber (tm)
-	// The idea is that this code will eventually be moved to happen earlier or broken down as-needed.
-	// Since EXFONT is the only thing that matters right now, it's the only thing handled.
-	uint32_t ofs = GetU32(0x3C);
-	uint16_t sections = GetU16(ofs + 6);
-	uint32_t sectionsOfs = ofs + 0x18 + GetU16(ofs + 0x14);
-	resource_rva = GetU32(ofs + 0x88);
+namespace {
+	// hashes of known RPG_RT startup logos
+	constexpr std::array logo_crc32 {
+		0xdf3d86a7u, 0x2ece66f9u, 0x2fe0de56u, 0x25c4618fu, 0x91b2635au,
+
+		/*
+		The values below have been extracted from a wide range of
+		bootleg versions of RPG_RT.exe that have historically been in
+		circulation in various communities (either as part of an Editor
+		translation or patch). The specified version strings here refer
+		to the info given in either the recovered Installer packages
+		or is taken from accompanying Readme files & do not necessarily
+		give reliable information about the actual, original RPG_RT
+		version on which these translations & patches were based on!
+		*/
+		// Recompressed, unaltered RPG2000 logos
+		0x6a88587eu, 0x4beedd9au, 0x1c7f224bu,
+		// Hellsoft's bootleg "RPG Maker PRO 1.05"
+		0x5ae12b1cu, 0x3d1cb5f1u, 0x04a7f11au,
+		// Hellsoft's bootleg "RPG Maker PRO 1.10"
+		0x9307807fu, 0x652529ecu, 0x5e73987bu,
+		// Hellsoft's bootleg "RPG Maker PRO 1.15"
+		0x2e8271cbu,
+		// Hellsoft's translation of Rm2k3: "1.0.2"
+		0x4e3f7560u,
+		// Hellsoft's translation of Rm2k3: "1.0.4" & "1.0.7"
+		0x59ab3986u,
+		// Hellsoft's translation of Rm2k3: "1.0.8" & "1.0.9"
+		0xd333b2ddu,
+		// French "Rabbi-Bodom" translation of Rm2k3-1.0.9.1
+		0x476138cbu,
+		// "Thaiware" translation of Rm2k
+		0x29efaf6au, 0xfeb8f6b2u, 0x265855adu,
+		// Thai "House of the Dev" translation of Rm2k
+		0xa8be4ed3u, 0xc75ccc6du, 0xcea40e5fu,
+		// Thai "Somprasongk Team" translation of Rm2k3-1.0.6
+		0xc9b2e174u,
+		// Italian Translation of Rm2k (Matteo S.& Christian C.)
+		0x1a1ed6ddu, 0xad73ccf5u, 0x4ad55e84u,
+		// Italian "RPG Maker 4.0" Patch of Rm2k
+		0x8afe1239u,
+		// Spanish version of Rm2k3-1.0.9.1
+		0x089fb7d8u,
+		// Spanish version of Rm2k (SoLaCe)
+		0x544ffca8u, 0x4fbc0849u, 0x7420f415u,
+		// Spezial-Patch by Rikku2000 (1.51 with swapped logo)
+		0x806b6877u,
+		// Gnaf's Picture Patch (1.50 with swapped logo)
+		0xc5e846a7u
+	};
+}
+
+EXEReader::EXEReader(Filesystem_Stream::InputStream core) : corefile(std::move(core)) {
+	// The Incredibly Dumb PE parser (tm)
+	// Extracts data from the resource section for engine detection and can read ExFont.
+	uint32_t ofs = GetU32(0x3C); // PE header offset
+	uint16_t machine = GetU16(ofs + 4);
+
+	switch (machine) {
+		case 0x14c:
+			file_info.machine_type = MachineType::x86;
+			break;
+		case 0x8664:
+			file_info.machine_type = MachineType::amd64;
+			break;
+		default:
+			Output::Debug("EXEReader: Unsupported machine type ({:#x})", machine);
+			file_info.machine_type = MachineType::Unknown;
+			return;
+	}
+
+	// The largest known exe has 11 segments, guard against bogus section data here
+	uint16_t sections = std::min<uint16_t>(GetU16(ofs + 6), 11);
+	uint32_t optional_header = ofs + 0x18;
+	uint32_t oh_magic = GetU16(optional_header);
+
+	bool format_pe32;
+
+	switch (oh_magic) {
+		case 0x10b:
+			format_pe32 = true;
+			break;
+		case 0x20b:
+			// PE32+ (for 64 bit executables)
+			format_pe32 = false;
+			break;
+		default:
+			Output::Debug("EXEReader: Unknown PE header magic ({:#x})", oh_magic);
+			file_info.machine_type = MachineType::Unknown;
+			return;
+	}
+
+	uint32_t sectionsOfs = optional_header + GetU16(ofs + 0x14); // skip opt header
+	uint32_t data_directory_ofs = (format_pe32 ? 0x60 : 0x70);
+	resource_rva = GetU32(optional_header + data_directory_ofs + 16);
 	if (!resource_rva) {
-		resource_ofs = 0;
+		// Is some kind of encrypted EXE -> Give up
 		return;
 	}
 	while (sections) {
+		uint32_t secName = GetU32(sectionsOfs);
 		uint32_t sectVs = GetU32(sectionsOfs + 0x08);
 		uint32_t sectRs = GetU32(sectionsOfs + 0x10);
+
 		if (sectRs > sectVs) {
 			// Actually a problem in some files.
 			sectVs = sectRs;
 		}
+
+		if (secName == 0x45444F43) { // CODE
+			file_info.code_size = sectVs;
+		} else if (secName == 0x52454843) { // CHER(RY)
+			file_info.cherry_size = sectVs;
+		} else if (secName == 0x50454547) { // GEEP
+			file_info.geep_size = sectVs;
+		} else if (secName == 0x30585055) { // UPX0
+			Output::Debug("EXEReader: EXE is UPX compressed. Engine detection could be incorrect.");
+		}
+
 		uint32_t sectRva = GetU32(sectionsOfs + 0x0C);
 		uint32_t sectRdptr = GetU32(sectionsOfs + 0x14);
-		if ((sectRva <= resource_rva) && ((sectRva + sectVs) > resource_rva)) {
+		if (resource_ofs == 0 && (sectRva <= resource_rva) && ((sectRva + sectVs) > resource_rva)) {
 			// Resources located.
 			resource_ofs = sectRdptr + (resource_rva - sectRva);
-			break;
 		}
 		sections--;
 		sectionsOfs += 0x28;
 	}
-	if (sections == 0) {
-		resource_rva = 0;
-		resource_ofs = 0;
-	}
 }
 
-static uint32_t djb2_hash(char* str, size_t length) {
-	uint32_t hash = 5381;
-	for (size_t i = 0; i < length; ++i) {
-		hash = ((hash << 5) + hash) + (uint8_t)str[i];
-	}
-	return hash;
-}
-
-static std::vector<uint8_t> exe_reader_perform_exfont_save(Filesystem_Stream::InputStream& corefile, uint32_t position, uint32_t len) {
+static std::vector<uint8_t> ExtractExFont(Filesystem_Stream::InputStream& corefile, uint32_t position, uint32_t len) {
 	std::vector<uint8_t> exfont;
 	constexpr int header_size = 14; // Size of BITMAPFILEHEADER
 	exfont.resize(len + header_size);
@@ -75,7 +165,7 @@ static std::vector<uint8_t> exe_reader_perform_exfont_save(Filesystem_Stream::In
 	corefile.seekg(position, std::ios_base::beg);
 	corefile.read(reinterpret_cast<char*>(exfont.data()) + header_size, len);
 	if (corefile.gcount() != len) {
-		Output::Debug("ExFont: Error reading resource (read {}, expected {})", corefile.gcount(), len);
+		Output::Debug("EXEReader: ExFont: Error reading resource (read {}, expected {})", corefile.gcount(), len);
 		return {};
 	}
 
@@ -88,7 +178,7 @@ static std::vector<uint8_t> exe_reader_perform_exfont_save(Filesystem_Stream::In
 	// And the header that's going to be prepended.
 	int header_len = header_size + header.size;
 	if (header.depth != 8) {
-		Output::Debug("ExFont: Unsupported depth {}", header.depth);
+		Output::Debug("EXEReader: ExFont: Unsupported depth {}", header.depth);
 		return {};
 	}
 	header_len += header.num_colors * 4;
@@ -115,7 +205,8 @@ static std::vector<uint8_t> exe_reader_perform_exfont_save(Filesystem_Stream::In
 	exfont[pos++] = (header_len >> 24) & 0xFF;
 
 	// Check if the ExFont is the original through a fast hash function
-	if (djb2_hash((char*)exfont.data() + header_size, exfont.size() - header_size) != 0x491e19de) {
+	auto crc = crc32(0, exfont.data() + header_size, exfont.size() - header_size);
+	if (crc != 0x86bc6c68) {
 		Output::Debug("EXEReader: Custom ExFont found");
 	}
 	return exfont;
@@ -126,50 +217,194 @@ static uint32_t exe_reader_roffset(uint32_t bas, uint32_t ofs) {
 }
 
 std::vector<uint8_t> EXEReader::GetExFont() {
-	// Part 2 of the resource grabber.
-	if (!resource_ofs) {
-		Output::Debug("EXEReader: No resource section.");
-		return std::vector<uint8_t>();
+	corefile.clear();
+
+	auto bitmapDBase = ResOffsetByType(2);
+	if (bitmapDBase == 0) {
+		Output::Debug("EXEReader: BITMAP not found.");
+		return {};
 	}
-	// For each ID/Name entry in the outer...
-	uint32_t resourcesIDEs = GetU16(resource_ofs + 0x0C) + (uint32_t) GetU16(resource_ofs + 0x0E);
-	uint32_t resourcesIDEbase = resource_ofs + 0x10;
-	while (resourcesIDEs) {
-		// This can only be 2 if valid. Don't worry about it.
-		if (GetU32(resourcesIDEbase) == 2) {
-			uint32_t bitmapDBase = exe_reader_roffset(resource_ofs, GetU32(resourcesIDEbase + 4));
-			// Looking for a named entry.
-			uint16_t resourcesNDEs = GetU16(bitmapDBase + 0x0C) + (uint32_t) GetU16(bitmapDBase + 0x0E);
-			uint32_t resourcesNDEbase = bitmapDBase + 0x10;
-			while (resourcesNDEs) {
-				uint32_t name = GetU32(resourcesNDEbase);
+
+	// Looking for a named entry.
+	uint16_t resourcesNDEs = GetU16(bitmapDBase + 0x0C) + (uint32_t) GetU16(bitmapDBase + 0x0E);
+	uint32_t resourcesNDEbase = bitmapDBase + 0x10;
+	while (resourcesNDEs) {
+		uint32_t name = GetU32(resourcesNDEbase);
+		// Actually a name?
+		if (name & 0x80000000) {
+			name = exe_reader_roffset(resource_ofs, name);
+
+			if (ResNameCheck(name, "EXFONT")) {
+				uint32_t dataent = GetU32(resourcesNDEbase + 4);
+				if (dataent & 0x80000000) {
+					dataent = exe_reader_roffset(resource_ofs, dataent);
+					dataent = resource_ofs + GetU32(dataent + 0x14);
+				}
+				uint32_t filebase = (GetU32(dataent) - resource_rva) + resource_ofs;
+				uint32_t filesize = GetU32(dataent + 0x04);
+				Output::Debug("EXEReader: EXFONT resource found (DE {:#x}; {:#x}; len {:#x})", dataent, filebase, filesize);
+				return ExtractExFont(corefile, filebase, filesize);
+			}
+		}
+		resourcesNDEbase += 8;
+		resourcesNDEs--;
+	}
+	Output::Debug("EXEReader: EXFONT not found in dbase at {:#x}", bitmapDBase);
+	return {};
+}
+
+std::vector<std::vector<uint8_t>> EXEReader::GetLogos() {
+	corefile.clear();
+
+	if (!resource_ofs) {
+		return {};
+	}
+
+	if (Player::player_config.show_startup_logos.Get() == ConfigEnum::StartupLogos::None) {
+		return {};
+	}
+
+	std::vector<std::vector<uint8_t>> logos;
+
+	uint32_t resourcesIDEs = GetU16(resource_ofs + 0x0C);
+	if (resourcesIDEs == 1) {
+		uint32_t resourcesIDEbase = resource_ofs + 0x10;
+		if (ResNameCheck(exe_reader_roffset(resource_ofs, GetU32(resourcesIDEbase)), "XYZ")) {
+			uint32_t xyz_base = exe_reader_roffset(resource_ofs, GetU32(resourcesIDEbase + 4));
+			uint16_t xyz_logos = std::min<uint16_t>(GetU16(xyz_base + 0x0C), 9);
+			uint32_t xyz_logo_base = xyz_base + 0x10;
+
+			bool only_custom_logos = (Player::player_config.show_startup_logos.Get() == ConfigEnum::StartupLogos::Custom);
+			std::string res_name = "LOGOX";
+
+			for (int i = 0; i <= xyz_logos; ++i) {
+				uint32_t name = GetU32(xyz_logo_base);
 				// Actually a name?
 				if (name & 0x80000000) {
 					name = exe_reader_roffset(resource_ofs, name);
+					res_name.back() = '1' + i;
 
-					if (ResNameCheck(name, "EXFONT")) {
-						uint32_t dataent = GetU32(resourcesNDEbase + 4);
+					if (ResNameCheck(name, res_name.c_str()) || (i == 0 && ResNameCheck(name, "LOGO"))) {
+						uint32_t dataent = GetU32(xyz_logo_base + 4);
 						if (dataent & 0x80000000) {
 							dataent = exe_reader_roffset(resource_ofs, dataent);
 							dataent = resource_ofs + GetU32(dataent + 0x14);
 						}
 						uint32_t filebase = (GetU32(dataent) - resource_rva) + resource_ofs;
 						uint32_t filesize = GetU32(dataent + 0x04);
-						Output::Debug("EXEReader: EXFONT resource found (DE {:#x}; {:#x}; len {:#x})", dataent, filebase, filesize);
-						return exe_reader_perform_exfont_save(corefile, filebase, filesize);
+						Output::Debug("EXEReader: {} resource found (DE {:#x}; {:#x}; len {:#x})", res_name, dataent, filebase, filesize);
+						std::vector<uint8_t> logo;
+						logo.resize(filesize);
+
+						corefile.seekg(filebase, std::ios_base::beg);
+						corefile.read(reinterpret_cast<char*>(logo.data()), filesize);
+						if (logo.size() < 8 || strncmp(reinterpret_cast<char*>(logo.data()), "XYZ1", 4) != 0) {
+							Output::Debug("EXEReader: {}: Not a XYZ image", res_name);
+							return {};
+						}
+
+						if (corefile.gcount() != filesize) {
+							Output::Debug("EXEReader: {}: Error reading resource (read {}, expected {})", res_name, corefile.gcount(), filesize);
+							return {};
+						}
+
+						if (only_custom_logos) {
+							auto crc = static_cast<uint32_t>(crc32(0, logo.data(), logo.size()));
+							if (std::find(logo_crc32.begin(), logo_crc32.end(), crc) == logo_crc32.end()) {
+								logos.push_back(logo);
+							}
+						} else {
+							logos.push_back(logo);
+						}
 					}
 				}
-				resourcesNDEbase += 8;
-				resourcesNDEs--;
+
+				xyz_logo_base += 8;
 			}
-			Output::Debug("EXEReader: EXFONT not found in dbase at {:#x}", bitmapDBase);
-			return std::vector<uint8_t>();
 		}
-		resourcesIDEbase += 8;
-		resourcesIDEs--;
 	}
-	Output::Debug("EXEReader: BITMAP not found.");
-	return std::vector<uint8_t>();
+
+	return logos;
+}
+
+const EXEReader::FileInfo& EXEReader::GetFileInfo() {
+	corefile.clear();
+
+	file_info.logos = GetLogoCount();
+
+	auto versionDBase = ResOffsetByType(16);
+	if (versionDBase == 0) {
+		return file_info;
+	}
+
+	// VS_FIXEDFILEINFO added by MSVC (EasyRPG and Maniacs)
+	uint16_t resourcesNDEs = GetU16(versionDBase + 0x0C) + (uint32_t) GetU16(versionDBase + 0x0E);
+	uint32_t resourcesNDEbase = versionDBase + 0x10;
+	while (resourcesNDEs) {
+		uint32_t id = GetU32(resourcesNDEbase);
+		if (id == 1) {
+			id = exe_reader_roffset(resource_ofs, id);
+
+			uint32_t dataent = GetU32(resourcesNDEbase + 4);
+			if (dataent & 0x80000000) {
+				dataent = exe_reader_roffset(resource_ofs, dataent);
+				dataent = resource_ofs + GetU32(dataent + 0x14);
+			}
+			uint32_t filebase = (GetU32(dataent) - resource_rva) + resource_ofs;
+			uint32_t filesize = GetU32(dataent + 0x04);
+
+			std::vector<uint8_t> version_info(filesize);
+			corefile.seekg(filebase, std::ios_base::beg);
+			corefile.read(reinterpret_cast<char*>(version_info.data()), filesize);
+
+			// The start of VS_FIXEDFILEINFO structure is aligned on a 32 bit boundary
+			// Instead of calculating search for the signature
+			std::array<uint8_t, 4> signature = {0xBD, 0x04, 0xEF, 0xFE};
+
+			auto sig_it = std::search(version_info.begin(), version_info.end(), signature.begin(), signature.end());
+			if (sig_it != version_info.end()) {
+				uint32_t product_version_off = std::distance(version_info.begin(), sig_it + 16);
+				uint32_t version_high = GetU32(filebase + product_version_off);
+				uint32_t version_low = GetU32(filebase + product_version_off + 4);
+
+				file_info.version = (static_cast<uint64_t>(version_high) << 32) | version_low;
+				file_info.version_str = fmt::format("{}.{}.{}.{}", (version_high >> 16) & 0xFFFF, version_high & 0xFFFF, (version_low >> 16) & 0xFFFF, version_low & 0xFFFF);
+			}
+
+			// Search for entries in the StringFileInfo catalog
+			// StringFileInfo (UTF-16)
+			std::array file_info_str = {'S','\0','t','\0','r','\0','i','\0','n','\0','g','\0','F','\0','i','\0','l','\0','e','\0','I','\0','n','\0','f','\0','o','\0'};
+			auto sfi_it = std::search(version_info.begin(), version_info.end(), file_info_str.begin(), file_info_str.end());
+
+			if (sfi_it != version_info.end()) {
+				// EasyRPG Player (UTF-16)
+				std::array easyrpg_player_str = {'E','\0','a','\0','s','\0','y','\0','R','\0','P','\0','G','\0', 'P','\0','l','\0','a','\0','y','\0','e','\0','r','\0'};
+				auto ep_it = std::search(sfi_it, version_info.end(), easyrpg_player_str.begin(), easyrpg_player_str.end());
+				if (ep_it != version_info.end()) {
+					file_info.is_easyrpg_player = true;
+				} else {
+					const int version_length = 12;
+					// Maniac Version information
+					// Maniacs, vXXXXXX (UTF-16) (XXXXXX = Version number)
+					std::array maniac_version_str = {'M','\0','a','\0','n','\0','i','\0','a','\0','c','\0','s','\0',',','\0',' ','\0','v','\0'};
+					auto mp_it = std::search(sfi_it, version_info.end(), maniac_version_str.begin(), maniac_version_str.end());
+					if (mp_it != version_info.end() && mp_it + version_length < version_info.end()) {
+						std::string mp_version = {mp_it + maniac_version_str.size(), mp_it + maniac_version_str.size() + version_length};
+						mp_version.erase(std::remove(mp_version.begin(), mp_version.end(), '\0'), mp_version.end());
+						file_info.maniac_patch_version = atoi(mp_version.c_str());
+					}
+				}
+
+			}
+
+			Output::Debug("EXEReader: VERSIONINFO resource found (DE {:#x}; {:#x}; len {:#x})", dataent, filebase, filesize);
+			return file_info;
+		}
+		resourcesNDEbase += 8;
+		resourcesNDEs--;
+	}
+	Output::Debug("EXEReader: VERSIONINFO not found in dbase at {:#x}", versionDBase);
+	return file_info;
 }
 
 uint8_t EXEReader::GetU8(uint32_t i) {
@@ -192,6 +427,40 @@ uint32_t EXEReader::GetU32(uint32_t i) {
 	return v;
 }
 
+uint32_t EXEReader::ResOffsetByType(uint32_t type) {
+	// Part 2 of the resource grabber.
+	if (!resource_ofs) {
+		return 0;
+	}
+	// For each ID/Name entry in the outer...
+	uint32_t resourcesIDEs = GetU16(resource_ofs + 0x0C) + (uint32_t) GetU16(resource_ofs + 0x0E);
+	uint32_t resourcesIDEbase = resource_ofs + 0x10;
+	while (resourcesIDEs) {
+		if (GetU32(resourcesIDEbase) == type) {
+			return exe_reader_roffset(resource_ofs, GetU32(resourcesIDEbase + 4));
+		}
+		resourcesIDEbase += 8;
+		resourcesIDEs--;
+	}
+	return 0;
+}
+
+uint32_t EXEReader::GetLogoCount() {
+	if (!resource_ofs) {
+		return 0;
+	}
+
+	uint32_t resourcesIDEs = GetU16(resource_ofs + 0x0C);
+	if (resourcesIDEs == 1) {
+		uint32_t resourcesIDEbase = resource_ofs + 0x10;
+		if (ResNameCheck(exe_reader_roffset(resource_ofs, GetU32(resourcesIDEbase)), "XYZ")) {
+			uint32_t xyz_logo_base = exe_reader_roffset(resource_ofs, GetU32(resourcesIDEbase + 4));
+			return static_cast<uint32_t>(GetU16(xyz_logo_base + 0x0C));
+		}
+	}
+	return 0;
+}
+
 bool EXEReader::ResNameCheck(uint32_t i, const char* p) {
 	if (GetU16(i) != strlen(p))
 		return false;
@@ -202,6 +471,96 @@ bool EXEReader::ResNameCheck(uint32_t i, const char* p) {
 		p++;
 	}
 	return true;
+}
+
+void EXEReader::FileInfo::Print() const {
+	Output::Debug("RPG_RT information: version={} logos={} code={:#x} cherry={:#x} geep={:#x} arch={} mpversion={}, easyrpg={}", version_str, logos, code_size, cherry_size, geep_size, kMachineTypes[machine_type], maniac_patch_version, is_easyrpg_player);
+}
+
+int EXEReader::FileInfo::GetEngineType(int& mp_version) const {
+	mp_version = maniac_patch_version;
+
+	if (is_easyrpg_player || machine_type == MachineType::Unknown) {
+		return Player::EngineNone;
+	}
+
+	if (version_str.empty()) {
+		// RPG2k and Rpg2k3 < 1.0.2.1 has no VERSIONINFO
+		if (logos == 3) {
+			// three logos only appear in old RPG2k
+			return Player::EngineRpg2k;
+		} else if (logos == 1) {
+			// VALUE! or Rpg2k3 < 1.0.2.1
+			// Check CODE segment size to be sure
+			if (code_size > 0xB0000) {
+				if (code_size >= 0xC7400) {
+					// Code segment size for >= 1.0.5.0
+					// In theory this check is unnecessary because this version has a VERSIONINFO.
+					// However the modified exe shipped with Ahriman's Prophecy is a 1.0.8.0 without a VERSIONINFO.
+					return Player::EngineRpg2k3 | Player::EngineMajorUpdated;
+				} else {
+					return Player::EngineRpg2k3;
+				}
+			}
+
+			return Player::EngineRpg2k | Player::EngineMajorUpdated;
+		}
+
+		return Player::EngineNone;
+	}
+
+	std::array<decltype(version), 4> ver = {
+		(version >> 48) & 0xFF,
+		(version >> 32) & 0xFF,
+		(version >> 16) & 0xFF,
+		(version & 0xFF)};
+
+	if (logos == 0) {
+		// New version of Maniac Patch is version 1.1.2.1 and is an rewrite of the engine
+		// Has no logos, no CODE segment and no CHERRY segment
+		if (ver[0] == 1 && ver[1] == 1 && ver[2] == 2 && ver[3] == 1 && code_size == 0 && cherry_size == 0) {
+			if (mp_version == 0) {
+				// Exact version not detected, use default
+				mp_version = 1;
+			}
+			return Player::EngineRpg2k3 | Player::EngineMajorUpdated | Player::EngineEnglish;
+		}
+
+		return Player::EngineNone;
+	}
+
+	// Everything else with a VERSIONINFO must have one logo
+	if (logos != 1) {
+		return Player::EngineNone;
+	}
+
+	if (ver[0] == 1) {
+		if (ver[1] == 6) {
+			// English release of RPG Maker 2000 has a version info (thanks Cherry!)
+			return Player::EngineRpg2k | Player::EngineMajorUpdated | Player::EngineEnglish;
+		} else if (ver[1] == 0) {
+			// Everything else with a version info is RPG Maker 2003
+			if (ver[2] < 5) {
+				return Player::EngineRpg2k3;
+			} else {
+				return Player::EngineRpg2k3 | Player::EngineMajorUpdated;
+			}
+		} else if (ver[1] == 1) {
+			if (ver[2] == 2 && ver[3] == 1) {
+				// Old versions of Maniac Patch are a hacked 1.1.2.1
+				// The first versions have a GEEP segment (No idea what this abbreviation means)
+				// Later versions have no GEEP segment but an enlarged CHERRY segment
+				if (mp_version == 0) {
+					// Exact version not detected, use default
+					mp_version = (geep_size > 0 || cherry_size > 0x10000) ? 1 : 0;
+				}
+			}
+
+			return Player::EngineRpg2k3 | Player::EngineMajorUpdated | Player::EngineEnglish;
+		}
+	}
+
+	return Player::EngineNone;
 }
 
 #endif

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<org.easyrpg.player.ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="10dp"
+        tools:context="org.easyrpg.player.settings.SettingsVideoActivity">
+
+        <CheckBox
+            android:id="@+id/fullscreen_mode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/fullscreen_mode"
+            android:textSize="20sp"/>
+
+        <CheckBox
+            android:id="@+id/force_landscape_mode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/force_landscape_mode"
+            android:textSize="20sp"/>
+
+        <include layout="@layout/separator"/>
+
+        <!-- Input Layout Managing -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+
+            android:text="@string/screen_size"
+            android:textSize="20sp"/>
+
+		<RadioButton
+			android:id="@+id/settings_scale_nearest_radio_button"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:text="@string/scale_nearest"
+			android:textSize="20sp"
+			android:paddingHorizontal="5dp"/>
+        <RadioButton
+            android:id="@+id/settings_scale_integer_radio_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/scale_integer"
+            android:textSize="20sp"
+            android:paddingHorizontal="5dp"/>
+        <RadioButton
+            android:id="@+id/settings_scale_bilinear_radio_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/scale_bilinear"
+            android:textSize="20sp"
+            android:paddingHorizontal="5dp"/>
+        <include layout="@layout/separator"/>
+
+		<CheckBox
+			android:id="@+id/settings_stretch"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:text="@string/stretch"
+			android:textSize="20sp"/>
+
+		<include layout="@layout/separator"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+
+            android:text="@string/settings_resolution"
+            android:textSize="20sp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_resolution_desc"
+            android:textSize="18sp" />
+
+        <RadioButton
+            android:id="@+id/settings_resolution_original"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_resolution_original"
+            android:textSize="20sp"
+            android:paddingHorizontal="5dp"/>
+        <RadioButton
+            android:id="@+id/settings_resolution_widescreen"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_resolution_widescreen"
+            android:textSize="20sp"
+            android:paddingHorizontal="5dp"/>
+        <RadioButton
+            android:id="@+id/settings_resolution_ultrawide"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_resolution_ultrawide"
+            android:textSize="20sp"
+            android:paddingHorizontal="5dp"/>
+
+        <include layout="@layout/separator"/>
+    </LinearLayout>
+</org.easyrpg.player.ScrollView>

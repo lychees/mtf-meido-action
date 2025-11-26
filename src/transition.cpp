@@ -21,6 +21,7 @@
 #include <array>
 #include <cmath>
 
+#include "player.h"
 #include "transition.h"
 #include "async_handler.h"
 #include "bitmap.h"
@@ -28,6 +29,8 @@
 #include "graphics.h"
 #include "main_data.h"
 #include "scene.h"
+#include "scene_map.h"
+#include "spriteset_map.h"
 #include "baseui.h"
 #include "drawable.h"
 #include "drawable_mgr.h"
@@ -120,26 +123,27 @@ void Transition::SetAttributesTransitions() {
 	int w, h, beg_i, mid_i, end_i, length;
 
 	zoom_position = std::vector<int>(2);
-	// FIXME: Break this dependency on DisplayUI
-	random_blocks = std::vector<uint32_t>(DisplayUi->GetWidth() * DisplayUi->GetHeight() / (size_random_blocks * size_random_blocks));
+	random_blocks = std::vector<uint32_t>(Player::screen_width * Player::screen_height / (size_random_blocks * size_random_blocks));
+	mosaic_random_offset.resize(total_frames);
+
 	for (uint32_t i = 0; i < random_blocks.size(); i++) {
 		random_blocks[i] = i;
 	}
 
 	switch (transition_type) {
 	case TransitionRandomBlocks:
-		random_block_transition = Bitmap::Create(DisplayUi->GetWidth(), DisplayUi->GetHeight(), true);
+		random_block_transition = Bitmap::Create(Player::screen_width, Player::screen_height, true);
 		current_blocks_print = 0;
 		std::shuffle(random_blocks.begin(), random_blocks.end(), Rand::GetRNG());
 		break;
 	case TransitionRandomBlocksDown:
 	case TransitionRandomBlocksUp:
-		random_block_transition = Bitmap::Create(DisplayUi->GetWidth(), DisplayUi->GetHeight(), true);
+		random_block_transition = Bitmap::Create(Player::screen_width, Player::screen_height, true);
 		current_blocks_print = 0;
 		if (transition_type == TransitionRandomBlocksUp) { std::reverse(random_blocks.begin(), random_blocks.end()); }
 
-		w = DisplayUi->GetWidth() / 4;
-		h = DisplayUi->GetHeight() / 4;
+		w = Player::screen_width / 4;
+		h = Player::screen_height / 4;
 		length = 10;
 		for (int i = 0; i < h - 1; i++) {
 			end_i = (i < length ? 2 * i + 1 : i <= h - length ? i + length : (i + h) / 2) * w;
@@ -156,12 +160,23 @@ void Transition::SetAttributesTransitions() {
 	case TransitionZoomIn:
 	case TransitionZoomOut:
 		if (scene != nullptr && scene->type == Scene::Map) {
-			zoom_position[0] = std::max(0, std::min(Main_Data::game_player->GetScreenX(), (int)DisplayUi->GetWidth()));
-			zoom_position[1] = std::max(0, std::min(Main_Data::game_player->GetScreenY() - 8, (int)DisplayUi->GetHeight()));
+			auto map = static_cast<Scene_Map*>(scene);
+
+			zoom_position[0] = std::max(0, std::min(Main_Data::game_player->GetScreenX() + map->spriteset->GetRenderOx(), (int)Player::screen_width));
+			zoom_position[1] = std::max(0, std::min(Main_Data::game_player->GetScreenY() - 8 + map->spriteset->GetRenderOy(), (int)Player::screen_height));
 		}
 		else {
-			zoom_position[0] = DisplayUi->GetWidth() / 2;
-			zoom_position[1] = DisplayUi->GetHeight() / 2;
+			zoom_position[0] = Player::screen_width / 2;
+			zoom_position[1] = Player::screen_height / 2;
+		}
+		break;
+	case TransitionMosaicIn:
+	case TransitionMosaicOut:
+		for (int i = 0; i < total_frames; ++i) {
+			const int initial_scale = 2;
+			const int excl_interval = -1;
+			// by default i 0..39 for scale 2..41
+			mosaic_random_offset[i] = Rand::GetRandomNumber(0, i + initial_scale - excl_interval);
 		}
 		break;
 	default:
@@ -345,23 +360,42 @@ void Transition::Draw(Bitmap& dst) {
 		dst.StretchBlit(Rect(0, 0, w, h), *screen_pointer1, Rect(z_pos[0], z_pos[1], z_size[0], z_size[1]), 255);
 		break;
 	case TransitionMosaicIn:
-	case TransitionMosaicOut:
-		// If TransitionMosaicIn, invert percentage and screen:
-		if (transition_type == TransitionMosaicIn) { percentage = 100 - percentage; }
-		screen_pointer1 = transition_type == TransitionMosaicIn ? screen2 : screen1;
+	case TransitionMosaicOut: {
+		// Goes from scale 2 to 41 (current_frame is 0 - 39)
+		// FIXME: current_frame starts at 1 (off-by-one error?)
+		// If TransitionMosaicIn, invert scale and screen:
+		int32_t rand;
+		if (transition_type == TransitionMosaicIn) {
+			m_size = total_frames + 1 - current_frame;
+			screen_pointer1 = screen2;
+			rand = mosaic_random_offset[total_frames - current_frame - 1];
+		} else {
+			// remove when off-by-one error is fixed
+			const int off_one_fix = -1;
+			m_size = current_frame + 2 + off_one_fix;
+			screen_pointer1 = screen1;
+			rand = mosaic_random_offset[current_frame + off_one_fix];
+		}
 
-		m_size = (percentage + 1) * 4 / 10;
-		if (m_size > 1)
-			for (int i = 0; i < w; i += m_size)
-				for (int j = 0; j < h; j += m_size) {
-					m_pointer = static_cast<uint32_t *>(screen_pointer1->pixels()) + j * w + i;
-					m_pointer += ((i == 0 ? 1 : 0) + (j == 0 ? w : 0)) * (m_size - 1);
-					dst.pixel_format.uint32_to_rgba(*m_pointer, m_r, m_g, m_b, m_a);
-					dst.FillRect(Rect(i - ((m_size - w % m_size) % m_size) / 2, j - ((m_size - h % m_size) % m_size) / 2, m_size, m_size), Color(m_r, m_g, m_b, m_a));
-				}
-		else
-			dst.Blit(0, 0, *screen_pointer1, screen_pointer1->GetRect(), 255);
+		// The offset defines where at (X,Y) the pixel is picked for scaling (nearest neighbour)
+		// The pixel is usually initially out of bounds
+		// in this case the nearest pixel of the image is choosen (edge handling = extend)
+		int off = (m_size / 2);
+
+		for (int row = 0; row < h + rand; ++row) {
+			int src_row = std::clamp(((row + off) / m_size) * m_size - off, 0, h - 1);
+
+			for (int col = 0; col < w + rand; ++col) {
+				int src_col = std::clamp(((col + off) / m_size) * m_size - off, 0, w - 1);
+				m_pointer = static_cast<uint32_t*>(screen_pointer1->pixels()) + src_row * w + src_col;
+				dst.pixel_format.uint32_to_rgba(*m_pointer, m_r, m_g, m_b, m_a);
+
+				Rect r(col - rand, row - rand, 1, 1);
+				dst.FillRect(r, Color(m_r, m_g, m_b, 255));
+			}
+		}
 		break;
+	}
 	case TransitionWaveIn:
 	case TransitionWaveOut:
 		{
@@ -404,13 +438,13 @@ void Transition::Update() {
 			// erase -> erase is ingored
 			// any -> erase - screen1 was drawn in init.
 			assert(ToErase() && !FromErase());
-			screen1 =  Bitmap::Create(DisplayUi->GetWidth(), DisplayUi->GetHeight(), false);
+			screen1 =  Bitmap::Create(Player::screen_width, Player::screen_height, false);
 			Graphics::LocalDraw(*screen1, std::numeric_limits<Drawable::Z_t>::min(), GetZ() - 1);
 		}
 		if (ToErase()) {
-			screen2 = Bitmap::Create(DisplayUi->GetWidth(), DisplayUi->GetHeight(), Color(0, 0, 0, 255));
+			screen2 = Bitmap::Create(Player::screen_width, Player::screen_height, Color(0, 0, 0, 255));
 		} else {
-			screen2 =  Bitmap::Create(DisplayUi->GetWidth(), DisplayUi->GetHeight(), false);
+			screen2 =  Bitmap::Create(Player::screen_width, Player::screen_height, false);
 			Graphics::LocalDraw(*screen2, std::numeric_limits<Drawable::Z_t>::min(), GetZ() - 1);
 		}
 	}

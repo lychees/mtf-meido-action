@@ -62,8 +62,6 @@ class MoveRouteEvent : public Game_Event {
 
 struct MapGuard {
 	MapGuard(int w = 20, int h = 15) {
-		Output::SetLogLevel(LogLevel::Error);
-
 		Input::ResetKeys();
 		Main_Data::game_party = std::make_unique<Game_Party>();
 
@@ -100,7 +98,6 @@ struct MapGuard {
 		map->lower_layer.resize(w * h, 0);
 
 		Game_Map::Setup(std::move(map));
-		Output::SetLogLevel(LogLevel::Debug);
 	}
 
 	~MapGuard() {
@@ -119,14 +116,14 @@ struct MapGuard {
 	}
 };
 
-constexpr auto Up = Game_Character::Up;
-constexpr auto Right = Game_Character::Right;
-constexpr auto Down = Game_Character::Down;
-constexpr auto Left = Game_Character::Left;
-constexpr auto UpRight = Game_Character::UpRight;
-constexpr auto DownRight = Game_Character::DownRight;
-constexpr auto DownLeft = Game_Character::DownLeft;
-constexpr auto UpLeft = Game_Character::UpLeft;
+inline constexpr auto Up = Game_Character::Up;
+inline constexpr auto Right = Game_Character::Right;
+inline constexpr auto Down = Game_Character::Down;
+inline constexpr auto Left = Game_Character::Left;
+inline constexpr auto UpRight = Game_Character::UpRight;
+inline constexpr auto DownRight = Game_Character::DownRight;
+inline constexpr auto DownLeft = Game_Character::DownLeft;
+inline constexpr auto UpLeft = Game_Character::UpLeft;
 }
 
 static void ForceUpdate(Game_Vehicle& ch) {
@@ -134,7 +131,7 @@ static void ForceUpdate(Game_Vehicle& ch) {
 	ch.Update();
 }
 
-static void ForceUpdate(Game_Player& ch) {
+/*static void ForceUpdate(Game_Player& ch) {
 	ch.SetProcessed(false);
 	ch.Update();
 }
@@ -142,6 +139,6 @@ static void ForceUpdate(Game_Player& ch) {
 static void ForceUpdate(Game_Event& ch) {
 	ch.SetProcessed(false);
 	ch.Update(false);
-}
+}*/
 
 #endif

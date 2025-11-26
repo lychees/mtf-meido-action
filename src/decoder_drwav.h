@@ -24,9 +24,12 @@
 // Headers
 #include "audio_decoder.h"
 #define DR_WAV_NO_STDIO
-#include "external/dr_wav.h"
-#include <string>
-#include <memory>
+// Use system dr_wav header if available
+#if __has_include(<dr_wav.h>)
+#  include <dr_wav.h>
+#else
+#  include "external/dr_wav.h"
+#endif
 
 /**
  * Standalone audio decoder powered by dr_wav
@@ -56,7 +59,6 @@ private:
 	int decoded_samples = 0;
 	bool init = false;
 	drwav handle = {};
-	uint32_t bytes_per_frame = 0;
 };
 
 #endif

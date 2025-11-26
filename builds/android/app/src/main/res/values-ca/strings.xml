@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--GameBrowser Activity-->
+    <string name="autodetect">Detectar la regió (recomanat)</string>
+    <string name="west_europe">Europeu occidental</string>
+    <string name="east_europe">Europeu central/del est</string>
+    <string name="cyrillic">Ciríl·lic</string>
+    <string name="japan">Japonès</string>
+    <string name="korean">Coreà</string>
+    <string name="chinese_simple">Xinès (simplificat)</string>
+    <string name="chinese_traditional">Xinès (tradicional)</string>
+    <string name="greek">Grec</string>
+    <string name="turkish">Turc</string>
+    <string name="hebrew">Hebreu</string>
+    <string name="arabic">Àrab</string>
+    <string name="baltic">Bàltic</string>
+    <string name="thai">Tailandès</string>
+    <string name="vietnamese">Vietnamita</string>
+    <string name="ok">D\'acord</string>
+    <string name="cancel">Cancel·la</string>
+    <string name="do_want_quit">Realment vols sortir\?</string>
+    <string name="yes">Sí</string>
+    <string name="no">No</string>
+    <string name="creating_dir_failed">Ha fallat la creació del directori $PATH</string>
+    <string name="path_not_readable">No es pot llegir $PATH</string>
+    <string name="no_external_storage">No s\'ha trobat emmagatzematge extern (per exemple targeta SD)</string>
+    <string name="not_valid_game">$PATH no és un joc vàlid</string>
+    <string name="select_game_region">Selecciona la regió del joc</string>
+    <string name="change_the_layout">Canvia la distribució</string>
+    <string name="choose_layout">Selecciona una disposició</string>
+    <string name="unknown_region">Regió desconeguda</string>
+    <string name="region_modification_failed">Ha fallat al canviar de regió</string>
+    <string name="refresh">Refresca</string>
+    <string name="change_default_mapping">Canvia la disposició dels botons predeterminada</string>
+    <string name="how_to_use_easy_rpg">Com fer servir l\'EasyRPG Player</string>
+    <!--Ingame menu-->
+    <string name="toggle_ui">Commutar botons virtuals</string>
+    <string name="end_game">Finalitza la partida</string>
+    <string name="report_bug">Informa d\'un error</string>
+    <string name="report_bug_msg">Aquesta funció obrirà el teu programa de correu electrònic (per exemple, GMail) per a enviar-nos l\'informe d\'error.
+\n
+\nSi no vols enviar un missatge de correu electrònic o no tens un programari de correu electrònic configurat, pots obrir un informe de error a https://github.com/EasyRPG/Player/issues com una alternativa.</string>
+    <string name="report_bug_mail">Gràcies per recolzar EasyRPG Player \n S\'han inclòs un fitxer de registre i les partides desades a aquest correu electrònic. \n No eliminis el fitxer de registre. Necessitem una partida desada que estigui a prop del lloc on es troba l\'error. \n Si us plau, explica\'ns en detall què ha anat malament.</string>
+    <!--Settings Activities-->
+    <string name="video">Vídeo</string>
+    <string name="audio">Àudio</string>
+    <string name="input">Entrada</string>
+    <string name="settings">Configuració</string>
+    <string name="enable_vibration">Activar vibracions</string>
+    <string name="vibrate_when_sliding_direction">Vibrar al moure cap a una altra direcció</string>
+    <string name="input_layout_transparency">Transparència de la disposició de botons:</string>
+    <string name="ignore_size_settings">Personalizar mida dels botons:</string>
+    <string name="no_read_access_on_dir">No hi ha accés de lectura a %1$s</string>
+    <string name="quick_access">Accés ràpid</string>
+    <string name="force_landscape_mode">Força orientació paisatge</string>
+    <string name="fast_forward">Mode del botó d\'avanç ràpid:</string>
+    <string-array name="fast_forward_mode">
+        <item>mantenir premut</item>
+        <item>fer un toc a</item>
+    </string-array>
+    <string name="fast_forward_factor">Multiplicador de velocitat:</string>
+    <!--InputLayout Managing-->
+    <string name="manage_input_layouts">Gestionar disposicions dels botons:</string>
+    <string name="edit_name">Edita el nom</string>
+    <string name="edit_layout">Edita la distribució</string>
+    <string name="delete">Eliminar</string>
+    <string name="default_layout">Valor predeterminat</string>
+    <!--ButtonMapping Activity-->
+    <string name="add_a_button">Afegeix un botó</string>
+    <string name="reset_button_mapping">Reinicia assignació de botons</string>
+    <string name="exit_without_saving">Surt sense desar</string>
+    <string name="save_and_quit">Desa i surt</string>
+    <string name="key_enter">Tecla de retorn (Z)</string>
+    <string name="key_cancel">Cancel·la (Esc i X)</string>
+    <string name="key_shift">Tecla de majúscules (shift)</string>
+    <string name="key_fast_forward">Avanç ràpid</string>
+    <!--GameBrowserAPI15-->
+    <string name="navigation_drawer_open">Obre safata de navegació</string>
+    <string name="navigation_drawer_close">Tanca safata de navegació</string>
+    <string name="menu">Obre menú de l\'Android</string>
+    <string name="no_games_found_and_explanation_android_30">No s\'han trobat jocs de RPG Maker 2000/2003.
+\n
+\nLa carpeta de EasyRPG que has seleccionat conté una carpeta \"games\". Fes servir una aplicació de gestió de fitxers per posar els jocs en aquesta carpeta.
+\nEls jocs es poden posar encarpetes o en arxius ZIP/LZH.
+\n
+\nLa carpeta EasyRPG es pot canviar a la configuració.</string>
+    <string name="open_games_folder">Obre la carpeta de jocs (\"games\")</string>
+    <string name="how_to_use_easy_rpg_explanation_android_30">Col·loca els jocs de RPG Maker 2000/2003 a subcarpetes de la carpeta de jocs (\"games\").
+\nEls jocs han de ser descomprimits o en un arxiu ZIP/LZH.
+\nEls fitxers RAR, 7z i EXE NO estan suportats.
+\n
+\nCaracterístiques opcionals (disponibles a la configuració):
+\n- Es pot afegir el RTP (arxius comuns usats per alguns jocs)
+\n- Es pot afegir un banc de so (SoundFont) personalitzat per modificar com sona la música MIDI</string>
+    <string name="easyrpg_folders">Carpetes de l\'EasyRPG</string>
+    <string name="screen_size">Escalat de la pantalla:</string>
+    <string name="settings_custom_soundfont">Soundfont personalitzat:</string>
+    <string name="open_the_sound_fonts_folder">Obre la carpeta \"soundfonts\"</string>
+    <string name="settings_soundfont_explanation">Poseu els soundfont en format SF2 a la carpeta \"soundfonts\". Els soundfont modifiquen com sona la música MIDI.</string>
+    <string name="settings_soundfont_found">SoundFonts:</string>
+    <string name="settings_default_soundfont">Soundfont predeterminat</string>
+    <string name="select_the_games_folder">Selecciona la carpeta de l\'EasyRPG</string>
+    <string name="id_select_games_folder_explanation">EasyRPG Player requereix una carpeta exclusiva. Després de tocar el botó, se\'t demanarà que seleccionis una carpeta.
+\n
+\nSi és la primera vegada que fas servir aquesta aplicació no hi ha carpeta EasyRPG. Crea una nova carpeta EasyRPG i selecciona-la.
+\n
+\nSi has fet servit aquesta aplicació abans, selecciona la carpeta EasyRPG existent.</string>
+    <string name="Loading">S\'està carregant…</string>
+    <string name="enable_rtp_support">Activa el suport RTP</string>
+    <string name="rtp_explanation">El RTP proporciona fitxers comuns utilitzats per alguns jocs.
+\nCol·loca el RTP del RPG Maker 2000 a \"rtp/2000\" i el RTP del RPG Maker 2003 a \"rtp/2003\".
+\nTingueu en compte que habilitar el suport RTP incrementarà el temps de càrrega d\'un joc de manera significativa.</string>
+    <string name="open_rtp_folder">Obre la carpeta \"rtp\"</string>
+    <string name="horizontal_input_layout">Disposició dels botons horitzontal (paisatge)</string>
+    <string name="vertical_input_layout">Disposició dels botons vertical (retrat)</string>
+    <string name="settings_edit_layout_explanation">Es poden afegir botons en editar una distribució (per exemple, un botó shift).
+\nPer afegir un botó, premeu el botó Enrere i seleccioneu Afegeix un botó.</string>
+    <string name="scale_nearest">Escala a la mida de la pantalla utilitzant el veí més proper (ràpid, mala qualitat)</string>
+    <string name="scale_integer">Escala a un múltiple de la resolució del joc (ràpid, imatge més petita, bona qualitat)</string>
+    <string name="scale_bilinear">Adapta a la mida de la pantalla i aplica un filtre bilineal (lent, bona qualitat)</string>
+    <string name="stretch">Ignora la relació d\'aspecte (estira a l\'amplada de la pantalla)</string>
+    <string name="music_volume">Volum de la música</string>
+    <string name="sound_volume">Volum de l\'efecte de so</string>
+    <string name="launch_debug_mode">Inicia en mode de depuració</string>
+    <string name="visit_website">Visita el nostre lloc web</string>
+    <string name="error_no_games_folder">La carpeta de jocs (\"games\") no existeix o no és una carpeta. Crea-la manualment o selecciona una ubicació diferent per a la carpeta de l\'EasyRPG. La carpeta de l\'EasyRPG es pot canviar a la configuració.</string>
+    <string name="error_games_no_rw">La carpeta de jocs (\"games\") no es pot llegir o escriure. Selecciona una ubicació diferent per a la carpeta de l\'EasyRPG. La carpeta de l\'EasyRPG es pot canviar a la configuració.</string>
+    <string name="key_debug_walk_through_walls">Caminar a través de les parets (requereix el mode de depuració)</string>
+    <string name="key_debug_menu">Obre el menú de depuració (requereix el mode de depuració)</string>
+    <string name="settings_resolution">Resolució del joc:</string>
+    <string name="settings_resolution_desc">Advertència: canviar la resolució pot provocar errors gràfics o trencar el joc!</string>
+    <string name="settings_resolution_original">Original (320x240, 4:3, recomanat)</string>
+    <string name="settings_resolution_widescreen">Panoràmic (416x240, 16:9, experimental)</string>
+    <string name="settings_resolution_ultrawide">Ultrapanoràmic (560x240, 21:9, experimental)</string>
+    <string name="watch_explanation_video">Començar i afegir jocs (guia en vídeo)</string>
+    <string name="error_saf_title">Carpeta seleccionada incorrecta</string>
+    <string name="error_saf_select_easyrpg">Crea una carpeta EasyRPG buida i selecciona-la.</string>
+    <string name="error_saf_download_selected">La carpeta de descàrrega no es pot utilitzar com a carpeta EasyRPG.</string>
+    <string name="error_saf_folder_not_empty">La carpeta seleccionada conté altres fitxers i no es pot utilitzar com a carpeta de l\'EasyRPG. Quan eliminis tots els fitxers dins de la carpeta podràs utilitzar-la com a carpeta de l\'EasyRPG.</string>
+    <string name="error_saf_bad_content_provider">La carpeta seleccionada no es pot utilitzar com a carpeta EasyRPG. Aquest problema pot ocórrer per diversos motius, per exemple, si has seleccionat el directori arrel o una ubicació d\'emmagatzematge al núvol.
+\n
+\n</string>
+    <string name="fast_forward_mode_hold">mantenir</string>
+    <string name="fast_forward_mode_tap">tocar</string>
+    <string name="game_rename">Canvia el nom del joc</string>
+    <string name="revert">Revertir</string>
+    <string name="do_want_reset">Realment vols reiniciar?</string>
+    <string name="view_show_game_folder">Utilitza el nom de la carpeta</string>
+    <string name="view_show_title_desc">Trieu com s\'anomenen els jocs</string>
+    <string name="view_show_game_title">Utilitza el títol</string>
+    <string name="settings_fonts_explanation">Posa els tipus de lletra a la carpeta \"fonts\". Per obtenir el millor resultat, utilitzeu tipus de lletra TTF o tipus de lletra de mapa de bits (FON).</string>
+    <string name="toggle_fps">Commuta la visualització de fotogrames per segon</string>
+    <string name="settings_input_show_ab_as_zx">Mostra els botons A i B com a Z i X</string>
+    <string name="settings_font_1">Primer tipus de lletra:</string>
+    <string name="settings_font_size">Mida de la lletra</string>
+    <string name="settings_font_2">Segon tipus de lletra:</string>
+    <string name="settings_font_default">Tipus de lletra integrat</string>
+    <string name="reset_game">Reiniciar joc</string>
+    <string name="open_fonts_folder">Obre la carpeta \"fonts\"</string>
+    <string name="settings_fonts_size_explanation2">La mida s\'ha d\'establir de manera que el # sigui almenys parcialment visible. Si no el podeu veure, el text es tallarà al joc.</string>
+    <string name="view">Veure</string>
+    <string name="unsupported_engine_card">$ENGINE no és compatible</string>
+    <string name="settings_fonts_explanation2">El joc decideix si utilitza el primer tipus de lletra o el segon.</string>
+    <string name="unsupported_engine_explanation">Aquest joc no es pot jugar a EasyRPG Player perquè s\'ha creat amb $ENGINE.\n\nEasyRPG Player està dissenyat per admetre només jocs de RPG Maker 2000 i 2003, sense plans per expandir-se a altres motors.\n\nPer obtenir programari capaç d\'iniciar aquest joc, consulteu Play Store.</string>
+    <string name="unsupported_engine_title">Motor no compatible</string>
+    <string name="settings_fonts_size_explanation">La configuració de la mida del tipus de lletra no té cap efecte quan s\'utilitza el tipus de lletra integrat o determinats tipus de lletra de mapa de bits.</string>
+    <string name="rtp_not_found">No s\'ha trobat RTP $YEAR. Els jocs que requereixin aquest RTP tindran recursos que falten.</string>
+    <string name="font">Tipus de lletra</string>
+    <string name="open_save_folder">Obre carpeta de desar el joc</string>
+    <string name="rtp_found">RTP $YEAR trobat: $NAME ($FOUND de $MAX recursos trobats)</string>
+    <string name="fullscreen_mode">Pantalla completa</string>
+</resources>

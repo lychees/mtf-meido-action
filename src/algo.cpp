@@ -36,9 +36,9 @@ namespace Algo {
 
 bool IsRowAdjusted(lcf::rpg::SaveActor::RowType row, lcf::rpg::System::BattleCondition cond, bool offense) {
 	return (cond == lcf::rpg::System::BattleCondition_surround
-			|| (row != offense
+			|| (row != static_cast<int>(offense)
 				&& (cond == lcf::rpg::System::BattleCondition_none || cond == lcf::rpg::System::BattleCondition_initiative))
-			|| (row == offense
+			|| (row == static_cast<int>(offense)
 				&& (cond == lcf::rpg::System::BattleCondition_back))
 		   );
 }
@@ -171,6 +171,9 @@ int VarianceAdjustEffect(int base, int var) {
 }
 
 int AdjustDamageForDefend(int dmg, const Game_Battler& target) {
+	if (RuntimePatches::GuardRevamp::OverrideDamageAdjustment(dmg, target)) {
+		return dmg;
+	}
 	if (target.IsDefending()) {
 		dmg /= 2;
 		if (target.HasStrongDefense()) {

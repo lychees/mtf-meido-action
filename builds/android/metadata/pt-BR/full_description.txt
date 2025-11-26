@@ -1,0 +1,7 @@
+Com EasyRPG Player você pode jogar jogos criados com o RPG Maker 2000 e RPG Maker 2003. Motores novos, como o XP, VX, MV e MZ não são suportados.
+
+O EasyRPG Player não é um editor. Você não pode criar seus próprios jogos com ele.
+
+Site oficial: https://easyrpg.org/
+
+Este aplicativo não é afiliado à Kadokawa Corporation.

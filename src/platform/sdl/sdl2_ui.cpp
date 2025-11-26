@@ -14,20 +14,24 @@
  * You should have received a copy of the GNU General Public License
  * along with EasyRPG Player. If not, see <http://www.gnu.org/licenses/>.
  */
-
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include "game_config.h"
 #include "system.h"
 #include "sdl2_ui.h"
 
 #ifdef _WIN32
 #  include <windows.h>
 #  include <SDL_syswm.h>
+#  include <dwmapi.h>
 #elif defined(__ANDROID__)
 #  include <jni.h>
 #  include <SDL_system.h>
 #elif defined(EMSCRIPTEN)
 #  include <emscripten.h>
+#elif defined(__WIIU__)
+#  include "platform/wiiu/main.h"
 #endif
 #include "icon.h"
 
@@ -39,13 +43,16 @@
 #include "bitmap.h"
 #include "lcf/scope_guard.h"
 
+#if defined(__APPLE__) && TARGET_OS_OSX
+#  include "platform/macos/macos_utils.h"
+#endif
+
 #ifdef SUPPORT_AUDIO
-#  include "audio.h"
-
-#  if defined(__APPLE__) && TARGET_OS_OSX
-#    include "platform/macos/utils.h"
+#  if AUDIO_AESND
+#    include "platform/wii/audio.h"
+#  else
+#    include "sdl2_audio.h"
 #  endif
-
 
 AudioInterface& Sdl2Ui::GetAudio() {
 	return *audio_;
@@ -53,7 +60,11 @@ AudioInterface& Sdl2Ui::GetAudio() {
 #endif
 
 static uint32_t GetDefaultFormat() {
+#ifdef WORDS_BIGENDIAN
+	return SDL_PIXELFORMAT_ABGR32;
+#else
 	return SDL_PIXELFORMAT_RGBA32;
+#endif
 }
 
 /**
@@ -62,7 +73,18 @@ static uint32_t GetDefaultFormat() {
  * We prefer formats which have fast paths in pixman.
  */
 static int GetFormatRank(uint32_t fmt) {
+
 	switch (fmt) {
+#ifdef WORDS_BIGENDIAN
+		case SDL_PIXELFORMAT_RGBA32:
+			return 0;
+		case SDL_PIXELFORMAT_BGRA32:
+			return 0;
+		case SDL_PIXELFORMAT_ARGB32:
+			return 1;
+		case SDL_PIXELFORMAT_ABGR32:
+			return 2;
+#else
 		case SDL_PIXELFORMAT_RGBA32:
 			return 2;
 		case SDL_PIXELFORMAT_BGRA32:
@@ -71,6 +93,7 @@ static int GetFormatRank(uint32_t fmt) {
 			return 1;
 		case SDL_PIXELFORMAT_ABGR32:
 			return 0;
+#endif
 		default:
 			return -1;
 	}
@@ -115,6 +138,19 @@ static uint32_t SelectFormat(const SDL_RendererInfo& rinfo, bool print_all) {
 	return current_fmt;
 }
 
+#ifdef _WIN32
+HWND GetWindowHandle(SDL_Window* window) {
+	SDL_SysWMinfo wminfo;
+	SDL_VERSION(&wminfo.version)
+		SDL_bool success = SDL_GetWindowWMInfo(window, &wminfo);
+
+	if (success < 0)
+		Output::Error("Wrong SDL version");
+
+	return wminfo.info.win.window;
+}
+#endif
+
 static int FilterUntilFocus(const SDL_Event* evnt);
 
 #if defined(USE_KEYBOARD) && defined(SUPPORT_KEYBOARD)
@@ -125,7 +161,7 @@ static Input::Keys::InputKey SdlKey2InputKey(SDL_Keycode sdlkey);
 static Input::Keys::InputKey SdlJKey2InputKey(int button_index);
 #endif
 
-Sdl2Ui::Sdl2Ui(long width, long height, const Game_ConfigVideo& cfg) : BaseUi(cfg)
+Sdl2Ui::Sdl2Ui(long width, long height, const Game_Config& cfg) : BaseUi(cfg)
 {
 	// Set some SDL environment variables before starting. These are platform
 	// dependent, so every port needs to set them manually
@@ -135,6 +171,8 @@ Sdl2Ui::Sdl2Ui(long width, long height, const Game_ConfigVideo& cfg) : BaseUi(cf
 #endif
 #ifdef EMSCRIPTEN
 	SDL_SetHint(SDL_HINT_EMSCRIPTEN_ASYNCIFY, "0");
+	// Only handle keyboard events when the canvas has focus
+	SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");
 #endif
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -142,9 +180,9 @@ Sdl2Ui::Sdl2Ui(long width, long height, const Game_ConfigVideo& cfg) : BaseUi(cf
 	}
 
 	RequestVideoMode(width, height,
-			cfg.window_zoom.Get(),
-			cfg.fullscreen.Get(),
-			cfg.vsync.Get());
+			cfg.video.window_zoom.Get(),
+			cfg.video.fullscreen.Get(),
+			cfg.video.vsync.Get());
 
 	SetTitle(GAME_TITLE);
 
@@ -164,12 +202,11 @@ Sdl2Ui::Sdl2Ui(long width, long height, const Game_ConfigVideo& cfg) : BaseUi(cf
 #endif
 
 #ifdef SUPPORT_AUDIO
-	if (!Player::no_audio_flag) {
-		audio_.reset(new SdlAudio());
-		return;
-	}
-#else
-	audio_.reset(new EmptyAudio());
+#  ifdef AUDIO_AESND
+		audio_ = std::make_unique<WiiAudio>(cfg.audio);
+#  else
+		audio_ = std::make_unique<Sdl2Audio>(cfg.audio);
+#  endif
 #endif
 }
 
@@ -189,7 +226,49 @@ Sdl2Ui::~Sdl2Ui() {
 	if (sdl_window) {
 		SDL_DestroyWindow(sdl_window);
 	}
+
+#ifdef SUPPORT_AUDIO
+	audio_.reset();
+#endif
+
 	SDL_Quit();
+}
+
+bool Sdl2Ui::vChangeDisplaySurfaceResolution(int new_width, int new_height) {
+	SDL_Texture* new_sdl_texture_game = SDL_CreateTexture(sdl_renderer,
+		texture_format,
+		SDL_TEXTUREACCESS_STREAMING,
+		new_width, new_height);
+
+	if (!new_sdl_texture_game) {
+		Output::Warning("ChangeDisplaySurfaceResolution SDL_CreateTexture failed: {}", SDL_GetError());
+		return false;
+	}
+
+	if (sdl_texture_game) {
+		SDL_DestroyTexture(sdl_texture_game);
+	}
+
+	sdl_texture_game = new_sdl_texture_game;
+
+	BitmapRef new_main_surface = Bitmap::Create(new_width, new_height, Color(0, 0, 0, 255));
+
+	if (!new_main_surface) {
+		Output::Warning("ChangeDisplaySurfaceResolution Bitmap::Create failed");
+		return false;
+	}
+
+	main_surface = new_main_surface;
+	window.size_changed = true;
+
+	BeginDisplayModeChange();
+
+	current_display_mode.width = new_width;
+	current_display_mode.height = new_height;
+
+	EndDisplayModeChange();
+
+	return true;
 }
 
 void Sdl2Ui::RequestVideoMode(int width, int height, int zoom, bool fullscreen, bool vsync) {
@@ -238,7 +317,7 @@ void Sdl2Ui::EndDisplayModeChange() {
 			}
 
 			current_display_mode.effective = true;
-#ifdef EMSCRIPTEN
+#if defined(EMSCRIPTEN) || defined(__PS4__)
 			SetIsFullscreen(true);
 #else
 			SetIsFullscreen((current_display_mode.flags & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP);
@@ -253,19 +332,14 @@ bool Sdl2Ui::RefreshDisplayMode() {
 	bool& vsync = current_display_mode.vsync;
 
 #ifdef SUPPORT_ZOOM
-	display_width *= current_display_mode.zoom;
-	display_height *= current_display_mode.zoom;
+	int display_width_zoomed = display_width * current_display_mode.zoom;
+	int display_height_zoomed = display_height * current_display_mode.zoom;
+#else
+	int display_width_zoomed = display_width;
+	int display_height_zoomed = display_height;
 #endif
 
 	if (!sdl_window) {
-		#ifdef __ANDROID__
-		// Workaround SDL bug: https://bugzilla.libsdl.org/show_bug.cgi?id=2291
-		// Set back buffer format to 565
-		SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 5);
-		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 6);
-		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 5);
-		#endif
-
 		#if defined(__APPLE__) && TARGET_OS_OSX
 		// Use OpenGL on Mac only -- to work around an SDL Metal deficiency
 		// where it will always use discrete GPU.
@@ -274,12 +348,26 @@ bool Sdl2Ui::RefreshDisplayMode() {
 		SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
 		#endif
 
+		#if defined(EMSCRIPTEN) || defined(_WIN32)
+		// FIXME: This will not DPI-scale on Windows due to SDL2 limitations.
+		// Is properly fixed in SDL3. See #2764
+		flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+		#endif
+
 		// Create our window
-		sdl_window = SDL_CreateWindow(GAME_TITLE,
-			SDL_WINDOWPOS_CENTERED,
-			SDL_WINDOWPOS_CENTERED,
-			display_width, display_height,
-			SDL_WINDOW_RESIZABLE | flags);
+		if (vcfg.window_x.Get() < 0 || vcfg.window_y.Get() < 0 || vcfg.window_height.Get() <= 0 || vcfg.window_width.Get() <= 0) {
+			sdl_window = SDL_CreateWindow(GAME_TITLE,
+				SDL_WINDOWPOS_CENTERED,
+				SDL_WINDOWPOS_CENTERED,
+				display_width_zoomed, display_height_zoomed,
+				SDL_WINDOW_RESIZABLE | flags);
+		} else {
+			sdl_window = SDL_CreateWindow(GAME_TITLE,
+				vcfg.window_x.Get(),
+				vcfg.window_y.Get(),
+				vcfg.window_width.Get(), vcfg.window_height.Get(),
+				SDL_WINDOW_RESIZABLE | flags);
+		}
 
 		if (!sdl_window) {
 			Output::Debug("SDL_CreateWindow failed : {}", SDL_GetError());
@@ -290,8 +378,8 @@ bool Sdl2Ui::RefreshDisplayMode() {
 		window.size_changed = true;
 
 		auto window_sg = lcf::makeScopeGuard([&]() {
-				SDL_DestroyWindow(sdl_window);
-				sdl_window = nullptr;
+			SDL_DestroyWindow(sdl_window);
+			sdl_window = nullptr;
 		});
 
 		SetAppIcon();
@@ -344,18 +432,25 @@ bool Sdl2Ui::RefreshDisplayMode() {
 		sdl_texture_game = SDL_CreateTexture(sdl_renderer,
 			texture_format,
 			SDL_TEXTUREACCESS_STREAMING,
-			SCREEN_TARGET_WIDTH, SCREEN_TARGET_HEIGHT);
+			display_width, display_height);
 
 		if (!sdl_texture_game) {
 			Output::Debug("SDL_CreateTexture failed : {}", SDL_GetError());
 			return false;
 		}
 
+#ifdef _WIN32
+		HWND window = GetWindowHandle(sdl_window);
+		// Not using the enum names because this will fail to build when not using a recent Windows 11 SDK
+		int window_rounding = 1; // DWMWCP_DONOTROUND
+		DwmSetWindowAttribute(window, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, &window_rounding, sizeof(window_rounding));
+#endif
+
 		renderer_sg.Dismiss();
 		window_sg.Dismiss();
 	} else {
 		// Browser handles fast resizing for emscripten, TODO: use fullscreen API
-#ifndef EMSCRIPTEN
+#if !defined(EMSCRIPTEN) && !defined(__PS4__)
 		bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP;
 		if (is_fullscreen) {
 			SDL_SetWindowFullscreen(sdl_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
@@ -366,7 +461,7 @@ bool Sdl2Ui::RefreshDisplayMode() {
 				// Restore to pre-fullscreen size
 				SDL_SetWindowSize(sdl_window, 0, 0);
 			} else {
-				SDL_SetWindowSize(sdl_window, display_width, display_height);
+				SDL_SetWindowSize(sdl_window, display_width_zoomed, display_height_zoomed);
 			}
 		}
 #endif
@@ -389,7 +484,7 @@ bool Sdl2Ui::RefreshDisplayMode() {
 	if (!main_surface) {
 		// Drawing surface will be the window itself
 		main_surface = Bitmap::Create(
-			SCREEN_TARGET_WIDTH, SCREEN_TARGET_HEIGHT, Color(0, 0, 0, 255));
+			display_width, display_height, Color(0, 0, 0, 255));
 	}
 
 	return true;
@@ -397,10 +492,14 @@ bool Sdl2Ui::RefreshDisplayMode() {
 
 void Sdl2Ui::ToggleFullscreen() {
 	BeginDisplayModeChange();
-	if ((current_display_mode.flags & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP)
+	if ((current_display_mode.flags & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP) {
 		current_display_mode.flags &= ~SDL_WINDOW_FULLSCREEN_DESKTOP;
-	else
+	} else {
 		current_display_mode.flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+		SDL_GetWindowPosition(sdl_window, &window_mode_metrics.x, &window_mode_metrics.y);
+		window_mode_metrics.width = window.width;
+		window_mode_metrics.height = window.height;
+	}
 	EndDisplayModeChange();
 }
 
@@ -417,7 +516,7 @@ void Sdl2Ui::ToggleZoom() {
 	// get current window size, calculate next bigger zoom factor
 	int w, h;
 	SDL_GetWindowSize(sdl_window, &w, &h);
-	last_display_mode.zoom = std::min(w / SCREEN_TARGET_WIDTH, h / SCREEN_TARGET_HEIGHT);
+	last_display_mode.zoom = std::min(w / main_surface->width(), h / main_surface->height());
 	current_display_mode.zoom = last_display_mode.zoom + 1;
 
 	// get maximum usable window size
@@ -427,23 +526,27 @@ void Sdl2Ui::ToggleZoom() {
 	SDL_GetDisplayUsableBounds(display_index, &max_mode);
 
 	// reset zoom, if it does not fit
-	if ((max_mode.h < SCREEN_TARGET_HEIGHT * current_display_mode.zoom) ||
-		(max_mode.w < SCREEN_TARGET_WIDTH * current_display_mode.zoom)) {
+	if ((max_mode.h < main_surface->height() * current_display_mode.zoom) ||
+		(max_mode.w < main_surface->width() * current_display_mode.zoom)) {
 		current_display_mode.zoom = 1;
 	}
 	EndDisplayModeChange();
 #endif
 }
 
-void Sdl2Ui::ProcessEvents() {
+bool Sdl2Ui::ProcessEvents() {
+#if defined(__WIIU__)
+		if (!WiiU_ProcessProcUI()) {
+			return false;
+		}
+#endif
+
 	SDL_Event evnt;
 
 #if defined(USE_MOUSE) && defined(SUPPORT_MOUSE)
 	// Reset Mouse scroll
-	if (Player::mouse_flag) {
-		keys[Input::Keys::MOUSE_SCROLLUP] = false;
-		keys[Input::Keys::MOUSE_SCROLLDOWN] = false;
-	}
+	keys[Input::Keys::MOUSE_SCROLLUP] = false;
+	keys[Input::Keys::MOUSE_SCROLLDOWN] = false;
 #endif
 
 	// Poll SDL events and process them
@@ -453,66 +556,125 @@ void Sdl2Ui::ProcessEvents() {
 		if (Player::exit_flag)
 			break;
 	}
+
+	return true;
+}
+
+void Sdl2Ui::SetScalingMode(ConfigEnum::ScalingMode mode) {
+	window.size_changed = true;
+	vcfg.scaling_mode.Set(mode);
+}
+
+void Sdl2Ui::ToggleStretch() {
+	window.size_changed = true;
+	vcfg.stretch.Toggle();
+}
+
+void Sdl2Ui::ToggleVsync() {
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+	// Modifying vsync requires recreating the renderer
+	vcfg.vsync.Toggle();
+
+	if (SDL_RenderSetVSync(sdl_renderer, int(vcfg.vsync.Get())) == 0) {
+		current_display_mode.vsync = vcfg.vsync.Get();
+		SetFrameRateSynchronized(vcfg.vsync.Get());
+	} else {
+		Output::Warning("Unable to toggle vsync. This is likely a problem with your system configuration.");
+	}
+#else
+	Output::Warning("Cannot toogle vsync: SDL2 version too old (must be 2.0.18)");
+#endif
+}
+
+void Sdl2Ui::SetScreenScale(int scale) {
+	vcfg.screen_scale.Set(std::clamp(scale, 50, 150));
+	window.size_changed = true;
 }
 
 void Sdl2Ui::UpdateDisplay() {
+#ifdef __WIIU__
+	if (vcfg.scaling_mode.Get() == ConfigEnum::ScalingMode::Bilinear && window.scale > 0.f) {
+		// Workaround WiiU bug: Bilinear uses a render target and for these the format is not converted
+		void* target_pixels;
+		int target_pitch;
+
+		SDL_LockTexture(sdl_texture_game, nullptr, &target_pixels, &target_pitch);
+		SDL_ConvertPixels(main_surface->width(), main_surface->height(), GetDefaultFormat(), main_surface->pixels(),
+			main_surface->pitch(), SDL_PIXELFORMAT_RGBA8888, target_pixels, target_pitch);
+		SDL_UnlockTexture(sdl_texture_game);
+	} else {
+		SDL_UpdateTexture(sdl_texture_game, nullptr, main_surface->pixels(), main_surface->pitch());
+	}
+#else
 	// SDL_UpdateTexture was found to be faster than SDL_LockTexture / SDL_UnlockTexture.
 	SDL_UpdateTexture(sdl_texture_game, nullptr, main_surface->pixels(), main_surface->pitch());
+#endif
 
+#ifndef __PS4__
 	if (window.size_changed && window.width > 0 && window.height > 0) {
 		// Based on SDL2 function UpdateLogicalSize
 		window.size_changed = false;
 
-		SDL_Rect viewport;
-		float width_float = static_cast<float>(window.width);
-		float height_float = static_cast<float>(window.height);
+		int win_width = window.width * vcfg.screen_scale.Get() / 100.0;
+		int win_height = window.height * vcfg.screen_scale.Get() / 100.0;
 
-		constexpr float want_aspect = (float)SCREEN_TARGET_WIDTH / SCREEN_TARGET_HEIGHT;
+		int border_x = (window.width - win_width) / 2;
+		int border_y = (window.height - win_height) / 2;
+
+		float width_float = static_cast<float>(win_width);
+		float height_float = static_cast<float>(win_height);
+
+		float want_aspect = (float)main_surface->width() / main_surface->height();
 		float real_aspect = width_float / height_float;
 
-		if (scaling_mode == ScalingMode::Integer) {
+		auto do_stretch = [this, border_x, win_width]() {
+			if (vcfg.stretch.Get()) {
+				viewport.x = border_x;
+				viewport.w = win_width;
+			}
+		};
+
+		if (vcfg.scaling_mode.Get() == ConfigEnum::ScalingMode::Integer) {
 			// Integer division on purpose
 			if (want_aspect > real_aspect) {
-				window.scale = static_cast<float>(window.width / SCREEN_TARGET_WIDTH);
+				window.scale = static_cast<float>(win_width / main_surface->width());
 			} else {
-				window.scale = static_cast<float>(window.height / SCREEN_TARGET_HEIGHT);
+				window.scale = static_cast<float>(win_height / main_surface->height());
 			}
 
-			viewport.w = static_cast<int>(ceilf(SCREEN_TARGET_WIDTH * window.scale));
-			viewport.x = (window.width - viewport.w) / 2;
-			viewport.h = static_cast<int>(ceilf(SCREEN_TARGET_HEIGHT * window.scale));
-			viewport.y = (window.height - viewport.h) / 2;
-
+			viewport.w = static_cast<int>(ceilf(main_surface->width() * window.scale));
+			viewport.x = (win_width - viewport.w) / 2 + border_x;
+			viewport.h = static_cast<int>(ceilf(main_surface->height() * window.scale));
+			viewport.y = (win_height - viewport.h) / 2 + border_y;
+			do_stretch();
 			SDL_RenderSetViewport(sdl_renderer, &viewport);
-		} else if (fabs(want_aspect - real_aspect) < 0.0001) {
-			// The aspect ratios are the same, let SDL2 scale it
-			window.scale = -1.0f;
-			SDL_RenderSetViewport(sdl_renderer, nullptr);
 		} else if (want_aspect > real_aspect) {
 			// Letterboxing (black bars top and bottom)
-			window.scale = width_float / SCREEN_TARGET_WIDTH;
-			viewport.x = 0;
-			viewport.w = window.width;
-			viewport.h = static_cast<int>(ceilf(SCREEN_TARGET_HEIGHT * window.scale));
-			viewport.y = (window.height - viewport.h) / 2;
+			window.scale = width_float / main_surface->width();
+			viewport.x = border_x;
+			viewport.w = win_width;
+			viewport.h = static_cast<int>(ceilf(main_surface->height() * window.scale));
+			viewport.y = (win_height - viewport.h) / 2 + border_y;
+			do_stretch();
 			SDL_RenderSetViewport(sdl_renderer, &viewport);
 		} else {
-			// black bars left and right
-			window.scale = height_float / SCREEN_TARGET_HEIGHT;
-			viewport.y = 0;
-			viewport.h = window.height;
-			viewport.w = static_cast<int>(ceilf(SCREEN_TARGET_WIDTH * window.scale));
-			viewport.x = (window.width - viewport.w) / 2;
+			// black bars left and right (or nothing when aspect ratio matches)
+			window.scale = height_float / main_surface->height();
+			viewport.y = border_y;
+			viewport.h = win_height;
+			viewport.w = static_cast<int>(ceilf(main_surface->width() * window.scale));
+			viewport.x = (win_width - viewport.w) / 2 + border_x;
+			do_stretch();
 			SDL_RenderSetViewport(sdl_renderer, &viewport);
 		}
 
-		if (scaling_mode == ScalingMode::Bilinear && window.scale > 0.f) {
+		if (vcfg.scaling_mode.Get() == ConfigEnum::ScalingMode::Bilinear && window.scale > 0.f) {
 			if (sdl_texture_scaled) {
 				SDL_DestroyTexture(sdl_texture_scaled);
 			}
 			SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 			sdl_texture_scaled = SDL_CreateTexture(sdl_renderer, texture_format, SDL_TEXTUREACCESS_TARGET,
-			   static_cast<int>(ceilf(window.scale)) * SCREEN_TARGET_WIDTH, static_cast<int>(ceilf(window.scale)) * SCREEN_TARGET_HEIGHT);
+			   static_cast<int>(ceilf(window.scale)) * main_surface->width(), static_cast<int>(ceilf(window.scale)) * main_surface->height());
 			SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 			if (!sdl_texture_scaled) {
 				Output::Debug("SDL_CreateTexture failed : {}", SDL_GetError());
@@ -521,7 +683,7 @@ void Sdl2Ui::UpdateDisplay() {
 	}
 
 	SDL_RenderClear(sdl_renderer);
-	if (scaling_mode == ScalingMode::Bilinear && window.scale > 0.f) {
+	if (vcfg.scaling_mode.Get() == ConfigEnum::ScalingMode::Bilinear && window.scale > 0.f) {
 		// Render game texture on the scaled texture
 		SDL_SetRenderTarget(sdl_renderer, sdl_texture_scaled);
 		SDL_RenderClear(sdl_renderer);
@@ -532,18 +694,11 @@ void Sdl2Ui::UpdateDisplay() {
 	} else {
 		SDL_RenderCopy(sdl_renderer, sdl_texture_game, nullptr, nullptr);
 	}
+#else
+	SDL_RenderClear(sdl_renderer);
+	SDL_RenderCopy(sdl_renderer, sdl_texture_game, nullptr, nullptr);
+#endif
 	SDL_RenderPresent(sdl_renderer);
-}
-
-std::string Sdl2Ui::getClipboardText() {
-	char* cStr = SDL_GetClipboardText();
-	std::string str(cStr);
-	SDL_free(cStr);
-	return str;
-}
-
-void Sdl2Ui::setClipboardText(std::string text) {
-	SDL_SetClipboardText(text.c_str());
 }
 
 void Sdl2Ui::SetTitle(const std::string &title) {
@@ -551,15 +706,28 @@ void Sdl2Ui::SetTitle(const std::string &title) {
 }
 
 bool Sdl2Ui::ShowCursor(bool flag) {
-#ifdef __WINRT__
-	// Prevent cursor hide in WinRT because it is hidden everywhere while the app runs...
-	return flag;
-#else
 	bool temp_flag = cursor_visible;
 	cursor_visible = flag;
 	SDL_ShowCursor(flag ? SDL_ENABLE : SDL_DISABLE);
 	return temp_flag;
-#endif
+}
+
+bool Sdl2Ui::HandleErrorOutput(const std::string &message) {
+	std::string title = Player::GetFullVersionString();
+
+	// Manually Restore window from fullscreen, since message would not be visible otherwise
+	if ((current_display_mode.flags & SDL_WINDOW_FULLSCREEN_DESKTOP)
+		== SDL_WINDOW_FULLSCREEN_DESKTOP) {
+		SDL_SetWindowFullscreen(sdl_window, 0);
+		SDL_SetWindowSize(sdl_window, 0, 0);
+	}
+
+	if(SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title.c_str(),
+		message.c_str(), sdl_window) != 0) {
+		return false;
+	}
+
+	return true;
 }
 
 void Sdl2Ui::ProcessEvent(SDL_Event &evnt) {
@@ -620,24 +788,31 @@ void Sdl2Ui::ProcessEvent(SDL_Event &evnt) {
 
 void Sdl2Ui::ProcessWindowEvent(SDL_Event &evnt) {
 	int state = evnt.window.event;
-#if PAUSE_GAME_WHEN_FOCUS_LOST
+
 	if (state == SDL_WINDOWEVENT_FOCUS_LOST) {
+		auto cfg = vcfg;
+		vGetConfig(cfg);
+		if (!cfg.pause_when_focus_lost.Get()) {
+			return;
+		}
 
 		Player::Pause();
 
 		bool last = ShowCursor(true);
 
-#ifndef EMSCRIPTEN
 		// Filter SDL events until focus is regained
-
 		SDL_Event wait_event;
 
 		while (SDL_WaitEvent(&wait_event)) {
+			if (wait_event.type == SDL_WINDOWEVENT && wait_event.window.event != SDL_WINDOWEVENT_FOCUS_LOST) {
+				// Process size change etc. events
+				ProcessWindowEvent(wait_event);
+			}
+
 			if (FilterUntilFocus(&wait_event)) {
 				break;
 			}
 		}
-#endif
 
 		ShowCursor(last);
 
@@ -646,8 +821,8 @@ void Sdl2Ui::ProcessWindowEvent(SDL_Event &evnt) {
 
 		return;
 	}
-#endif
-#if defined(USE_MOUSE) && defined(SUPPORT_MOUSE)
+
+#if defined(USE_MOUSE_OR_TOUCH) && defined(SUPPORT_MOUSE_OR_TOUCH)
 	if (state == SDL_WINDOWEVENT_ENTER) {
 		mouse_focus = true;
 	} else if (state == SDL_WINDOWEVENT_LEAVE) {
@@ -657,6 +832,13 @@ void Sdl2Ui::ProcessWindowEvent(SDL_Event &evnt) {
 	if (state == SDL_WINDOWEVENT_SIZE_CHANGED || state == SDL_WINDOWEVENT_RESIZED) {
 		window.width = evnt.window.data1;
 		window.height = evnt.window.data2;
+
+#ifdef EMSCRIPTEN
+		double display_ratio = emscripten_get_device_pixel_ratio();
+		window.width = static_cast<int>(window.width * display_ratio);
+		window.height = static_cast<int>(window.height * display_ratio);
+#endif
+
 		window.size_changed = true;
 	}
 }
@@ -694,9 +876,26 @@ void Sdl2Ui::ProcessKeyUpEvent(SDL_Event &evnt) {
 }
 
 void Sdl2Ui::ProcessMouseMotionEvent(SDL_Event& evnt) {
-#if defined(USE_MOUSE) && defined(SUPPORT_MOUSE)
+#if defined(USE_MOUSE_OR_TOUCH) && defined(SUPPORT_MOUSE_OR_TOUCH)
 	mouse_focus = true;
-	mouse_pos = {evnt.motion.x, evnt.motion.y};
+
+	int xw = viewport.w;
+	int yh = viewport.h;
+
+	if (xw == 0 || yh == 0) {
+		// Startup. No viewport yet
+		return;
+	}
+
+#ifdef EMSCRIPTEN
+	double display_ratio = emscripten_get_device_pixel_ratio();
+	mouse_pos.x = (evnt.motion.x * display_ratio - viewport.x) * main_surface->width() / xw;
+	mouse_pos.y = (evnt.motion.y * display_ratio - viewport.y) * main_surface->height() / yh;
+#else
+	mouse_pos.x = (evnt.motion.x - viewport.x) * main_surface->width() / xw;
+	mouse_pos.y = (evnt.motion.y - viewport.y) * main_surface->height() / yh;
+#endif
+
 #else
 	/* unused */
 	(void) evnt;
@@ -809,25 +1008,44 @@ void Sdl2Ui::ProcessControllerAxisEvent(SDL_Event &evnt) {
 
 void Sdl2Ui::ProcessFingerEvent(SDL_Event& evnt) {
 #if defined(USE_TOUCH) && defined(SUPPORT_TOUCH)
-	SDL_TouchID touchid;
-	int fingers = 0;
+	int xw = viewport.w;
+	int yh = viewport.h;
 
-	if (!Player::touch_flag)
+	if (xw == 0 || yh == 0) {
+		// Startup. No viewport yet
 		return;
+	}
 
 	// We currently ignore swipe gestures
-	if (evnt.type != SDL_FINGERMOTION) {
-		/* FIXME: To simplify things, we lazily only get the current number of
-		   fingers touching the first device (hoping nobody actually uses
-		   multiple devices). This way we do not need to keep track on finger
-		   IDs and deal with the timing.
-		*/
-		touchid = SDL_GetTouchDevice(0);
-		if (touchid != 0)
-			fingers = SDL_GetNumTouchFingers(touchid);
+	// A finger touch is detected when the fingers go up a brief delay after going down
+	if (evnt.type == SDL_FINGERDOWN) {
+		auto fi = std::find_if(touch_input.begin(), touch_input.end(), [&](const auto& input) {
+			return input.id == -1;
+		});
+		if (fi == touch_input.end()) {
+			// already tracking 5 fingers
+			return;
+		}
 
-		keys[Input::Keys::ONE_FINGER] = fingers == 1;
-		keys[Input::Keys::TWO_FINGERS] = fingers == 2;
+#ifdef EMSCRIPTEN
+		double display_ratio = emscripten_get_device_pixel_ratio();
+		int x = (evnt.tfinger.x * display_ratio - viewport.x) * main_surface->width() / xw;
+		int y = (evnt.tfinger.y * display_ratio - viewport.y) * main_surface->height() / yh;
+#else
+		int x = (evnt.tfinger.x - viewport.x) * main_surface->width() / xw;
+		int y = (evnt.tfinger.y - viewport.y) * main_surface->height() / yh;
+#endif
+
+		fi->Down(evnt.tfinger.fingerId, x, y);
+	} else if (evnt.type == SDL_FINGERUP) {
+		auto fi = std::find_if(touch_input.begin(), touch_input.end(), [&](const auto& input) {
+			return input.id == evnt.tfinger.fingerId;
+		});
+		if (fi == touch_input.end()) {
+			// Finger is not tracked
+			return;
+		}
+		fi->Up();
 	}
 #else
 	/* unused */
@@ -836,17 +1054,9 @@ void Sdl2Ui::ProcessFingerEvent(SDL_Event& evnt) {
 }
 
 void Sdl2Ui::SetAppIcon() {
-#if defined(__WINRT__) || defined(__MORPHOS__)
+#if defined(__MORPHOS__)
 	// do nothing
 #elif defined(_WIN32)
-	SDL_SysWMinfo wminfo;
-	SDL_VERSION(&wminfo.version)
-	SDL_bool success = SDL_GetWindowWMInfo(sdl_window, &wminfo);
-
-	if (success < 0)
-		Output::Error("Wrong SDL version");
-
-	HWND window;
 	HINSTANCE handle = GetModuleHandle(NULL);
 	HICON icon = LoadIcon(handle, MAKEINTRESOURCE(23456));
 	HICON icon_small = (HICON) LoadImage(handle, MAKEINTRESOURCE(23456), IMAGE_ICON,
@@ -855,7 +1065,7 @@ void Sdl2Ui::SetAppIcon() {
 	if (icon == NULL || icon_small == NULL)
 		Output::Warning("Could not load window icon.");
 
-	window = wminfo.info.win.window;
+	HWND window = GetWindowHandle(sdl_window);
 	SetClassLongPtr(window, GCLP_HICON, (LONG_PTR) icon);
 	SetClassLongPtr(window, GCLP_HICONSM, (LONG_PTR) icon_small);
 #else
@@ -1018,7 +1228,6 @@ Input::Keys::InputKey SdlKey2InputKey(SDL_Keycode sdlkey) {
 
 #if defined(USE_JOYSTICK) && defined(SUPPORT_JOYSTICK)
 Input::Keys::InputKey SdlJKey2InputKey(int button_index) {
-	// Constants starting from 15 require newer SDL2 versions
 	switch (button_index) {
 		case SDL_CONTROLLER_BUTTON_A: return Input::Keys::JOY_A;
 		case SDL_CONTROLLER_BUTTON_B: return Input::Keys::JOY_B;
@@ -1027,21 +1236,22 @@ Input::Keys::InputKey SdlJKey2InputKey(int button_index) {
 		case SDL_CONTROLLER_BUTTON_BACK: return Input::Keys::JOY_BACK;
 		case SDL_CONTROLLER_BUTTON_GUIDE: return Input::Keys::JOY_GUIDE;
 		case SDL_CONTROLLER_BUTTON_START: return Input::Keys::JOY_START;
-		case SDL_CONTROLLER_BUTTON_LEFTSTICK: return Input::Keys::JOY_STICK_PRIMARY;
-		case SDL_CONTROLLER_BUTTON_RIGHTSTICK: return Input::Keys::JOY_STICK_SECONDARY;
-		case SDL_CONTROLLER_BUTTON_LEFTSHOULDER	: return Input::Keys::JOY_SHOULDER_LEFT;
+		case SDL_CONTROLLER_BUTTON_LEFTSTICK: return Input::Keys::JOY_LSTICK;
+		case SDL_CONTROLLER_BUTTON_RIGHTSTICK: return Input::Keys::JOY_RSTICK;
+		case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: return Input::Keys::JOY_SHOULDER_LEFT;
 		case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: return Input::Keys::JOY_SHOULDER_RIGHT;
 		case SDL_CONTROLLER_BUTTON_DPAD_UP: return Input::Keys::JOY_DPAD_UP;
 		case SDL_CONTROLLER_BUTTON_DPAD_DOWN: return Input::Keys::JOY_DPAD_DOWN;
 		case SDL_CONTROLLER_BUTTON_DPAD_LEFT: return Input::Keys::JOY_DPAD_LEFT;
 		case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: return Input::Keys::JOY_DPAD_RIGHT;
-		case 15	: return Input::Keys::JOY_OTHER_1; // SDL_CONTROLLER_BUTTON_MISC1 (2.0.14)
-		case 16	: return Input::Keys::JOY_REAR_RIGHT_1; // SDL_CONTROLLER_BUTTON_PADDLE1 (2.0.14)
-		case 17	: return Input::Keys::JOY_REAR_RIGHT_2; // SDL_CONTROLLER_BUTTON_PADDLE2 (2.0.14)
-		case 18	: return Input::Keys::JOY_REAR_LEFT_1; // SDL_CONTROLLER_BUTTON_PADDLE3 (2.0.14)
-		case 19	: return Input::Keys::JOY_REAR_LEFT_2; // SDL_CONTROLLER_BUTTON_PADDLE4 (2.0.14)
-		case 20	: return Input::Keys::JOY_TOUCH; // SDL_CONTROLLER_BUTTON_TOUCHPAD (2.0.14)
-		default : return Input::Keys::NONE;
+		case SDL_CONTROLLER_BUTTON_MISC1: return Input::Keys::JOY_OTHER_1;
+		case SDL_CONTROLLER_BUTTON_PADDLE1: return Input::Keys::JOY_REAR_RIGHT_1;
+		case SDL_CONTROLLER_BUTTON_PADDLE2: return Input::Keys::JOY_REAR_RIGHT_2;
+		case SDL_CONTROLLER_BUTTON_PADDLE3: return Input::Keys::JOY_REAR_LEFT_1;
+		case SDL_CONTROLLER_BUTTON_PADDLE4: return Input::Keys::JOY_REAR_LEFT_2;
+		case SDL_CONTROLLER_BUTTON_TOUCHPAD: return Input::Keys::JOY_TOUCH;
+
+		default: return Input::Keys::NONE;
 	}
 }
 #endif
@@ -1060,4 +1270,91 @@ int FilterUntilFocus(const SDL_Event* evnt) {
 	default:
 		return 0;
 	}
+}
+
+void Sdl2Ui::vGetConfig(Game_ConfigVideo& cfg) const {
+#ifdef EMSCRIPTEN
+	cfg.renderer.Lock("SDL2 (Software, Emscripten)");
+#elif defined(__wii__)
+	cfg.renderer.Lock("SDL2 (Software, Wii)");
+#elif defined(__WIIU__)
+	cfg.renderer.Lock("SDL2 (Software, Wii U)");
+#elif defined(__PS4__)
+	cfg.renderer.Lock("SDL2 (Software, PS4)");
+#else
+	cfg.renderer.Lock("SDL2 (Software)");
+#endif
+
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+	cfg.vsync.SetOptionVisible(true);
+#endif
+	cfg.fullscreen.SetOptionVisible(true);
+	cfg.fps_limit.SetOptionVisible(true);
+#if defined(SUPPORT_ZOOM) && !defined(__ANDROID__)
+	// An initial zoom level is needed on Android however changing it looks awful
+	cfg.window_zoom.SetOptionVisible(true);
+#endif
+	cfg.scaling_mode.SetOptionVisible(true);
+	cfg.stretch.SetOptionVisible(true);
+	cfg.game_resolution.SetOptionVisible(true);
+	cfg.pause_when_focus_lost.SetOptionVisible(true);
+	cfg.screen_scale.SetOptionVisible(true);
+#if defined(__wii__)
+	cfg.screen_scale.SetMax(100);
+#endif
+
+	cfg.vsync.Set(current_display_mode.vsync);
+	cfg.window_zoom.Set(current_display_mode.zoom);
+	cfg.fullscreen.Set(IsFullscreen());
+
+#ifdef EMSCRIPTEN
+	// Fullscreen is handled by the browser
+	cfg.fullscreen.SetOptionVisible(false);
+	cfg.fps_limit.SetOptionVisible(false);
+	cfg.window_zoom.SetOptionVisible(false);
+	// Toggling this freezes the web player
+	cfg.vsync.SetOptionVisible(false);
+	cfg.pause_when_focus_lost.Lock(false);
+	cfg.pause_when_focus_lost.SetOptionVisible(false);
+#elif defined(__wii__)
+	cfg.fullscreen.SetOptionVisible(false);
+#elif defined(__WIIU__)
+	// Only makes the screen flicker
+	cfg.fullscreen.SetOptionVisible(false);
+	// WiiU always pauses apps in the background
+	cfg.pause_when_focus_lost.SetOptionVisible(false);
+#elif defined(__PS4__)
+	cfg.fullscreen.SetOptionVisible(false);
+	cfg.pause_when_focus_lost.SetOptionVisible(false);
+	cfg.window_zoom.SetOptionVisible(false);
+	cfg.game_resolution.SetOptionVisible(false);
+	cfg.scaling_mode.SetOptionVisible(false);
+	cfg.stretch.SetOptionVisible(false);
+	cfg.screen_scale.SetOptionVisible(false);
+#endif
+
+}
+
+Rect Sdl2Ui::GetWindowMetrics() const {
+	if (!IsFullscreen()) {
+		Rect metrics;
+		SDL_GetWindowSize(sdl_window, &metrics.width, &metrics.height);
+		SDL_GetWindowPosition(sdl_window, &metrics.x, &metrics.y);
+		return metrics;
+	} else {
+		return window_mode_metrics;
+	}
+}
+
+bool Sdl2Ui::OpenURL(std::string_view url) {
+	if (IsFullscreen()) {
+		ToggleFullscreen();
+	}
+
+	if (SDL_OpenURL(ToString(url).c_str()) < 0) {
+		Output::Warning("Open URL {} failed: {}", url, SDL_GetError());
+		return false;
+	}
+
+	return true;
 }

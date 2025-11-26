@@ -19,6 +19,7 @@
 #define EP_BASEUI_H
 
 // Headers
+#include <cstdint>
 #include <string>
 #include <bitset>
 
@@ -33,7 +34,7 @@
 #include "input.h"
 
 #ifdef SUPPORT_AUDIO
-	struct AudioInterface;
+struct AudioInterface;
 #endif
 
 /**
@@ -51,9 +52,9 @@ public:
 	 *
 	 * @param width display client width.
 	 * @param height display client height.
-	 * @param cfg video config options
+	 * @param cfg config options
 	 */
-	static std::shared_ptr<BaseUi> CreateUi(long width, long height, const Game_ConfigVideo& cfg);
+	static std::shared_ptr<BaseUi> CreateUi(long width, long height, const Game_Config& cfg);
 
 	/**
 	 * Toggles fullscreen.
@@ -67,8 +68,10 @@ public:
 
 	/**
 	 * Processes events queue.
+	 *
+	 * @return When false requests an immediate Player shutdown
 	 */
-	virtual void ProcessEvents() = 0;
+	virtual bool ProcessEvents() = 0;
 
 	/**
 	 * Cleans video buffer.
@@ -88,12 +91,6 @@ public:
 	BitmapRef CaptureScreen();
 
 	/**
-	 * Clipboard text content.
-	 */
-	virtual std::string getClipboardText();
-	virtual void setClipboardText(std::string text);
-
-	/**
 	 * Sets display title.
 	 *
 	 * @param title title string.
@@ -109,12 +106,12 @@ public:
 	virtual bool ShowCursor(bool /* flag */) { return true; };
 
 	/**
-	 * Outputs a debug message over custom logger. Useful for emulators.
+	 * Outputs the error message in a custom way depending on platform
 	 *
 	 * @param message message string.
-	 * @return wether message has been logged
+	 * @return wether error has been handled
 	 */
-	virtual bool LogMessage(const std::string & /* message */) { return false; }
+	virtual bool HandleErrorOutput(const std::string & /* message */) { return false; }
 
 	/**
 	 * Gets if fullscreen mode is active.
@@ -131,6 +128,9 @@ public:
 	 */
 	virtual AudioInterface& GetAudio() = 0;
 #endif
+
+	/** @return dimensions of the window */
+	virtual Rect GetWindowMetrics() const;
 
 	/**
 	 * Gets client width size.
@@ -163,8 +163,22 @@ public:
 	 */
 	const Input::AnalogInput& GetAnalogInput() const;
 
+	/**
+	 * @return Information about touch input
+	 */
+	std::array<Input::TouchInput, 5>& GetTouchInput();
+
 	BitmapRef const& GetDisplaySurface() const;
 	BitmapRef& GetDisplaySurface();
+
+	/**
+	 * Requests a resolution change of the framebuffer.
+	 *
+	 * @param new_width new width
+	 * @param new_height new height
+	 * @return Whether the resolution change was successful
+	 */
+	bool ChangeDisplaySurfaceResolution(int new_width, int new_height);
 
 	typedef std::bitset<Input::Keys::KEYS_COUNT> KeyStatus;
 
@@ -184,8 +198,17 @@ public:
 	/** @return true if we should render the fps counter to the title bar */
 	bool ShowFpsOnTitle() const;
 
-	/** Toggle whether we should show fps */
+	/** Toggle between showing FPS or not showing FPS */
 	void ToggleShowFps();
+
+	/** Whether we should show fps */
+	void SetShowFps(ConfigEnum::ShowFps fps);
+
+	/**
+	 * Set whether the program pauses the execution when the program focus is lost.
+	 * @param value
+	 */
+	void SetPauseWhenFocusLost(bool value);
 
 	/**
 	 * @return the minimum amount of time each physical frame should take.
@@ -193,14 +216,70 @@ public:
 	 */
 	Game_Clock::duration GetFrameLimit() const;
 
+	/**
+	 * Sets the frame limit.
+	 * Note that this uses int instead of Game_Clock to make the invocation easier.
+	 *
+	 * @param fps_limit new fps limit
+	 */
+	void SetFrameLimit(int fps_limit);
+
+	/** Sets the scaling mode of the window */
+	virtual void SetScalingMode(ConfigEnum::ScalingMode) {};
+
+	/**
+	 * Sets the game resolution settings.
+	 * Not to be confused with WinW/WinH setting from the ini.
+	 * This is for configuring a resolution that is effective for all games.
+	 *
+	 * @param resolution new resolution
+	 */
+	void SetGameResolution(ConfigEnum::GameResolution resolution);
+
+	/**
+	 * Opens the specified URL through the operating system.
+	 * Opens a file browser when file:// is provided.
+	 *
+	 * @param url URL to open
+	 * @return true when successful
+	 */
+	virtual bool OpenURL(std::string_view path) { (void)path; return false; }
+
+	/** Toggles "stretch to screen width" on or off */
+	virtual void ToggleStretch() {};
+
+	/** Turns vsync on or off */
+	virtual void ToggleVsync() {};
+
+	/** Turns a touch ui on or off. */
+	virtual void ToggleTouchUi() {};
+
+	/**
+	 * Adjusts the scaling of the screen (for overscan/underscan)
+	 *
+	 * @param scale Screen scaling in percent (50 - 150)
+	 */
+	virtual void SetScreenScale(int scale) {
+		(void)scale;
+	}
+
+	/**
+	 * @return current video options.
+	 */
+	Game_ConfigVideo GetConfig() const;
+
 protected:
 	/**
-	 * Protected Constructor. Use CreateBaseUi instead.
+	 * Protected Constructor. Use CreateUi instead.
 	 */
-	explicit BaseUi(const Game_ConfigVideo& cfg);
+	explicit BaseUi(const Game_Config& cfg);
 
 	void SetFrameRateSynchronized(bool value);
 	void SetIsFullscreen(bool value);
+	virtual void vGetConfig(Game_ConfigVideo& cfg) const = 0;
+	virtual bool vChangeDisplaySurfaceResolution(int new_width, int new_height);
+
+	Game_ConfigVideo vcfg;
 
 	/**
 	 * Display mode data struct.
@@ -229,14 +308,17 @@ protected:
 	/** Axis of game controllers */
 	Input::AnalogInput analog_input;
 
+	/** Touch inputs for up to five finger */
+	std::array<Input::TouchInput, 5> touch_input;
+
+	/** State of the 5 fingers (true touched, false not) */
+	std::array<bool, 5> finger_input;
+
 	/** Color for display background. */
 	Color back_color = Color{ 0, 0, 0, 255 };
 
 	/** Mouse hovering the window flag. */
 	bool mouse_focus = false;
-
-	/** The frames per second limit */
-	int fps_limit = Game_Clock::GetTargetGameFps();
 
 	/** The amount of time each frame should take, based on fps limit */
 	Game_Clock::duration frame_limit = Game_Clock::GetTargetGameTimeStep();
@@ -247,21 +329,16 @@ protected:
 	/** Ui manages frame rate externally */
 	bool external_frame_rate = false;
 
-	/** Whether UI is currently fullscreen */
-	bool is_fullscreen = false;
-
-	/** Whether we will show fps counter the screen */
-	bool show_fps = false;
-
-	/** If we will render fps on the screen even in windowed mode */
-	bool fps_render_window = false;
-
-	/** How to scale the viewport when larger than 320x240 */
-	ScalingMode scaling_mode = ScalingMode::Bilinear;
+	/** Used by the F2 toggle: Remembers which configuration (ON or Overlay) was used */
+	ConfigEnum::ShowFps original_fps_show_state = ConfigEnum::ShowFps::OFF;
 };
 
 /** Global DisplayUi variable. */
 extern std::shared_ptr<BaseUi> DisplayUi;
+
+inline Rect BaseUi::GetWindowMetrics() const {
+	return {-1, -1, -1, -1};
+}
 
 inline bool BaseUi::IsFrameRateSynchronized() const {
 	return external_frame_rate;
@@ -272,11 +349,11 @@ inline void BaseUi::SetFrameRateSynchronized(bool value) {
 }
 
 inline bool BaseUi::IsFullscreen() const {
-	return is_fullscreen;
+	return vcfg.fullscreen.Get();
 }
 
 inline void BaseUi::SetIsFullscreen(bool fs) {
-	is_fullscreen = fs;
+	vcfg.fullscreen.Set(fs);
 }
 
 inline BaseUi::KeyStatus& BaseUi::GetKeyStates() {
@@ -289,6 +366,12 @@ inline BitmapRef const& BaseUi::GetDisplaySurface() const {
 
 inline BitmapRef& BaseUi::GetDisplaySurface() {
 	return main_surface;
+}
+
+inline bool BaseUi::vChangeDisplaySurfaceResolution(int new_width, int new_height) {
+	(void)new_width;
+	(void)new_height;
+	return false;
 }
 
 inline long BaseUi::GetWidth() const {
@@ -311,20 +394,48 @@ inline const Input::AnalogInput& BaseUi::GetAnalogInput() const {
 	return analog_input;
 }
 
+inline std::array<Input::TouchInput, 5>& BaseUi::GetTouchInput() {
+	return touch_input;
+}
+
 inline bool BaseUi::RenderFps() const {
-	return show_fps && (IsFullscreen() || fps_render_window);
+	return vcfg.fps.Get() == ConfigEnum::ShowFps::Overlay || (IsFullscreen() && vcfg.fps.Get() == ConfigEnum::ShowFps::ON);
 }
 
 inline bool BaseUi::ShowFpsOnTitle() const {
-	return show_fps;
+	return vcfg.fps.Get() == ConfigEnum::ShowFps::ON;
 }
 
 inline void BaseUi::ToggleShowFps() {
-	show_fps = !show_fps;
+	if (vcfg.fps.Get() != ConfigEnum::ShowFps::OFF) {
+		original_fps_show_state = vcfg.fps.Get();
+		vcfg.fps.Set(ConfigEnum::ShowFps::OFF);
+	} else {
+		if (original_fps_show_state == ConfigEnum::ShowFps::OFF) {
+			vcfg.fps.Set(ConfigEnum::ShowFps::ON);
+		} else {
+			vcfg.fps.Set(original_fps_show_state);
+		}
+	}
+}
+
+inline void BaseUi::SetShowFps(ConfigEnum::ShowFps fps) {
+	vcfg.fps.Set(fps);
+	original_fps_show_state = fps;
+}
+
+inline void BaseUi::SetPauseWhenFocusLost(bool value) {
+	vcfg.pause_when_focus_lost.Set(value);
 }
 
 inline Game_Clock::duration BaseUi::GetFrameLimit() const {
 	return IsFrameRateSynchronized() ? Game_Clock::duration(0) : frame_limit;
+}
+
+inline void BaseUi::SetFrameLimit(int fps_limit) {
+	vcfg.fps_limit.Set(fps_limit);
+
+	frame_limit = (fps_limit == 0 ? Game_Clock::duration(0) : Game_Clock::TimeStepFromFps(fps_limit));
 }
 
 #endif

@@ -19,6 +19,7 @@
 #define EP_GAME_BATTLER_H
 
 // Headers
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <limits>
@@ -169,7 +170,7 @@ public:
 
 	/**
 	 * Gets the base attribute rate when actor is damaged, without battle attribute shifts.
-	 * 
+	 *
 	 * @param attribute_id Attribute to query
 	 * @return Attribute rate
 	 */
@@ -177,7 +178,7 @@ public:
 
 	/**
 	 * Gets the attribute rate when actor is damaged.
-	 * 
+	 *
 	 * @param attribute_id Attribute to query
 	 * @return Attribute rate
 	 */
@@ -233,14 +234,14 @@ public:
 	 *
 	 * @return Character name
 	 */
-	virtual StringView GetName() const = 0;
+	virtual std::string_view GetName() const = 0;
 
 	/**
 	 * Gets the filename of the character sprite
 	 *
 	 * @return Filename of character sprite
 	 */
-	virtual StringView GetSpriteName() const = 0;
+	virtual std::string_view GetSpriteName() const = 0;
 
 	/**
 	 * Gets battler HP.
@@ -430,6 +431,9 @@ public:
 	/** @return whether the battler is facing the opposite it's normal direction */
 	bool IsDirectionFlipped() const;
 
+	/** @return whether the battler's sprite should be facing the opposite it's normal direction */
+	bool IsSpriteDirectionFlipped() const;
+
 	/**
 	 * Set whether the battler is facing the opposite it's normal direction
 	 *
@@ -440,6 +444,11 @@ public:
 	void SetHidden(bool hidden);
 	bool IsHidden() const;
 	virtual bool IsImmortal() const;
+
+	int GetAtkModifier() const;
+	int GetDefModifier() const;
+	int GetSpiModifier() const;
+	int GetAgiModifier() const;
 
 	/** @return true if this battler is in it's party */
 	virtual bool IsInParty() const = 0;
@@ -761,6 +770,13 @@ public:
 	Game_Party_Base& GetParty() const;
 
 	/**
+	 * Convenience function to access the battlers party member index.
+	 *
+	 * @return Index of this member in their party.
+	 */
+	int GetPartyIndex();
+
+	/**
 	 * Gets the maximal atb gauge value.
 	 * When GetAtbGauge() >= this, the battler can act.
 	 * Used by RPG2k3 battle system.
@@ -1045,6 +1061,22 @@ inline bool Game_Battler::IsImmortal() const {
 	return false;
 }
 
+inline int Game_Battler::GetAtkModifier() const {
+	return atk_modifier;
+}
+
+inline int Game_Battler::GetDefModifier() const {
+	return def_modifier;
+}
+
+inline int Game_Battler::GetSpiModifier() const {
+	return spi_modifier;
+}
+
+inline int Game_Battler::GetAgiModifier() const {
+	return agi_modifier;
+}
+
 constexpr int Game_Battler::GetMaxAtbGauge() {
 	return 300000;
 }
@@ -1154,4 +1186,14 @@ inline int Game_Battler::CalculateWeaponSpCost(Weapon) const {
 	return 0;
 }
 
+inline bool Game_Battler::IsSpriteDirectionFlipped() const {
+	switch (GetBattleSprite()->GetFixedFacing()) {
+		case Sprite_Battler::AlwaysFlipped:
+			return true;
+		case Sprite_Battler::NeverFlipped:
+			return false;
+		default:
+			return IsDirectionFlipped();
+	}
+}
 #endif

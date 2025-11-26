@@ -22,9 +22,8 @@
 #ifdef EMSCRIPTEN
 #  include <emscripten.h>
 #  include <lcf/reader_util.h>
-#  define PICOJSON_USE_LOCALE 0
-#  define PICOJSON_ASSERT(e) do { if (! (e)) assert(false && #e); } while (0)
-#  include "external/picojson.h"
+#  include <nlohmann/json.hpp>
+   using json = nlohmann::json;
 #endif
 
 #include "async_handler.h"
@@ -71,17 +70,72 @@ namespace {
 	}
 
 #ifdef EMSCRIPTEN
-	void download_success(unsigned, void* userData, const char*) {
-		FileRequestAsync* req = static_cast<FileRequestAsync*>(userData);
-		//Output::Debug("DL Success: {}", req->GetPath());
-		req->DownloadDone(true);
+	constexpr size_t ASYNC_MAX_RETRY_COUNT{ 16 };
+
+	struct async_download_context {
+		std::string url, file, param;
+		FileRequestAsync* obj;
+		size_t count;
+
+		async_download_context(
+			std::string u,
+			std::string f,
+			std::string p,
+			FileRequestAsync* o
+		) : url{ std::move(u) }, file{ std::move(f) }, param{ std::move(p) }, obj{ o }, count{} {}
+	};
+
+	void download_success_retry(unsigned, void* userData, const char*) {
+		auto ctx = static_cast<async_download_context*>(userData);
+		ctx->obj->DownloadDone(true);
+		delete ctx;
 	}
 
-	void download_failure(unsigned, void* userData, int) {
-		FileRequestAsync* req = static_cast<FileRequestAsync*>(userData);
-		Output::Debug("DL Failure: {}", req->GetPath());
-		req->DownloadDone(false);
+	void start_async_wget_with_retry(async_download_context* ctx);
+
+	void download_failure_retry(unsigned, void* userData, int status) {
+		auto ctx = static_cast<async_download_context*>(userData);
+		++ctx->count;
+		if (ctx->count >= ASYNC_MAX_RETRY_COUNT) {
+			Output::Warning("DL Failure: max retries exceeded: {}", ctx->obj->GetPath());
+			ctx->obj->DownloadDone(false);
+			delete ctx;
+			return;
+		}
+		if (status >= 400) {
+			Output::Warning("DL Failure: file not available: {}", ctx->obj->GetPath());
+			ctx->obj->DownloadDone(false);
+			delete ctx;
+			return;
+		}
+		Output::Debug("DL Failure: {}. Retrying", ctx->obj->GetPath());
+		start_async_wget_with_retry(ctx);
 	}
+
+	void start_async_wget_with_retry(async_download_context* ctx) {
+		emscripten_async_wget2(
+			ctx->url.data(),
+			ctx->file.data(),
+			"GET",
+			ctx->param.data(),
+			ctx,
+			download_success_retry,
+			download_failure_retry,
+			nullptr
+		);
+	}
+
+	void async_wget_with_retry(
+		std::string url,
+		std::string file,
+		std::string param,
+		FileRequestAsync* obj
+	) {
+		// ctx will be deleted when download succeeds
+		auto ctx = new async_download_context{ url, file, param, obj };
+		start_async_wget_with_retry(ctx);
+	}
+
 #endif
 }
 
@@ -93,15 +147,16 @@ void AsyncHandler::CreateRequestMapping(const std::string& file) {
 		return;
 	}
 
-	picojson::value v;
-	picojson::parse(v, f);
+	json j = json::parse(f, nullptr, false);
+	if (j.is_discarded()) {
+		Output::Error("Emscripten: index.json is not a valid JSON file");
+		return;
+	}
 
-	const auto& metadata = v.get("metadata");
-	if (metadata.is<picojson::object>()) {
-		for (const auto& value : metadata.get<picojson::object>()) {
-			if (value.first == "version") {
-				index_version = (int)value.second.get<double>();
-			}
+	if (j.contains("metadata") && j["metadata"].is_object()) {
+		const auto& metadata = j["metadata"];
+		if (metadata.contains("version") && metadata["version"].is_number()) {
+			index_version = metadata["version"].get<int>();
 		}
 	}
 
@@ -109,37 +164,34 @@ void AsyncHandler::CreateRequestMapping(const std::string& file) {
 
 	if (index_version <= 1) {
 		// legacy format
-		for (const auto& value : v.get<picojson::object>()) {
-			file_mapping[value.first] = value.second.to_str();
+		for (const auto& value : j.items()) {
+			file_mapping[value.key()] = value.value().get<std::string>();
 		}
 	} else {
-		using fn = std::function<void(const picojson::object&,const std::string&)>;
-		fn parse = [&] (const picojson::object& obj, const std::string& path) {
+		using fn = std::function<void(const json&, const std::string&)>;
+		fn parse = [&] (const json& obj, const std::string& path) {
 			std::string dirname;
-			for (const auto& value : obj) {
-				if (value.first == "_dirname" && value.second.is<std::string>()) {
-					dirname = value.second.to_str();
-				}
+			if (obj.contains("_dirname") && obj["_dirname"].is_string()) {
+				dirname = obj["_dirname"].get<std::string>();
 			}
 			dirname = FileFinder::MakePath(path, dirname);
 
-			for (const auto& value : obj) {
-				const auto& second = value.second;
-				if (second.is<picojson::object>()) {
-					parse(second.get<picojson::object>(), dirname);
-				} else if (second.is<std::string>()){
-					file_mapping[FileFinder::MakePath(Utils::LowerCase(dirname), value.first)] = FileFinder::MakePath(dirname, second.to_str());
+			for (const auto& value : obj.items()) {
+				const auto& second = value.value();
+				if (second.is_object()) {
+					parse(second, dirname);
+				} else if (second.is_string()){
+					file_mapping[FileFinder::MakePath(Utils::LowerCase(dirname), value.key())] = FileFinder::MakePath(dirname, second.get<std::string>());
 				}
 			}
 		};
 
-		const auto& cache = v.get("cache");
-		if (cache.is<picojson::object>()) {
-			parse(cache.get<picojson::object>(), "");
+		if (j.contains("cache") && j["cache"].is_object()) {
+			parse(j["cache"], "");
 		}
 
 		// Create some empty DLL files. Engine & patch detection depend on them.
-		for (const auto& s : {"ultimate_rt_eb.dll", "dynloader.dll", "accord.dll"}) {
+		for (const auto& s : {"harmony.dll", "ultimate_rt_eb.dll", "dynloader.dll", "accord.dll"}) {
 			auto it = file_mapping.find(s);
 			if (it != file_mapping.end()) {
 				FileFinder::Game().OpenOutputStream(s);
@@ -148,7 +200,7 @@ void AsyncHandler::CreateRequestMapping(const std::string& file) {
 
 		// Look for Meta.ini files and fetch them. They are required for detecting the translations.
 		for (const auto& item: file_mapping) {
-			if (StringView(item.first).ends_with("meta.ini")) {
+			if (EndsWith(item.first, "meta.ini")) {
 				auto* request = AsyncHandler::RequestFile(item.second);
 				request->SetImportantFile(true);
 				request->Start();
@@ -162,10 +214,18 @@ void AsyncHandler::CreateRequestMapping(const std::string& file) {
 }
 
 void AsyncHandler::ClearRequests() {
+	auto it = async_requests.begin();
+	while (it != async_requests.end()) {
+		if (it->second.IsReady()) {
+			it = async_requests.erase(it);
+		} else {
+			++it;
+		}
+	}
 	async_requests.clear();
 }
 
-FileRequestAsync* AsyncHandler::RequestFile(StringView folder_name, StringView file_name) {
+FileRequestAsync* AsyncHandler::RequestFile(std::string_view folder_name, std::string_view file_name) {
 	auto path = FileFinder::MakePath(folder_name, file_name);
 
 	auto* request = GetRequest(path);
@@ -179,7 +239,7 @@ FileRequestAsync* AsyncHandler::RequestFile(StringView folder_name, StringView f
 	return RegisterRequest(std::move(path), std::string(folder_name), std::string(file_name));
 }
 
-FileRequestAsync* AsyncHandler::RequestFile(StringView file_name) {
+FileRequestAsync* AsyncHandler::RequestFile(std::string_view file_name) {
 	return RequestFile(".", file_name);
 }
 
@@ -200,6 +260,16 @@ bool AsyncHandler::IsFilePending(bool important, bool graphic) {
 	}
 
 	return false;
+}
+
+void AsyncHandler::SaveFilesystem() {
+#ifdef EMSCRIPTEN
+	// Save changed file system
+	EM_ASM({
+		FS.syncfs(function(err) {
+		});
+	});
+#endif
 }
 
 bool AsyncHandler::IsImportantFilePending() {
@@ -267,13 +337,16 @@ void FileRequestAsync::Start() {
 	} else {
 		modified_path = Utils::LowerCase(path);
 		if (directory != ".") {
-			// Don't alter the path when the file is in the main directory
 			modified_path = FileFinder::MakeCanonical(modified_path, 1);
+		} else {
+			auto it = file_mapping.find(modified_path);
+			if (it == file_mapping.end()) {
+				modified_path = FileFinder::MakeCanonical(modified_path, 1);
+			}
 		}
 	}
 
 	if (graphic && Tr::HasActiveTranslation()) {
-		// FIXME: Asset replacement will only work once for translations
 		std::string modified_path_trans = FileFinder::MakePath(lcf::ReaderUtil::Normalize(Tr::GetCurrentTranslationFilesystem().GetFullPath()), modified_path);
 		auto it = file_mapping.find(modified_path_trans);
 		if (it != file_mapping.end()) {
@@ -285,9 +358,15 @@ void FileRequestAsync::Start() {
 	if (it != file_mapping.end()) {
 		request_path += it->second;
 	} else {
-		// Fall through if not found, will fail in the ajax request
-		Output::Debug("{} not in index.json", modified_path);
-		request_path += path;
+		if (file_mapping.empty()) {
+			// index.json not fetched yet, fallthrough and fetch
+			request_path += path;
+		} else {
+			// Fire immediately (error)
+			Output::Debug("{} not in index.json", modified_path);
+			DownloadDone(false);
+			return;
+		}
 	}
 
 	// URL encode %, # and +
@@ -295,15 +374,8 @@ void FileRequestAsync::Start() {
 	request_path = Utils::ReplaceAll(request_path, "#", "%23");
 	request_path = Utils::ReplaceAll(request_path, "+", "%2B");
 
-	emscripten_async_wget2(
-		request_path.c_str(),
-		(it != file_mapping.end() ? it->second : path).c_str(),
-		"GET",
-		NULL,
-		this,
-		download_success,
-		download_failure,
-		NULL);
+	auto request_file = (it != file_mapping.end() ? it->second : path);
+	async_wget_with_retry(request_path, std::move(request_file), "", this);
 #else
 #  ifdef EM_GAME_URL
 #    warning EM_GAME_URL set and not an Emscripten build!
@@ -342,10 +414,11 @@ FileRequestBinding FileRequestAsync::Bind(std::function<void(FileRequestResult*)
 }
 
 void FileRequestAsync::CallListeners(bool success) {
-	FileRequestResult result { directory, file, success };
+	FileRequestResult result { directory, file, -1, success };
 
 	for (auto& listener : listeners) {
 		if (!listener.first.expired()) {
+			result.request_id = *listener.first.lock();
 			(listener.second)(&result);
 		} else {
 			Output::Debug("Request cancelled: {}", GetPath());

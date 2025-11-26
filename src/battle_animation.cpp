@@ -31,6 +31,8 @@
 #include "player.h"
 #include "options.h"
 #include "drawable_mgr.h"
+#include "scene_map.h"
+#include "spriteset_map.h"
 
 BattleAnimation::BattleAnimation(const lcf::rpg::Animation& anim, bool only_sound, int cutoff) :
 	animation(anim), only_sound(only_sound)
@@ -42,7 +44,7 @@ BattleAnimation::BattleAnimation(const lcf::rpg::Animation& anim, bool only_soun
 
 	SetZ(Priority_BattleAnimation);
 
-	StringView name = animation.animation_name;
+	std::string_view name = animation.animation_name;
 	BitmapRef graphic;
 
 	if (name.empty()) return;
@@ -110,7 +112,6 @@ void BattleAnimation::DrawAt(Bitmap& dst, int x, int y) {
 		SetX(invert ? x - cell.x : cell.x + x);
 		SetY(cell.y + y);
 		int sx = cell.cell_id % 5;
-		if (invert) sx = 4 - sx;
 		int sy = cell.cell_id / 5;
 		int size = animation.large ? 128 : 96;
 		SetSrcRect(Rect(sx * size, sy * size, size, size));
@@ -229,8 +230,12 @@ static int CalculateOffset(int pos, int target_height) {
 /////////
 
 BattleAnimationMap::BattleAnimationMap(const lcf::rpg::Animation& anim, Game_Character& target, bool global) :
-	BattleAnimation(anim), target(target), global(global)
+	BattleAnimation(anim), target(&target), global(global)
 {
+}
+
+void BattleAnimationMap::SetTarget(Game_Character& target) {
+	this->target = &target;
 }
 
 void BattleAnimationMap::Draw(Bitmap& dst) {
@@ -258,17 +263,24 @@ void BattleAnimationMap::DrawGlobal(Bitmap& dst) {
 void BattleAnimationMap::DrawSingle(Bitmap& dst) {
 	//If animation is targeted on the screen
 	if (animation.scope == lcf::rpg::Animation::Scope_screen) {
-		DrawAt(dst, SCREEN_TARGET_WIDTH / 2, SCREEN_TARGET_HEIGHT / 2);
+		DrawAt(dst, Player::screen_width / 2, Player::screen_height / 2);
 		return;
 	}
 	const int character_height = 24;
-	int vertical_center = target.GetScreenY(false, false) - character_height / 2;
+	int x_off = target->GetScreenX();
+	int y_off = target->GetScreenY(false);
+	if (Scene::instance->type == Scene::Map) {
+		x_off += static_cast<Scene_Map*>(Scene::instance.get())->spriteset->GetRenderOx();
+		y_off += static_cast<Scene_Map*>(Scene::instance.get())->spriteset->GetRenderOy();
+	}
+	int vertical_center = y_off - character_height / 2;
 	int offset = CalculateOffset(animation.position, character_height);
-	DrawAt(dst, target.GetScreenX(), vertical_center + offset);
+
+	DrawAt(dst, x_off, vertical_center + offset);
 }
 
 void BattleAnimationMap::FlashTargets(int r, int g, int b, int p) {
-	target.Flash(r, g, b, p, 0);
+	target->Flash(r, g, b, p, 0);
 }
 
 void BattleAnimationMap::ShakeTargets(int /* str */, int /* spd */, int /* time */) {
@@ -286,7 +298,7 @@ void BattleAnimationBattle::Draw(Bitmap& dst) {
 	if (IsOnlySound())
 		return;
 	if (animation.scope == lcf::rpg::Animation::Scope_screen) {
-		DrawAt(dst, SCREEN_TARGET_WIDTH / 2, SCREEN_TARGET_HEIGHT / 3);
+		DrawAt(dst, Player::menu_offset_x + (Player::screen_width / 2), Player::menu_offset_y + (Player::screen_height / 3));
 		return;
 	}
 
@@ -300,7 +312,7 @@ void BattleAnimationBattle::Draw(Bitmap& dst) {
 				offset = CalculateOffset(animation.position, GetAnimationCellHeight() / 2);
 			}
 		}
-		DrawAt(dst, battler->GetBattlePosition().x, battler->GetBattlePosition().y + offset);
+		DrawAt(dst, Player::menu_offset_x + battler->GetBattlePosition().x, Player::menu_offset_y + battler->GetBattlePosition().y + offset);
 	}
 }
 void BattleAnimationBattle::FlashTargets(int r, int g, int b, int p) {
@@ -325,12 +337,13 @@ void BattleAnimationBattler::Draw(Bitmap& dst) {
 	if (IsOnlySound())
 		return;
 	if (animation.scope == lcf::rpg::Animation::Scope_screen) {
-		DrawAt(dst, SCREEN_TARGET_WIDTH / 2, SCREEN_TARGET_HEIGHT / 3);
+		DrawAt(dst, Player::menu_offset_x + Player::screen_width / 2, Player::menu_offset_y + Player::screen_height / 3);
 		return;
 	}
 
 	for (auto* battler: battlers) {
 		SetFlashEffect(battler->GetFlashColor());
+		// Game_Battler::GetDisplayX() and Game_Battler::GetDisplayX() already add MENU_OFFSET
 		DrawAt(dst, battler->GetDisplayX(), battler->GetDisplayY());
 	}
 }

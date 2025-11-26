@@ -1,0 +1,7 @@
+EasyRPG Player可以用于游玩使用RPG Maker 2000和RPG Maker 2003制作的游戏（不支持较新的XP、VX、VA、MV、MZ引擎）
+
+EasyRPG Player不是编辑器。您无法用它创建自己的游戏。
+
+官网：https://easyrpg.org/
+
+此应用不隶属于Kadokawa公司。

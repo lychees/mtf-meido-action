@@ -22,6 +22,7 @@
 #include "game_player.h"
 #include "game_battle.h"
 #include "game_system.h"
+#include "game_strings.h"
 #include "main_data.h"
 #include "window_message.h"
 #include "font.h"
@@ -33,10 +34,6 @@
 #include "feature.h"
 
 #include <cctype>
-
-#include "game_map.h"
-#include "input.h"
-#include "sliding_puzzle.h"
 
 static Window_Message* window = nullptr;
 
@@ -84,11 +81,11 @@ int Game_Message::GetRealPosition() {
 	}
 }
 
-int Game_Message::WordWrap(StringView line, const int limit, const WordWrapCallback& callback) {
+int Game_Message::WordWrap(std::string_view line, const int limit, const WordWrapCallback& callback) {
 	return WordWrap(line, limit, callback, *Font::Default());
 }
 
-int Game_Message::WordWrap(StringView line, const int limit, const WordWrapCallback& callback, const Font& font) {
+int Game_Message::WordWrap(std::string_view line, const int limit, const WordWrapCallback& callback, const Font& font) {
 	int start = 0;
 	int line_count = 0;
 
@@ -101,7 +98,7 @@ int Game_Message::WordWrap(StringView line, const int limit, const WordWrapCallb
 			}
 
 			auto wrapped = line.substr(start, found - start);
-			auto width = font.GetSize(wrapped).width;
+			auto width = Text::GetSize(font, wrapped).width;
 			if (width > limit) {
 				if (next == start) {
 					next = found + 1;
@@ -129,49 +126,6 @@ int Game_Message::WordWrap(StringView line, const int limit, const WordWrapCallb
 }
 
 AsyncOp Game_Message::Update() {
-
-	if (Nokia::On()) {
-		window->SetOpacity(0);
-		Nokia::Update();
-		if(!Nokia::On()) {
-			window->FinishMessageProcessing();
-		}
-		return {};
-	}
-
-
-	if (TowerOfHanoi::On()) {
-		TowerOfHanoi::Update();
-		if (!TowerOfHanoi::On()) {
-			window->FinishMessageProcessing();
-		}
-		return {};
-	}
-
-	if (SlidingPuzzle2048::On()) {
-		SlidingPuzzle2048::Update();
-		if (!SlidingPuzzle2048::On()) {
-			window->FinishMessageProcessing();
-		}
-		return {};
-	}
-
-	if (MineSweeper::On()) {
-		MineSweeper::Update();
-		if (!MineSweeper::On()) {
-			window->FinishMessageProcessing();
-		}
-		return {};
-	}
-
-	if (SlidingPuzzle::On()) {
-		SlidingPuzzle::Update();
-		if (!SlidingPuzzle::On()) {
-			window->FinishMessageProcessing();
-		}
-		return {};
-	}
-
 	if (window) {
 		window->Update();
 		return window->GetAsyncOp();
@@ -201,10 +155,39 @@ bool Game_Message::CanShowMessage(bool foreground) {
 	return window ? window->GetAllowNextMessage(foreground) : false;
 }
 
+static std::optional<std::string> CommandCodeInserterNoRecurse(char ch, const char** iter, const char* end, uint32_t escape_char) {
+	if ((ch == 'T' || ch == 't') && Player::IsPatchManiac()) {
+		auto parse_ret = Game_Message::ParseString(*iter, end, escape_char, true);
+		*iter = parse_ret.next;
+		int value = parse_ret.value;
 
-static Game_Message::ParseParamResult ParseParamImpl(
-		const char upper,
-		const char lower,
+		std::string str = ToString(Main_Data::game_strings->Get(value));
+
+		// \t[] is evaluated but command codes inside it are not evaluated again
+		return PendingMessage::ApplyTextInsertingCommands(str, escape_char, PendingMessage::DefaultCommandInserter);
+	}
+
+	return PendingMessage::DefaultCommandInserter(ch, iter, end, escape_char);
+}
+
+std::optional<std::string> Game_Message::CommandCodeInserter(char ch, const char** iter, const char* end, uint32_t escape_char) {
+	if ((ch == 'T' || ch == 't') && Player::IsPatchManiac()) {
+		auto parse_ret = Game_Message::ParseString(*iter, end, escape_char, true);
+		*iter = parse_ret.next;
+		int value = parse_ret.value;
+
+		std::string str = ToString(Main_Data::game_strings->Get(value));
+
+		// Command codes in \t[] are evaluated once.
+		return PendingMessage::ApplyTextInsertingCommands(str, escape_char, CommandCodeInserterNoRecurse);
+	}
+
+	return PendingMessage::DefaultCommandInserter(ch, iter, end, escape_char);
+}
+
+Game_Message::ParseParamResult Game_Message::ParseParam(
+		char upper,
+		char lower,
 		const char* iter,
 		const char* end,
 		uint32_t escape_char,
@@ -263,7 +246,7 @@ static Game_Message::ParseParamResult ParseParamImpl(
 				if (iter != end && (*iter == 'V' || *iter == 'v')) {
 					++iter;
 
-					auto ret = ParseParamImpl('V', 'v', iter, end, escape_char, true, max_recursion - 1);
+					auto ret = ParseParam('V', 'v', iter, end, escape_char, true, max_recursion - 1);
 					iter = ret.next;
 					int var_val = Main_Data::game_variables->Get(ret.value);
 
@@ -301,20 +284,88 @@ static Game_Message::ParseParamResult ParseParamImpl(
 	return { iter, value };
 }
 
+Game_Message::ParseParamStringResult Game_Message::ParseStringParam(
+		char upper,
+		char lower,
+		const char* iter,
+		const char* end,
+		uint32_t escape_char,
+		bool skip_prefix,
+		int max_recursion)
+{
+	if (!skip_prefix) {
+		const auto begin = iter;
+		if (iter == end) {
+			return { begin, "" };
+		}
+		auto ret = Utils::UTF8Next(iter, end);
+		// Invalid commands
+		if (ret.ch != escape_char) {
+			return { begin, "" };
+		}
+		iter = ret.next;
+		if (iter == end || (*iter != upper && *iter != lower)) {
+			return { begin, "" };
+		}
+		++iter;
+	}
+
+	// If no bracket, return empty string
+	if (iter == end || *iter != '[') {
+		return { iter, "" };
+	}
+
+	std::string value;
+	++iter;
+
+	while (iter != end && *iter != ']') {
+		// Fast inline isdigit()
+		value += *iter;
+
+		if (max_recursion > 0) {
+			auto ret = Utils::UTF8Next(iter, end);
+			auto ch = ret.ch;
+			iter = ret.next;
+
+			// Recursive variable case.
+			if (ch == escape_char) {
+				if (iter != end && (*iter == 'V' || *iter == 'v')) {
+					++iter;
+
+					auto ret = ParseParam('V', 'v', iter, end, escape_char, true, max_recursion - 1);
+					iter = ret.next;
+					int var_val = Main_Data::game_variables->Get(ret.value);
+
+					value += std::to_string(var_val);
+					continue;
+				}
+			}
+		}
+	}
+
+	if (iter != end) {
+		++iter;
+	}
+
+	return { iter, value };
+}
+
 Game_Message::ParseParamResult Game_Message::ParseVariable(const char* iter, const char* end, uint32_t escape_char, bool skip_prefix, int max_recursion) {
-	return ParseParamImpl('V', 'v', iter, end, escape_char, skip_prefix, max_recursion - 1);
+	return ParseParam('V', 'v', iter, end, escape_char, skip_prefix, max_recursion - 1);
+}
+
+Game_Message::ParseParamResult Game_Message::ParseString(const char* iter, const char* end, uint32_t escape_char, bool skip_prefix, int max_recursion) {
+	return ParseParam('T', 't', iter, end, escape_char, skip_prefix, max_recursion);
 }
 
 Game_Message::ParseParamResult Game_Message::ParseColor(const char* iter, const char* end, uint32_t escape_char, bool skip_prefix, int max_recursion) {
-	return ParseParamImpl('C', 'c', iter, end, escape_char, skip_prefix, max_recursion);
+	return ParseParam('C', 'c', iter, end, escape_char, skip_prefix, max_recursion);
 }
 
 Game_Message::ParseParamResult Game_Message::ParseSpeed(const char* iter, const char* end, uint32_t escape_char, bool skip_prefix, int max_recursion) {
-	return ParseParamImpl('S', 's', iter, end, escape_char, skip_prefix, max_recursion);
+	return ParseParam('S', 's', iter, end, escape_char, skip_prefix, max_recursion);
 }
 
 Game_Message::ParseParamResult Game_Message::ParseActor(const char* iter, const char* end, uint32_t escape_char, bool skip_prefix, int max_recursion) {
-	return ParseParamImpl('N', 'n', iter, end, escape_char, skip_prefix, max_recursion);
+	return ParseParam('N', 'n', iter, end, escape_char, skip_prefix, max_recursion);
 }
-
-

@@ -18,6 +18,7 @@
 #ifndef EP_GAME_MESSAGE_H
 #define EP_GAME_MESSAGE_H
 
+#include <cstdint>
 #include <vector>
 #include <bitset>
 #include <string>
@@ -59,7 +60,7 @@ namespace Game_Message {
 	void SetPendingMessage(PendingMessage&& pm);
 
 	/** Callback type for WordWrap function */
-	using WordWrapCallback = const std::function<void(StringView line)>;
+	using WordWrapCallback = const std::function<void(std::string_view line)>;
 
 	/**
 	 * Breaks the line into lines, each of which is equal
@@ -67,7 +68,7 @@ namespace Game_Message {
 	 * given font (except in cases when breaking by spaces
 	 * can't produce a short line), and calls the callback
 	 * for each resulting line.
-	 * 
+	 *
 	 * Font::Default() will be used to determine the word breaking.
 	 * The caller is responsible for ensuring that Font::Default()
 	 * either does not change between calling this function and
@@ -79,8 +80,8 @@ namespace Game_Message {
 	 * @param[in] limit maximum size of each line after word-breaking.
 	 * @param callback a function to be called for each word-wrapped line
 	 */
-	int WordWrap(StringView line, int limit, const WordWrapCallback& callback);
-	int WordWrap(StringView line, int limit, const WordWrapCallback& callback, const Font& font);
+	int WordWrap(std::string_view line, int limit, const WordWrapCallback& callback);
+	int WordWrap(std::string_view line, int limit, const WordWrapCallback& callback, const Font& font);
 
 	/**
 	 * Return if it's legal to show a new message box.
@@ -94,6 +95,9 @@ namespace Game_Message {
 	bool IsMessagePending();
 	/** @return true if message window is running */
 	bool IsMessageActive();
+
+	/** The command code parser for the message box */
+	std::optional<std::string> CommandCodeInserter(char ch, const char** iter, const char* end, uint32_t escape_char);
 
 	// EasyRPG extension allowing more recursive variables \v[\v[...]]
 	static constexpr int easyrpg_default_max_recursion = 8;
@@ -110,6 +114,14 @@ namespace Game_Message {
 		int value = 0;
 	};
 
+	/** Struct returned by parameter parsing methods */
+	struct ParseParamStringResult {
+		/** iterator to the next character after parsed content */
+		const char* next = nullptr;
+		/** value that was parsed */
+		std::string value;
+	};
+
 	/** Parse a \v[] variable string
 	 *
 	 * @param iter start of utf8 string
@@ -121,6 +133,18 @@ namespace Game_Message {
 	 * @return \refer ParseParamResult
 	 */
 	ParseParamResult ParseVariable(const char* iter, const char* end, uint32_t escape_char, bool skip_prefix = false, int max_recursion = default_max_recursion);
+
+	/** Parse a \t[] variable string
+	 *
+	 * @param iter start of utf8 string
+	 * @param end end of utf8 string
+	 * @param escape_char the escape character to use
+	 * @param skip_prefix if true, assume prefix was already parsed and iter starts at the first left bracket.
+	 * @param max_recursion How many times to allow recursive variable lookups.
+	 *
+	 * @return \refer ParseParamResult
+	 */
+	ParseParamResult ParseString(const char* iter, const char* end, uint32_t escape_char, bool skip_prefix = false, int max_recursion = default_max_recursion);
 
 	/** Parse a \c[] color string
 	 *
@@ -157,7 +181,10 @@ namespace Game_Message {
 	 * @return \refer ParseParamResult
 	 */
 	ParseParamResult ParseActor(const char* iter, const char* end, uint32_t escape_char, bool skip_prefix = false, int max_recursion = default_max_recursion);
-}
 
+	Game_Message::ParseParamResult ParseParam(char upper, char lower, const char* iter, const char* end, uint32_t escape_char, bool skip_prefix = false, int max_recursion = default_max_recursion);
+	// same as ParseParam but the parameter is of structure \x[some_word] instead of \x[1]
+	Game_Message::ParseParamStringResult ParseStringParam(char upper, char lower, const char* iter, const char* end, uint32_t escape_char, bool skip_prefix = false, int max_recursion = default_max_recursion);
+}
 
 #endif

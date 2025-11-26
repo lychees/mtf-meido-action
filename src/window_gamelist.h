@@ -20,7 +20,6 @@
 
 // Headers
 #include <vector>
-#include "window_help.h"
 #include "window_selectable.h"
 #include "filefinder.h"
 
@@ -47,7 +46,7 @@ public:
 	 */
 	void DrawItem(int index);
 
-	void DrawErrorText();
+	void DrawErrorText(bool show_dotdot);
 
 	/**
 	 * @return true if at least one entry is in the directory
@@ -55,13 +54,13 @@ public:
 	bool HasValidEntry();
 
 	/**
-	 * @return filesystem and entry name of the selected game
+	 * @return fs entry containing filesystem view and project type
 	 */
-	std::pair<FilesystemView, std::string> GetGameFilesystem() const;
+	FileFinder::FsEntry GetFilesystemEntry() const;
 
 private:
 	FilesystemView base_fs;
-	std::vector<std::string> game_directories;
+	std::vector<FileFinder::GameEntry> game_entries;
 
 	bool show_dotdot = false;
 };

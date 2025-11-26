@@ -19,6 +19,7 @@
 #define EP_TILEMAP_LAYER_H
 
 // Headers
+#include <cstdint>
 #include <vector>
 #include <map>
 #include <unordered_set>
@@ -59,12 +60,13 @@ public:
 
 	TilemapLayer(int ilayer);
 
-	void Draw(Bitmap& dst, uint8_t z_order);
+	void Draw(Bitmap& dst, uint8_t z_order, int render_ox, int render_oy);
 
 	BitmapRef const& GetChipset() const;
 	void SetChipset(BitmapRef const& nchipset);
 	const std::vector<short>& GetMapData() const;
 	void SetMapData(std::vector<short> nmap_data);
+	void SetMapTileDataAt(int x, int y, int tile_id, bool disable_autotile);
 	const std::vector<unsigned char>& GetPassable() const;
 	void SetPassable(std::vector<unsigned char> npassable);
 	bool IsVisible() const;
@@ -73,6 +75,10 @@ public:
 	void SetOx(int nox);
 	int GetOy() const;
 	void SetOy(int noy);
+	int GetRenderOx() const;
+	void SetRenderOx(int offset_x);
+	int GetRenderOy() const;
+	void SetRenderOy(int offset_y);
 	int GetWidth() const;
 	void SetWidth(int nwidth);
 	int GetHeight() const;
@@ -99,7 +105,7 @@ private:
 	std::unordered_set<uint32_t> chipset_tone_tiles;
 	std::vector<short> map_data;
 	std::vector<uint8_t> passable;
-	Span<const uint8_t> substitutions;
+	std::vector<uint8_t> substitutions;
 	int ox = 0;
 	int oy = 0;
 	int width = 0;
@@ -110,10 +116,13 @@ private:
 	bool fast_blit = false;
 
 	void CreateTileCache(const std::vector<short>& nmap_data);
+	void CreateTileCacheAt(int x, int y, int tile_id);
+	void RecreateTileDataAt(int x, int y, int tile_id);
 	void GenerateAutotileAB(short ID, short animID);
 	void GenerateAutotileD(short ID);
 	void DrawTile(Bitmap& dst, Bitmap& tile, Bitmap& tone_tile, int x, int y, int row, int col, uint32_t tone_hash, bool allow_fast_blit = true);
 	void DrawTileImpl(Bitmap& dst, Bitmap& tile, Bitmap& tone_tile, int x, int y, int row, int col, uint32_t tone_hash, ImageOpacity op, bool allow_fast_blit);
+	void RecalculateAutotile(int x, int y, int tile_id);
 
 	static const int TILES_PER_ROW = 64;
 
@@ -156,6 +165,8 @@ private:
 	TilemapSubLayer upper_layer;
 
 	Tone tone;
+
+	bool IsInMapBounds(int x, int y) const;
 };
 
 inline BitmapRef const& TilemapLayer::GetChipset() const {
@@ -194,6 +205,24 @@ inline int TilemapLayer::GetOy() const {
 
 inline void TilemapLayer::SetOy(int noy) {
 	oy = noy;
+}
+
+inline int TilemapLayer::GetRenderOx() const {
+	return lower_layer.GetRenderOx();
+}
+
+inline void TilemapLayer::SetRenderOx(int offset_x) {
+	lower_layer.SetRenderOx(offset_x);
+	upper_layer.SetRenderOx(offset_x);
+}
+
+inline int TilemapLayer::GetRenderOy() const {
+	return lower_layer.GetRenderOy();
+}
+
+inline void TilemapLayer::SetRenderOy(int offset_y) {
+	lower_layer.SetRenderOy(offset_y);
+	upper_layer.SetRenderOy(offset_y);
 }
 
 inline int TilemapLayer::GetWidth() const {
@@ -236,5 +265,8 @@ inline TilemapLayer::TileData& TilemapLayer::GetDataCache(int x, int y) {
 	return data_cache_vec[x + y * width];
 }
 
+inline bool TilemapLayer::IsInMapBounds(int x, int y) const {
+	return x >= 0 && x < width && y >= 0 && y < height;
+}
 
 #endif

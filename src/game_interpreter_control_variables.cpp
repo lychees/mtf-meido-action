@@ -15,19 +15,24 @@
  * along with EasyRPG Player. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "game_interpreter_shared.h"
 #include "game_interpreter_control_variables.h"
 #include "game_actors.h"
 #include "game_enemyparty.h"
 #include "game_ineluki.h"
 #include "game_interpreter.h"
 #include "game_party.h"
+#include "game_player.h"
 #include "game_system.h"
 #include "main_data.h"
 #include "output.h"
+#include "player.h"
 #include "rand.h"
 #include "utils.h"
+#include "audio.h"
 #include <cmath>
 #include <cstdint>
+#include <lcf/rpg/savepartylocation.h>
 
 int ControlVariables::Random(int value, int value2) {
 	int rmax = std::max(value, value2);
@@ -150,8 +155,8 @@ int ControlVariables::Party(int op, int party_idx) {
 	return ControlVariables::Actor(op, actor->GetId());
 }
 
-int ControlVariables::Event(int op, int event_id, const Game_Interpreter& interpreter) {
-	auto character = interpreter.GetCharacter(event_id);
+int ControlVariables::Event(int op, int event_id, const Game_BaseInterpreterContext& interpreter) {
+	auto character = interpreter.GetCharacter(event_id, "ControlVariables::Event");
 	if (character) {
 		switch (op) {
 			case 0:
@@ -183,18 +188,30 @@ int ControlVariables::Event(int op, int event_id, const Game_Interpreter& interp
 						dir == 1 ? 6 :
 						dir == 2 ? 2 : 4;
 				break;
-			case 4:
+			case 4: {
 				// Screen X
-				return character->GetScreenX();
-				break;
-			case 5:
+				if (Player::game_config.fake_resolution.Get()) {
+					int pan_delta = (Game_Player::GetDefaultPanX() - lcf::rpg::SavePartyLocation::kPanXDefault) / TILE_SIZE;
+					return character->GetScreenX() - pan_delta;
+				} else {
+					return character->GetScreenX();
+				}
+			}
+			case 5: {
 				// Screen Y
-				return character->GetScreenY();
+				if (Player::game_config.fake_resolution.Get()) {
+					int pan_delta = (Game_Player::GetDefaultPanY() - lcf::rpg::SavePartyLocation::kPanYDefault) / TILE_SIZE;
+					return character->GetScreenY() - pan_delta;
+				} else {
+					return character->GetScreenY();
+				}
+			}
+			case 6:
+				// Event ID
+				return Player::IsPatchManiac() ? interpreter.GetThisEventId() : 0;
 		}
 
 		Output::Warning("ControlVariables::Event: Unknown op {}", op);
-	} else {
-		Output::Warning("ControlVariables::Event: Bad event_id {}", event_id);
 	}
 
 	return 0;
@@ -236,7 +253,11 @@ int ControlVariables::Other(int op) {
 			break;
 		case 8:
 			// MIDI play position
-			return Main_Data::game_ineluki->GetMidiTicks();
+			if (Player::IsPatchKeyPatch()) {
+				return Main_Data::game_ineluki->GetMidiTicks();
+			} else {
+				return Audio().BGM_GetTicks();
+			}
 			break;
 		case 9:
 			// Timer 2 remaining time
@@ -267,8 +288,13 @@ int ControlVariables::Other(int op) {
 		case 13:
 			// Patch version
 			if (Player::IsPatchManiac()) {
-				// Latest version before the engine rewrite
-				return 200128;
+				auto var = Player::game_config.patch_maniac.Get();
+				if (var < 10) {
+					// Latest version before the engine rewrite
+					return 200128;
+				}
+
+				return var;
 			}
 			break;
 	}

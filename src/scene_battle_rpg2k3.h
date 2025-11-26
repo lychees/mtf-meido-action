@@ -86,7 +86,7 @@ public:
 	~Scene_Battle_Rpg2k3() override;
 
 	void Start() override;
-	void Update() override;
+	void vUpdate() override;
 	void OnPartyChanged(Game_Actor* actor, bool add) override;
 	void OnEventHpChanged(Game_Battler* battler, int hp) override;
 
@@ -123,7 +123,12 @@ protected:
 	void RefreshCommandWindow(const Game_Actor* actor);
 	void SetActiveActor(int idx);
 
-	void DrawFloatText(int x, int y, int color, StringView text);
+	enum class FloatTextType {
+		Damage = 0,
+		Heal = 1,
+		Miss = 2,
+	};
+	void DrawFloatText(int x, int y, int color, std::string_view text, Game_Battler* battler, FloatTextType type);
 
 	bool IsTransparent() const;
 

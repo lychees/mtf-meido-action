@@ -17,6 +17,7 @@
 
 #ifdef SUPPORT_AUDIO
 
+#include <cstdint>
 #include <cstring>
 
 #include "audio.h"
@@ -24,6 +25,7 @@
 #include "game_clock.h"
 #include "output.h"
 #include "audio_secache.h"
+#include "audio_decoder_base.h"
 
 //#define EP_DEBUG_CTRAUDIO
 #ifdef EP_DEBUG_CTRAUDIO
@@ -95,11 +97,11 @@ bool set_channel_format(int dsp_chn, AudioDecoder::Format format, int channels, 
 	return res;
 }
 
-void CtrAudio::BGM_Play(Filesystem_Stream::InputStream filestream, int volume, int pitch, int fadein) {
+void CtrAudio::BGM_Play(Filesystem_Stream::InputStream filestream, int volume, int pitch, int fadein, int balance) {
 	if (!dsp_inited)
 		return;
 
-	StringView name = filestream.GetName();
+	std::string_view name = filestream.GetName();
 	if (!filestream) {
 		Output::Warning("Couldn't play BGM {}: File not readable", name);
 		return;
@@ -108,6 +110,7 @@ void CtrAudio::BGM_Play(Filesystem_Stream::InputStream filestream, int volume, i
 	LockMutex();
 	bgm.decoder = AudioDecoder::Create(filestream);
 	if (bgm.decoder && bgm.decoder->Open(std::move(filestream))) {
+		// Fixme: music volume setting unsupported
 		int frequency;
 		AudioDecoder::Format format, out_format;
 		int channels;
@@ -117,6 +120,7 @@ void CtrAudio::BGM_Play(Filesystem_Stream::InputStream filestream, int volume, i
 		bgm.decoder->SetVolume(0);
 		bgm.decoder->SetFade(volume, std::chrono::milliseconds(fadein));
 		bgm.decoder->SetLooping(true);
+		bgm.decoder->SetBalance(balance);
 
 		if (!set_channel_format(bgm.channel, format, channels, out_format)) {
 			DebugLog("{} has unsupported format, using close format.", name);
@@ -163,7 +167,7 @@ void CtrAudio::BGM_Stop() {
 
 bool CtrAudio::BGM_PlayedOnce() const {
 	if (!bgm.decoder)
-		return true;
+		return false;
 
 	return bgm.decoder->GetLoopCount() > 0;
 }
@@ -203,7 +207,21 @@ void CtrAudio::BGM_Pitch(int pitch) {
 	}
 }
 
-void CtrAudio::SE_Play(std::unique_ptr<AudioSeCache> se_cache, int volume, int pitch) {
+void CtrAudio::BGM_Balance(int balance) {
+	if (!bgm.decoder)
+		return;
+
+	bgm.decoder->SetBalance(balance);
+}
+
+std::string CtrAudio::BGM_GetType() const {
+	if (bgm.decoder) {
+		return bgm.decoder->GetType();
+	}
+	return "";
+}
+
+void CtrAudio::SE_Play(std::unique_ptr<AudioSeCache> se_cache, int volume, int pitch, int balance) {
 	if (!dsp_inited)
 		return;
 
@@ -227,6 +245,7 @@ void CtrAudio::SE_Play(std::unique_ptr<AudioSeCache> se_cache, int volume, int p
 
 	auto dec = se_cache->CreateSeDecoder();
 	dec->SetPitch(pitch);
+	dec->SetBalance(balance);
 
 	int frequency;
 	AudioDecoder::Format format, out_format;
@@ -278,7 +297,7 @@ void CtrAudio::SE_Play(std::unique_ptr<AudioSeCache> se_cache, int volume, int p
 	DSP_FlushDataCache(se.buf[chan].data_pcm16, aligned_bsize);
 
 	float mix[12] = {0};
-	mix[0] = mix[1] = volume / 100.0f;
+	mix[0] = mix[1] = volume / 100.0f * cfg.sound_volume.Get() / 100.0f;
 	ndspChnSetMix(chan, mix);
 	ndspChnWaveBufAdd(chan, &se.buf[chan]);
 }
@@ -341,8 +360,9 @@ void n3ds_audio_thread(void* userdata) {
 				reinterpret_cast<uint8_t*>(bgm.buf[target_block].data_pcm16),
 				bgm.buf_size);
 			DSP_FlushDataCache(bgm.buf[target_block].data_pcm16, bgm.buf_size);
-
-			mix[0] = mix[1] = bgm.decoder->GetVolume() / 100.0f;
+			StereoVolume volume = bgm.decoder->GetVolume();
+			mix[0] = volume.left_volume / 100.0f * audio->GetConfig().music_volume.Get() / 100.0f;
+			mix[1] = volume.right_volume / 100.0f * audio->GetConfig().music_volume.Get() / 100.0f;
 			ndspChnSetMix(bgm.channel, mix);
 			ndspChnWaveBufAdd(bgm.channel, &bgm.buf[target_block]);
 		} else {
@@ -353,7 +373,9 @@ void n3ds_audio_thread(void* userdata) {
 	threadExit(0);
 }
 
-CtrAudio::CtrAudio() {
+CtrAudio::CtrAudio(const Game_ConfigAudio& cfg) : AudioInterface(cfg) {
+	LightLock_Init(&audio_mutex);
+
 	Result res = ndspInit();
 	if (R_FAILED(res)) {
 		Output::Warning("Couldn't initialize audio");

@@ -39,17 +39,18 @@ Input::ButtonMappingArray Input::GetDefaultButtonMappings() {
 	};
 }
 
-Input::DirectionMappingArray Input::GetDefaultDirectionMappings() {
-	return {
-		{ Direction::DOWN, DOWN },
-		{ Direction::LEFT, LEFT },
-		{ Direction::RIGHT, RIGHT },
-		{ Direction::UP, UP },
-	};
-}
-
 Input::KeyNamesArray Input::GetInputKeyNames() {
 	return {};
+}
+
+void Input::GetSupportedConfig(Game_ConfigInput& cfg) {}
+
+
+#include "platform/sdl/axis.h"
+SdlAxis Input::GetSdlAxis() {
+	return {
+		0, 1, 2, 3, 4, 5, false, false
+	};
 }
 
 #endif

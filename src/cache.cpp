@@ -35,15 +35,16 @@
 #include "player.h"
 #include <lcf/data.h>
 #include "game_clock.h"
+#include "translation.h"
 
 using namespace std::chrono_literals;
 
 namespace {
-	std::string MakeHashKey(StringView folder_name, StringView filename, bool transparent) {
-		return ToString(folder_name) + ":" + ToString(filename) + ":" + (transparent ? "T" : " ");
+	std::string MakeHashKey(std::string_view folder_name, std::string_view filename, bool transparent, uint32_t extra_flags = 0) {
+		return fmt::format("{}:{}:{}:{}", folder_name, filename, transparent, extra_flags);
 	}
 
-	std::string MakeTileHashKey(StringView chipset_name, int id) {
+	std::string MakeTileHashKey(std::string_view chipset_name, int id) {
 		std::string key;
 		key.reserve(chipset_name.size() + sizeof(int) + 2);
 		key.append(reinterpret_cast<char*>(&id), sizeof(id));
@@ -53,7 +54,7 @@ namespace {
 		return key;
 	}
 
-	int IdFromTileHash(StringView key) {
+	int IdFromTileHash(std::string_view key) {
 		int id = 0;
 		if (key.size() > sizeof(id)) {
 			std::memcpy(&id, key.data(), sizeof(id));
@@ -61,7 +62,7 @@ namespace {
 		return id;
 	}
 
-	const char* NameFromTileHash(StringView key) {
+	const char* NameFromTileHash(std::string_view key) {
 		int offset = sizeof(int) + 1;
 		if (static_cast<int>(key.size()) < offset) {
 			return "";
@@ -81,7 +82,7 @@ namespace {
 	std::unordered_map<tile_key_type, std::weak_ptr<Bitmap>> cache_tiles;
 
 	// rect, flip_x, flip_y, tone, blend
-	using effect_key_type = std::tuple<BitmapRef, Rect, bool, bool, Tone, Color>;
+	using effect_key_type = std::tuple<std::string, bool, Rect, bool, bool, Tone, Color>;
 	std::map<effect_key_type, std::weak_ptr<Bitmap>> cache_effects;
 
 	std::string system_name;
@@ -173,30 +174,30 @@ namespace {
 
 	struct Spec {
 		char const* directory;
+		DummyRenderer dummy_renderer;
 		bool transparent;
 		int min_width , max_width;
 		int min_height, max_height;
-		DummyRenderer dummy_renderer;
 		bool oob_check;
 		bool warn_missing;
 	};
 	constexpr Spec spec[] = {
-		{ "Backdrop", false, 320, 320, 160, 240, DrawCheckerboard<Material::Backdrop>, true, true },
-		{ "Battle", true, 480, 480, 96, 480, DrawCheckerboard<Material::Battle>, true, true },
-		{ "CharSet", true, 288, 288, 256, 256, DrawCheckerboard<Material::Charset>, true, true },
-		{ "ChipSet", true, 480, 480, 256, 256, DrawCheckerboard<Material::Chipset>, true, true },
-		{ "FaceSet", true, 192, 192, 192, 192, DrawCheckerboard<Material::Faceset>, true, true},
-		{ "GameOver", false, 320, 320, 240, 240, DrawCheckerboard<Material::Gameover>, true, true },
-		{ "Monster", true, 16, 320, 16, 160, DrawCheckerboard<Material::Monster>, false, false },
-		{ "Panorama", false, 80, 640, 80, 480, DrawCheckerboard<Material::Panorama>, false, true },
-		{ "Picture", true, 1, 640, 1, 480, DrawCheckerboard<Material::Picture>, false, true },
-		{ "System", true, 160, 160, 80, 80, DummySystem, true, true },
-		{ "Title", false, 320, 320, 240, 240, DrawCheckerboard<Material::Title>, true, true },
-		{ "System2", true, 80, 80, 96, 96, DrawCheckerboard<Material::System2>, true, true },
-		{ "Battle2", true, 640, 640, 640, 640, DrawCheckerboard<Material::Battle2>, true, true },
-		{ "BattleCharSet", true, 144, 144, 384, 384, DrawCheckerboard<Material::Battlecharset>, true, false },
-		{ "BattleWeapon", true, 192, 192, 512, 512, DrawCheckerboard<Material::Battleweapon>, true, false },
-		{ "Frame", true, 320, 320, 240, 240, DrawCheckerboard<Material::Frame>, true, true },
+		{ "Backdrop", DrawCheckerboard<Material::Backdrop>, false, 320, 320, 160, 240, true, true },
+		{ "Battle", DrawCheckerboard<Material::Battle>, true, 96, 480, 96, 480, true, true },
+		{ "CharSet", DrawCheckerboard<Material::Charset>, true, 288, 288, 256, 256, true, true },
+		{ "ChipSet", DrawCheckerboard<Material::Chipset>, true, 480, 480, 256, 256, true, true },
+		{ "FaceSet", DrawCheckerboard<Material::Faceset>, true, 192, 192, 192, 192, true, true},
+		{ "GameOver", DrawCheckerboard<Material::Gameover>, false, 320, 320, 240, 240, true, true },
+		{ "Monster", DrawCheckerboard<Material::Monster>, true, 16, 320, 16, 160, false, false },
+		{ "Panorama", DrawCheckerboard<Material::Panorama>, false, 80, 640, 80, 480, false, true },
+		{ "Picture", DrawCheckerboard<Material::Picture>, true, 1, 640, 1, 480, false, true },
+		{ "System", DummySystem, true, 160, 160, 80, 80, true, true },
+		{ "Title", DrawCheckerboard<Material::Title>, false, 320, 320, 240, 240, true, true },
+		{ "System2", DrawCheckerboard<Material::System2>, true, 80, 80, 96, 96, true, true },
+		{ "Battle2", DrawCheckerboard<Material::Battle2>, true, 640, 640, 640, 640, true, true },
+		{ "BattleCharSet", DrawCheckerboard<Material::Battlecharset>, true, 144, 144, 384, 384, true, false },
+		{ "BattleWeapon", DrawCheckerboard<Material::Battleweapon>, true, 192, 192, 512, 512, true, false },
+		{ "Frame", DrawCheckerboard<Material::Frame>, true, 320, 320, 240, 240, true, true },
 	};
 
 	template<Material::Type T>
@@ -228,14 +229,14 @@ namespace {
 	}
 
 	template<Material::Type T>
-	BitmapRef LoadDummyBitmap(StringView folder_name, StringView filename, bool transparent) {
+	BitmapRef LoadDummyBitmap(std::string_view, std::string_view, bool) {
 		static_assert(Material::REND < T && T < Material::END, "Invalid material.");
 		const Spec& s = spec[T];
 		return s.dummy_renderer();
 	}
 
 	template<Material::Type T>
-	BitmapRef LoadBitmap(StringView filename, bool transparent) {
+	BitmapRef LoadBitmap(std::string_view filename, bool transparent, uint32_t extra_flags = 0) {
 		static_assert(Material::REND < T && T < Material::END, "Invalid material.");
 		const Spec& s = spec[T];
 
@@ -246,7 +247,7 @@ namespace {
 
 		BitmapRef bmp;
 
-		const auto key = MakeHashKey(s.directory, filename, transparent);
+		const auto key = MakeHashKey(s.directory, filename, transparent, extra_flags);
 		auto it = cache.find(key);
 		if (it == cache.end()) {
 			if (filename == CACHE_DEFAULT_BITMAP) {
@@ -269,9 +270,20 @@ namespace {
 					auto flags = Bitmap::Flag_ReadOnly | (
 							T == Material::Chipset ? Bitmap::Flag_Chipset :
 							T == Material::System ? Bitmap::Flag_System : 0);
+					flags |= extra_flags;
+
 					bmp = Bitmap::Create(std::move(is), transparent, flags);
 					if (!bmp) {
 						Output::Warning("Invalid image: {}/{}", s.directory, filename);
+					} else {
+						if (bmp->GetOriginalBpp() > 8) {
+							// FIXME: This HasActiveTranslation check will also load 32 bit images in the game directory when
+							// a translation is active and our API does not expose whether the asset was redirected or not.
+							if (!Player::HasEasyRpgExtensions() && !Player::IsPatchManiac() && !Tr::HasActiveTranslation()) {
+								Output::Warning("Image {}/{} has a bit depth of {} that is not supported by RPG_RT. Enable EasyRPG Extensions or Maniac Patch to load such images.", s.directory, filename, bmp->GetOriginalBpp());
+								bmp.reset();
+							}
+						}
 					}
 				}
 			}
@@ -302,9 +314,15 @@ namespace {
 				max_h = min_h = Player::IsRPG2k() ? 160 : 240;
 			}
 
+			// EasyRPG extensions add support for large charsets; size is spoofed to ignore the error
+			if (!filename.empty() && filename.front() == '$' && T == Material::Charset && Player::HasEasyRpgExtensions()) {
+				w = 288;
+				h = 256;
+			}
+
 			if (w < min_w || max_w < w || h < min_h || max_h < h) {
 				Output::Debug("Image size out of bounds: {}/{} ({}x{} < {}x{} < {}x{})",
-							  s.directory, filename, min_w, min_h, w, h, max_w, max_h);
+							s.directory, filename, min_w, min_h, w, h, max_w, max_h);
 			}
 		}
 
@@ -312,77 +330,82 @@ namespace {
 	}
 
 	template<Material::Type T>
-	BitmapRef LoadBitmap(StringView f) {
+	BitmapRef LoadBitmap(std::string_view f, uint32_t extra_flags = 0) {
 		static_assert(Material::REND < T && T < Material::END, "Invalid material.");
 		const Spec& s = spec[T];
-		return LoadBitmap<T>(f, s.transparent);
+		return LoadBitmap<T>(f, s.transparent, extra_flags);
 	}
 }
 
 std::vector<uint8_t> Cache::exfont_custom;
 
-BitmapRef Cache::Backdrop(StringView file) {
+BitmapRef Cache::Backdrop(std::string_view file) {
 	return LoadBitmap<Material::Backdrop>(file);
 }
 
-BitmapRef Cache::Battle(StringView file) {
+BitmapRef Cache::Battle(std::string_view file) {
 	return LoadBitmap<Material::Battle>(file);
 }
 
-BitmapRef Cache::Battle2(StringView file) {
+BitmapRef Cache::Battle2(std::string_view file) {
 	return LoadBitmap<Material::Battle2>(file);
 }
 
-BitmapRef Cache::Battlecharset(StringView file) {
+BitmapRef Cache::Battlecharset(std::string_view file) {
 	return LoadBitmap<Material::Battlecharset>(file);
 }
 
-BitmapRef Cache::Battleweapon(StringView file) {
+BitmapRef Cache::Battleweapon(std::string_view file) {
 	return LoadBitmap<Material::Battleweapon>(file);
 }
 
-BitmapRef Cache::Charset(StringView file) {
+BitmapRef Cache::Charset(std::string_view file) {
 	return LoadBitmap<Material::Charset>(file);
 }
 
-BitmapRef Cache::Chipset(StringView file) {
+BitmapRef Cache::Chipset(std::string_view file) {
 	return LoadBitmap<Material::Chipset>(file);
 }
 
-BitmapRef Cache::Faceset(StringView file) {
+BitmapRef Cache::Faceset(std::string_view file) {
 	return LoadBitmap<Material::Faceset>(file);
 }
 
-BitmapRef Cache::Frame(StringView file, bool transparent) {
+BitmapRef Cache::Frame(std::string_view file, bool transparent) {
 	return LoadBitmap<Material::Frame>(file, transparent);
 }
 
-BitmapRef Cache::Gameover(StringView file) {
+BitmapRef Cache::Gameover(std::string_view file) {
 	return LoadBitmap<Material::Gameover>(file);
 }
 
-BitmapRef Cache::Monster(StringView file) {
+BitmapRef Cache::Monster(std::string_view file) {
 	return LoadBitmap<Material::Monster>(file);
 }
 
-BitmapRef Cache::Panorama(StringView file) {
+BitmapRef Cache::Panorama(std::string_view file) {
 	return LoadBitmap<Material::Panorama>(file);
 }
 
-BitmapRef Cache::Picture(StringView file, bool transparent) {
+BitmapRef Cache::Picture(std::string_view file, bool transparent) {
 	return LoadBitmap<Material::Picture>(file, transparent);
 }
 
-BitmapRef Cache::System2(StringView file) {
+BitmapRef Cache::System2(std::string_view file) {
 	return LoadBitmap<Material::System2>(file);
 }
 
-BitmapRef Cache::Title(StringView file) {
+BitmapRef Cache::Title(std::string_view file) {
 	return LoadBitmap<Material::Title>(file);
 }
 
-BitmapRef Cache::System(StringView file) {
-	return LoadBitmap<Material::System>(file);
+BitmapRef Cache::System(std::string_view file, bool bg_preserve_transparent_color) {
+	uint32_t flags = 0;
+	if (bg_preserve_transparent_color || Player::IsRPG2k()) {
+		flags = Bitmap::Flag_SystemBgPreserveColor;
+	}
+
+	return LoadBitmap<Material::System>(file, flags);
 }
 
 BitmapRef Cache::Exfont() {
@@ -409,7 +432,7 @@ BitmapRef Cache::Exfont() {
 	}
 }
 
-BitmapRef Cache::Tile(StringView filename, int tile_id) {
+BitmapRef Cache::Tile(std::string_view filename, int tile_id) {
 	const auto key = MakeTileHashKey(filename, tile_id);
 	auto it = cache_tiles.find(key);
 
@@ -438,13 +461,27 @@ BitmapRef Cache::Tile(StringView filename, int tile_id) {
 		rect.x += sub_tile_id % 6 * 16;
 		rect.y += sub_tile_id / 6 * 16;
 
-		return(cache_tiles[key] = Bitmap::Create(*chipset, rect)).lock();
+		auto bmp = Bitmap::Create(*chipset, rect);
+		bmp->SetId(fmt::format("{}/{}", chipset->GetId(), tile_id));
+		cache_tiles[key] = bmp;
+
+		return bmp;
 	} else { return it->second.lock(); }
 }
 
 BitmapRef Cache::SpriteEffect(const BitmapRef& src_bitmap, const Rect& rect, bool flip_x, bool flip_y, const Tone& tone, const Color& blend) {
+	std::string id = ToString(src_bitmap->GetId());
+
+	if (id.empty()) {
+		// Log causes false positives when empty bitmaps or placeholder (checkerboard)
+		// bitmaps are used.
+		//Output::Debug("Bitmap has no ID. Please report a bug!");
+		id = fmt::format("{}", (void*)(src_bitmap.get()));
+	}
+
 	const effect_key_type key {
-		src_bitmap,
+		id,
+		src_bitmap->GetTransparent(),
 		rect,
 		flip_x,
 		flip_y,
@@ -482,7 +519,7 @@ BitmapRef Cache::SpriteEffect(const BitmapRef& src_bitmap, const Rect& rect, boo
 				bitmap_effects->Flip(flip_x, flip_y);
 			} else {
 				bitmap_effects = create();
-				bitmap_effects->FlipBlit(rect.x, rect.y, *src_bitmap, rect, flip_x, flip_y, Opacity::Opaque());
+				bitmap_effects->FlipBlit(0, 0, *src_bitmap, rect, flip_x, flip_y, Opacity::Opaque());
 			}
 		}
 
@@ -524,9 +561,9 @@ void Cache::SetSystem2Name(std::string filename) {
 	system2_name = std::move(filename);
 }
 
-BitmapRef Cache::System() {
+BitmapRef Cache::System(bool bg_preserve_transparent_color) {
 	if (!system_name.empty()) {
-		return Cache::System(system_name);
+		return Cache::System(system_name, bg_preserve_transparent_color);
 	} else {
 		return nullptr;
 	}
@@ -537,8 +574,8 @@ BitmapRef Cache::SysBlack() {
 	return system_black;
 }
 
-BitmapRef Cache::SystemOrBlack() {
-	auto system = Cache::System();
+BitmapRef Cache::SystemOrBlack(bool bg_preserve_transparent_color) {
+	auto system = Cache::System(bg_preserve_transparent_color);
 	if (system) {
 		return system;
 	}

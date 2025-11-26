@@ -19,6 +19,7 @@
 #define EP_BITMAP_H
 
 // Headers
+#include <cstdint>
 #include <string>
 #include <map>
 #include <vector>
@@ -148,6 +149,10 @@ public:
 		// Special handling for chipset graphic.
 		// Generates a tile opacity list.
 		Flag_Chipset = 1 << 2,
+		// Disables premultiplied alpha for the background section of the system
+		// graphic (at 0,0,32,32) to preserve the colors of the transparent
+		// pixels in RPG2k and in RPG2k3 with semi-transparent message box.
+		Flag_SystemBgPreserveColor = 1 << 3,
 		// Bitmap will not be written to. This allows blit optimisations because the
 		// opacity information will not change.
 		Flag_ReadOnly = 1 << 16
@@ -197,7 +202,7 @@ public:
 	 * @param os output stream that PNG will be output.
 	 * @return true if success, otherwise false.
 	 */
-	bool WritePNG(Filesystem_Stream::OutputStream&) const;
+	bool WritePNG(std::ostream& os) const;
 
 	/**
 	 * Gets the background color
@@ -216,17 +221,40 @@ public:
 	Color GetShadowColor() const;
 
 	/**
-	 * Gets the filename this bitmap was loaded from.
-	 * This will be empty when the origin was not a file.
+	 * Returns an identifier for the bitmap.
+	 * When the bitmap was loaded from a file this contains the filename.
+	 * In all other cases this is implementation defined (and can be empty).
 	 *
-	 * @return filename
+	 * @return Bitmap identifier
 	 */
-	StringView GetFilename() const;
+	std::string_view GetId() const;
+
+	/**
+	 * Sets the identifier of the bitmap.
+	 * To avoid bugs the function will reject changing non-empty IDs.
+	 *
+	 * @param id new identifier
+	 */
+	void SetId(std::string id);
+
+	/**
+	 * Gets bpp of the source image.
+	 *
+	 * @return Bpp
+	 */
+	int GetOriginalBpp() const;
 
 	void CheckPixels(uint32_t flags);
 
 	/**
-	 * Draws text to bitmap using the Font::Default() font.
+	 * @param x x-coordinate
+	 * @param y y-coordinate
+	 * @return color at the pixel location
+	 */
+	Color GetColorAt(int x, int y) const;
+
+	/**
+	 * Draws text to bitmap using the configured Font or the Font::Default() font.
 	 *
 	 * @param x x coordinate where text rendering starts.
 	 * @param y y coordinate where text rendering starts.
@@ -235,10 +263,10 @@ public:
 	 * @param align text alignment.
 	 * @return Where to draw the next glyph
 	 */
-	Point TextDraw(int x, int y, int color, StringView text, Text::Alignment align = Text::AlignLeft);
+	Point TextDraw(int x, int y, int color, std::string_view text, Text::Alignment align = Text::AlignLeft);
 
 	/**
-	 * Draws text to bitmap using the Font::Default() font.
+	 * Draws text to bitmap using the configured Font or the Font::Default() font.
 	 *
 	 * @param rect bounding rectangle.
 	 * @param color system color index.
@@ -246,10 +274,10 @@ public:
 	 * @param align text alignment inside bounding rectangle.
 	 * @return Where to draw the next glyph
 	 */
-	Point TextDraw(Rect const& rect, int color, StringView text, Text::Alignment align = Text::AlignLeft);
+	Point TextDraw(Rect const& rect, int color, std::string_view text, Text::Alignment align = Text::AlignLeft);
 
 	/**
-	 * Draws text to bitmap using the Font::Default() font.
+	 * Draws text to bitmap using the configured Font or the Font::Default() font.
 	 *
 	 * @param x x coordinate where text rendering starts.
 	 * @param y y coordinate where text rendering starts.
@@ -257,17 +285,17 @@ public:
 	 * @param text text to draw.
 	 * @return Where to draw the next glyph
 	 */
-	Point TextDraw(int x, int y, Color color, StringView text);
+	Point TextDraw(int x, int y, Color color, std::string_view text);
 
 	/**
-	 * Draws text to bitmap using the Font::Default() font.
+	 * Draws text to bitmap using the configured Font or the Font::Default() font.
 	 *
 	 * @param rect bounding rectangle.
 	 * @param color text color.
 	 * @param text text to draw.
 	 * @param align text alignment inside bounding rectangle.
 	 */
-	Point TextDraw(Rect const& rect, Color color, StringView, Text::Alignment align = Text::AlignLeft);
+	Point TextDraw(Rect const& rect, Color color, std::string_view, Text::Alignment align = Text::AlignLeft);
 
 	/**
 	 * Blits source bitmap to this one.
@@ -579,6 +607,9 @@ public:
 	int bpp() const;
 	int pitch() const;
 
+	FontRef GetFont() const;
+	void SetFont(FontRef font);
+
 	ImageOpacity ComputeImageOpacity() const;
 	ImageOpacity ComputeImageOpacity(Rect rect) const;
 
@@ -588,15 +619,19 @@ protected:
 	ImageOpacity image_opacity = ImageOpacity::Alpha_8Bit;
 	TileOpacity tile_opacity;
 	Color bg_color, sh_color;
+	FontRef font;
 
-	std::string filename;
+	std::string id;
+
+	/** Bpp of the source image */
+	int original_bpp;
 
 	/** Bitmap data. */
 	PixmanImagePtr bitmap;
 	pixman_format_code_t pixman_format;
 
 	void Init(int width, int height, void* data, int pitch = 0, bool destroy = true);
-	void ConvertImage(int& width, int& height, void*& pixels, bool transparent);
+	void ConvertImage(int& width, int& height, void*& pixels, bool transparent, uint32_t flags);
 
 	static PixmanImagePtr GetSubimage(Bitmap const& src, const Rect& src_rect);
 	static inline void MultiplyAlpha(uint8_t &r, uint8_t &g, uint8_t &b, const uint8_t &a) {
@@ -626,6 +661,13 @@ protected:
 	 */
 	pixman_op_t GetOperator(pixman_image_t* mask = nullptr, BlendMode blend_mode = BlendMode::Default) const;
 	bool read_only = false;
+};
+
+struct ImageOut {
+	int width = 0;
+	int height = 0;
+	void* pixels = nullptr;
+	int bpp = 0;
 };
 
 inline ImageOpacity Bitmap::GetImageOpacity() const {
@@ -660,8 +702,25 @@ inline bool Bitmap::GetTransparent() const {
 	return format.alpha_type != PF::NoAlpha;
 }
 
-inline StringView Bitmap::GetFilename() const {
-	return filename;
+inline std::string_view Bitmap::GetId() const {
+	return id;
+}
+
+inline void Bitmap::SetId(std::string id) {
+	assert(this->id.empty());
+	this->id = id;
+}
+
+inline FontRef Bitmap::GetFont() const {
+	return font;
+}
+
+inline void Bitmap::SetFont(FontRef font) {
+	this->font = font;
+}
+
+inline int Bitmap::GetOriginalBpp() const {
+	return original_bpp;
 }
 
 #endif

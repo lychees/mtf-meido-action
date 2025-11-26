@@ -17,16 +17,21 @@
 
 #ifndef EP_PENDING_MESSAGE_H
 #define EP_PENDING_MESSAGE_H
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <bitset>
 #include <functional>
+#include <optional>
 #include "async_op.h"
 
 class PendingMessage {
 	public:
 		using ChoiceContinuation = std::function<AsyncOp(int)>;
+		using CommandInserter = std::function<std::optional<std::string>(char,const char**,const char*,uint32_t)>;
+		static std::optional<std::string> DefaultCommandInserter(char ch, const char** iter, const char* end, uint32_t escape_char);
 
+		PendingMessage(CommandInserter cmd_fn);
 		int PushLine(std::string msg);
 		int PushChoice(std::string msg, bool enabled = true);
 		int PushNumInput(int variable_id, int num_digits);
@@ -63,12 +68,14 @@ class PendingMessage {
 
 		void SetIsEventMessage(bool value) { is_event_message = value; }
 		bool IsEventMessage() const { return is_event_message; }
+
+		void SetFromForegroundInterpreter(bool value) { from_fg_interpreter = value; }
+		bool IsFromForegroundInterpreter() const { return from_fg_interpreter; }
+		static std::string ApplyTextInsertingCommands(std::string input, uint32_t escape_char, const CommandInserter& cmd_fn);
+
 	private:
 		int PushLineImpl(std::string msg);
-
-		std::string ApplyTextInsertingCommands(std::string input, uint32_t escape_char);
-
-	private:
+		CommandInserter command_inserter;
 		ChoiceContinuation choice_continuation;
 		std::vector<std::string> texts;
 		int choice_start = -1;
@@ -81,6 +88,7 @@ class PendingMessage {
 		bool show_gold_window = false;
 		bool enable_face = true;
 		bool is_event_message = false;
+		bool from_fg_interpreter = false;
 };
 
 

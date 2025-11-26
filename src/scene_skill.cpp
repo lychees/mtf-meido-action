@@ -18,6 +18,7 @@
 // Headers
 #include "scene_skill.h"
 #include "algo.h"
+#include "game_actors.h"
 #include "game_map.h"
 #include "game_party.h"
 #include "game_player.h"
@@ -27,23 +28,28 @@
 #include "scene_actortarget.h"
 #include "scene_teleport.h"
 #include "transition.h"
+#include "player.h"
 
-Scene_Skill::Scene_Skill(int actor_index, int skill_index) :
-	actor_index(actor_index), skill_index(skill_index) {
+Scene_Skill::Scene_Skill(std::vector<Game_Actor*> actors, int actor_index, int skill_index) :
+	actors(actors), actor_index(actor_index), skill_index(skill_index) {
 	Scene::type = Scene::Skill;
+
+	assert(!actors.empty());
 }
 
 void Scene_Skill::Start() {
 	// Create the windows
 	int window_help_height = 32;
 	int window_skillstatus_height = 32;
-	help_window.reset(new Window_Help(MENU_OFFSET_X, MENU_OFFSET_Y, MENU_WIDTH, window_help_height));
-	skillstatus_window.reset(new Window_SkillStatus(MENU_OFFSET_X, MENU_OFFSET_Y + window_help_height, MENU_WIDTH, window_skillstatus_height));
-	skill_window.reset(new Window_Skill(MENU_OFFSET_X, MENU_OFFSET_Y + window_help_height + window_skillstatus_height, MENU_WIDTH, MENU_HEIGHT - (window_help_height + window_skillstatus_height)));
+	help_window.reset(new Window_Help(Player::menu_offset_x, Player::menu_offset_y, MENU_WIDTH, window_help_height));
+	skillstatus_window.reset(new Window_SkillStatus(Player::menu_offset_x, Player::menu_offset_y + window_help_height, MENU_WIDTH, window_skillstatus_height));
+	skill_window.reset(new Window_Skill(Player::menu_offset_x, Player::menu_offset_y + window_help_height + window_skillstatus_height, MENU_WIDTH, MENU_HEIGHT - (window_help_height + window_skillstatus_height)));
+
+	const auto& actor = *actors[actor_index];
 
 	// Assign actors and help to windows
-	skill_window->SetActor(Main_Data::game_party->GetActors()[actor_index]->GetId());
-	skillstatus_window->SetActor(Main_Data::game_party->GetActors()[actor_index]->GetId());
+	skill_window->SetActor(actor);
+	skillstatus_window->SetActor(actor);
 	skill_window->SetIndex(skill_index);
 	skill_window->SetHelpWindow(help_window.get());
 }
@@ -53,7 +59,7 @@ void Scene_Skill::Continue(SceneType) {
 	skill_window->Refresh();
 }
 
-void Scene_Skill::Update() {
+void Scene_Skill::vUpdate() {
 	help_window->Update();
 	skillstatus_window->Update();
 	skill_window->Update();
@@ -65,12 +71,12 @@ void Scene_Skill::Update() {
 		const lcf::rpg::Skill* skill = skill_window->GetSkill();
 		int skill_id = skill ? skill->ID : 0;
 
-		Game_Actor* actor = Main_Data::game_party->GetActors()[actor_index];
+		auto& actor = *actors[actor_index];
 
 		if (skill && skill_window->CheckEnable(skill_id)) {
 			if (skill->type == lcf::rpg::Skill::Type_switch) {
 				Main_Data::game_system->SePlay(skill->sound_effect);
-				Main_Data::game_party->UseSkill(skill_id, actor, actor);
+				Main_Data::game_party->UseSkill(skill_id, &actor, &actor);
 				Scene::PopUntil(Scene::Map);
 				Game_Map::SetNeedRefresh(true);
 			} else if (Algo::IsNormalOrSubskill(*skill)) {
@@ -79,10 +85,10 @@ void Scene_Skill::Update() {
 				skill_index = skill_window->GetIndex();
 			} else if (skill->type == lcf::rpg::Skill::Type_teleport) {
 				Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
-				Scene::Push(std::make_shared<Scene_Teleport>(*actor, *skill));
+				Scene::Push(std::make_shared<Scene_Teleport>(actor, *skill));
 			} else if (skill->type == lcf::rpg::Skill::Type_escape) {
 				Main_Data::game_system->SePlay(skill->sound_effect);
-				Main_Data::game_party->UseSkill(skill_id, actor, actor);
+				Main_Data::game_party->UseSkill(skill_id, &actor, &actor);
 				Main_Data::game_player->ForceGetOffVehicle();
 				Main_Data::game_player->ReserveTeleport(Main_Data::game_targets->GetEscapeTarget());
 

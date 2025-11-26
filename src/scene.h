@@ -54,11 +54,12 @@ public:
 		Name,
 		Gameover,
 		Debug,
-		Multiplayer,
 		Logo,
 		Order,
 		GameBrowser,
 		Teleport,
+		Settings,
+		LanguageMenu,
 		SceneMax
 	};
 
@@ -137,10 +138,14 @@ public:
 	static bool IsAsyncPending();
 
 	/**
-	 * Called every frame.
-	 * The scene should redraw all elements.
+	 * Called when data was modified from the outside and must be reloaded.
 	 */
-	virtual void Update();
+	virtual void Refresh() {}
+
+	/**
+	 * Called every frame.
+	 */
+	void Update();
 
 	/**
 	 * Update graphics in scene stack
@@ -152,9 +157,17 @@ public:
 	 *
 	 * @param new_scene new scene.
 	 * @param pop_stack_top if the scene that is currently
-	 *                      on the top should be popped.
+	 *	                  on the top should be popped.
 	 */
 	static void Push(std::shared_ptr<Scene> const& new_scene, bool pop_stack_top = false);
+
+	/**
+	 * Finds the the scene previous to the current, top-most one and
+	 * returns it without popping it from the stack.
+	 *
+	 * @return the scene found, or NULL if the current scene is already the top.
+	 */
+	static std::shared_ptr<Scene> Peek();
 
 	/**
 	 * Removes the scene that is on the top of the stack.
@@ -244,6 +257,12 @@ public:
 	void UpdateDelayFrames();
 
 	/**
+	 * Pushes the title screen onto the stack to boot up the game.
+	 * If there already is a title scene in the stack, this function exits without doing anything.
+	 */
+	static void PushTitleScene(bool pop_stack_top = false);
+
+	/**
 	 * Pops the stack until the title screen and sets proper delay.
 	 *
 	 * @return false if there is no title scene in the stack, or we're already on the title scene
@@ -268,6 +287,12 @@ public:
 protected:
 	using AsyncContinuation = std::function<void(void)>;
 	AsyncContinuation async_continuation;
+
+	/**
+	 * Called every frame from Update.
+	 * The scene should redraw all elements.
+	 */
+	virtual void vUpdate() {};
 
 	/**
 	 * Set whether or not this scene will use shared drawables.

@@ -24,9 +24,6 @@
 #include "cache.h"
 #include "drawable_mgr.h"
 
-#include "output.h"
-#include "sliding_puzzle.h"
-
 // Constructor
 Sprite::Sprite(Drawable::Flags flags) : Drawable(0, flags)
 {
@@ -36,12 +33,6 @@ Sprite::Sprite(Drawable::Flags flags) : Drawable(0, flags)
 // Draw
 void Sprite::Draw(Bitmap& dst) {
 	if (GetWidth() <= 0 || GetHeight() <= 0) return;
-
-	auto r = myRect;
-
-	if (!r.IsEmpty()) {
-		SetSrcRect(r);
-	}
 
 	BlitScreen(dst);
 }
@@ -63,6 +54,14 @@ void Sprite::BlitScreen(Bitmap& dst) {
 		// only has the size of this subrect instead of the whole bitmap
 		rect.x %= bitmap_effects->GetWidth();
 		rect.y %= bitmap_effects->GetHeight();
+
+		if (flipx_effect) {
+			rect.x = bitmap_effects->GetWidth() - rect.x - rect.width;
+		}
+
+		if (flipy_effect) {
+			rect.y = bitmap_effects->GetHeight() - rect.y - rect.height;
+		}
 	}
 
 	BlitScreenIntern(dst, *draw_bitmap, rect);
@@ -73,7 +72,7 @@ void Sprite::BlitScreenIntern(Bitmap& dst, Bitmap const& draw_bitmap, Rect const
 	double zoom_x = zoom_x_effect;
 	double zoom_y = zoom_y_effect;
 
-	dst.EffectsBlit(x, y, ox, oy, draw_bitmap, src_rect,
+	dst.EffectsBlit(x, y, ox - GetRenderOx(), oy - GetRenderOy(), draw_bitmap, src_rect,
 		Opacity(opacity_top_effect, opacity_bottom_effect, bush_effect),
 		zoom_x, zoom_y, angle_effect,
 		waver_effect_depth, waver_effect_phase, static_cast<Bitmap::BlendMode>(blend_type_effect));
@@ -84,7 +83,7 @@ BitmapRef Sprite::Refresh(Rect& rect) {
 		// Prevent effect sprite creation when not in the viewport
 		// TODO: Out of bounds math adjustments for zoom, angle and waver
 		// but even without this will catch most of the cases
-		if (Rect(x - ox, y - oy, GetWidth(), GetHeight()).IsOutOfBounds(Rect(0, 0, SCREEN_TARGET_WIDTH, SCREEN_TARGET_HEIGHT))) {
+		if (Rect(x - ox, y - oy, GetWidth(), GetHeight()).IsOutOfBounds(Rect(0, 0, Player::screen_width, Player::screen_height))) {
 			return BitmapRef();
 		}
 	}

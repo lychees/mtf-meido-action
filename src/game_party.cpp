@@ -145,7 +145,7 @@ int Game_Party::GetItemCount(int item_id) const {
 
 int Game_Party::GetEquippedItemCount(int item_id) const {
 	int number = 0;
-	if (item_id > 0) {
+	if (item_id >= 0) {
 		for (int i = 0; i < (int) data.party.size(); i++) {
 			Game_Actor* actor = Main_Data::game_actors->GetActor(data.party[i]);
 			number += actor->GetItemCount(item_id);
@@ -690,14 +690,14 @@ void Game_Party::RemoveInvalidData() {
 		if (Main_Data::game_actors->ActorExists(*it)) {
 			data.party.push_back(*it);
 		} else {
-			Output::Warning("Removing invalid party member {}", *it);
+			Output::Debug("Removing invalid party member {}", *it);
 		}
 	}
 
 	// Remove non existing items
 	for (it = data.item_ids.begin(); it != data.item_ids.end(); ) {
 		if (!lcf::ReaderUtil::GetElement(lcf::Data::items, *it)) {
-			Output::Warning("Removing invalid item {} from party", *it);
+			Output::Debug("Removing invalid item {} from party", *it);
 			it = data.item_ids.erase(it);
 		} else {
 			++it;
@@ -792,5 +792,5 @@ Game_Actor* Game_Party::GetHighestLeveledActorWhoCanUse(const lcf::rpg::Item* it
 std::pair<int,bool> Game_Party::GetItemIndex(int item_id) const {
 	auto& ids = data.item_ids;
 	auto iter = std::lower_bound(ids.begin(), ids.end(), item_id);
-	return std::make_pair(iter - ids.begin(), (iter != ids.end() && *iter == item_id));
+	return std::make_pair<int,bool>(iter - ids.begin(), (iter != ids.end() && *iter == item_id));
 }

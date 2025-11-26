@@ -29,7 +29,10 @@ Window_Selectable::Window_Selectable(int ix, int iy, int iwidth, int iheight) :
 	Window_Base(ix, iy, iwidth, iheight) { }
 
 void Window_Selectable::CreateContents() {
-	SetContents(Bitmap::Create(width - 16, max(height - border_y * 2, GetRowMax() * menu_item_height)));
+	int w = std::max(0, width - border_x * 2);
+	int h = std::max(0, std::max(height - border_y * 2, GetRowMax() * menu_item_height));
+
+	SetContents(Bitmap::Create(w, h));
 }
 
 // Properties
@@ -43,6 +46,12 @@ void Window_Selectable::SetIndex(int nindex) {
 		UpdateHelp();
 	}
 	UpdateCursorRect();
+}
+int Window_Selectable::GetColumnMax() const {
+	return column_max;
+}
+void Window_Selectable::SetColumnMax(int ncolmax) {
+	column_max = ncolmax;
 }
 int Window_Selectable::GetRowMax() const {
 	return (item_max + column_max - 1) / column_max;
@@ -186,13 +195,13 @@ void Window_Selectable::Update() {
 			}
 		}
 		if (Input::IsRepeated(Input::RIGHT)) {
-			if (column_max >= 2 && index < item_max - 1) {
+			if (column_max >= wrap_limit && index < item_max - 1) {
 				Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Cursor));
 				index += 1;
 			}
 		}
 		if (Input::IsRepeated(Input::LEFT)) {
-			if (column_max >= 2 && index > 0) {
+			if (column_max >= wrap_limit && index > 0) {
 				Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Cursor));
 				index -= 1;
 			}
@@ -224,4 +233,8 @@ void Window_Selectable::SetEndlessScrolling(bool state) {
 // Set menu item height
 void Window_Selectable::SetMenuItemHeight(int height) {
 	menu_item_height = height;
+}
+
+void Window_Selectable::SetSingleColumnWrapping(bool wrap) {
+	wrap_limit = wrap ? 1 : 2;
 }

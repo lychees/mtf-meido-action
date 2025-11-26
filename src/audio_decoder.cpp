@@ -17,8 +17,11 @@
 
 // Headers
 #include <cassert>
+#include <cmath>
+#include <cstdint>
 #include <cstring>
 #include "audio_decoder.h"
+#include "audio_decoder_base.h"
 #include "audio_midi.h"
 #include "audio_resampler.h"
 #include "output.h"
@@ -67,7 +70,7 @@ std::unique_ptr<AudioDecoderBase> AudioDecoder::Create(Filesystem_Stream::InputS
 
 	// Try to use MIDI decoder, use fallback(s) if available
 	if (!strncmp(magic, "MThd", 4)) {
-		auto midi = MidiDecoder::Create(stream, resample);
+		auto midi = MidiDecoder::Create(resample);
 		if (midi) {
 			return midi;
 		}
@@ -83,7 +86,7 @@ std::unique_ptr<AudioDecoderBase> AudioDecoder::Create(Filesystem_Stream::InputS
 		stream.seekg(0, std::ios::ios_base::beg);
 
 		if (!strncmp(magic, "Opus", 4)) {
-			return add_resampler(std::make_unique<OpusDecoder>());
+			return add_resampler(std::make_unique<OpusAudioDecoder>());
 		}
 #endif
 
@@ -174,16 +177,16 @@ void AudioDecoder::Update(std::chrono::microseconds delta) {
 
 	volume += static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(delta).count()) * delta_volume_step;
 	volume = Utils::Clamp(static_cast<float>(volume), 0.0f, 100.0f);
-	log_volume = AdjustVolume(volume);
+	ApplyLogVolume();
 }
 
-int AudioDecoder::GetVolume() const {
-	return static_cast<int>(log_volume);
+StereoVolume AudioDecoder::GetVolume() const {
+	return log_volume;
 }
 
 void AudioDecoder::SetVolume(int new_volume) {
 	volume = Utils::Clamp(static_cast<float>(new_volume), 0.0f, 100.0f);
-	log_volume = AdjustVolume(volume);
+	ApplyLogVolume();
 }
 
 void AudioDecoder::SetFade(int end, std::chrono::milliseconds duration) {
@@ -197,6 +200,11 @@ void AudioDecoder::SetFade(int end, std::chrono::milliseconds duration) {
 	fade_volume_end = end;
 	fade_time = duration;
 	delta_volume_step = (static_cast<float>(fade_volume_end) - volume) / fade_time.count();
+}
+
+void AudioDecoder::SetBalance(int balance) {
+	AudioDecoderBase::SetBalance(balance);
+	ApplyLogVolume();
 }
 
 int AudioDecoder::GetSamplesizeForFormat(AudioDecoderBase::Format format) {
@@ -215,4 +223,18 @@ int AudioDecoder::GetSamplesizeForFormat(AudioDecoderBase::Format format) {
 
 	assert(false && "Bad format");
 	return -1;
+}
+
+void AudioDecoder::ApplyLogVolume() {
+	float base_gain = AdjustVolume(volume);
+	int balance = GetBalance();
+	float left_gain = 1.f, right_gain = 1.f;
+	constexpr float pan_exp = 0.5012f;
+	if (balance <= 50) {
+		right_gain = std::pow(pan_exp, (50 - balance) / 10.f);
+	} else {
+		left_gain = std::pow(pan_exp, (balance - 50) / 10.f);
+	}
+	log_volume.left_volume = base_gain * left_gain;
+	log_volume.right_volume = base_gain * right_gain;
 }

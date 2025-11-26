@@ -36,16 +36,27 @@ public:
 	/**
 	 * Constructor.
 	 */
-	Scene_Logo();
+ 	Scene_Logo();
+	Scene_Logo(std::vector<std::vector<uint8_t>> logos, unsigned current_logo_index);
 
 	void Start() override;
-	void Update() override;
+	void vUpdate() override;
+	bool DetectGame();
+	BitmapRef LoadLogo();
+	void DrawLogo(BitmapRef logo_img);
 	void DrawBackground(Bitmap& dst) override;
+	void DrawTextOnLogo(bool verbose);
+
+	static std::vector<std::vector<uint8_t>> LoadLogos();
 
 private:
 	std::unique_ptr<Sprite> logo;
 	BitmapRef logo_img;
 	int frame_counter;
+	std::vector<std::vector<uint8_t>> logos;
+	unsigned current_logo_index = 0;
+	bool skip_logos = false;
+	bool detected_game = false;
 
 	void OnIndexReady(FileRequestResult* result);
 	FileRequestBinding request_id;

@@ -18,7 +18,7 @@
 // Headers
 #include "spriteset_map.h"
 #include "cache.h"
-#include "dynrpg.h"
+#include "game_dynrpg.h"
 #include "game_map.h"
 #include "main_data.h"
 #include "sprite_airshipshadow.h"
@@ -30,17 +30,20 @@
 #include "bitmap.h"
 #include "player.h"
 #include "drawable_list.h"
+#include "map_data.h"
 
-// Constructor
 Spriteset_Map::Spriteset_Map() {
-	panorama.reset(new Plane());
+	panorama = std::make_unique<Plane>();
 	panorama->SetZ(Priority_Background);
 
-	timer1.reset(new Sprite_Timer(0));
-	timer2.reset(new Sprite_Timer(1));
+	timer1 = std::make_unique<Sprite_Timer>(0);
+	timer2 = std::make_unique<Sprite_Timer>(1);
 
-	screen.reset(new Screen());
-	frame.reset(new Frame());
+	screen = std::make_unique<Screen>();
+
+	if (Player::IsRPG2k3()) {
+		frame = std::make_unique<Frame>();
+	}
 
 	ParallaxUpdated();
 
@@ -50,9 +53,13 @@ Spriteset_Map::Spriteset_Map() {
 }
 
 void Spriteset_Map::Refresh() {
-	tilemap.reset(new Tilemap());
-	tilemap->SetWidth(Game_Map::GetWidth());
-	tilemap->SetHeight(Game_Map::GetHeight());
+	CalculateMapRenderOffset();
+
+	tilemap = std::make_unique<Tilemap>();
+	tilemap->SetWidth(Game_Map::GetTilesX());
+	tilemap->SetHeight(Game_Map::GetTilesY());
+	tilemap->SetRenderOx(map_render_ox);
+	tilemap->SetRenderOy(map_render_oy);
 
 	airship_shadows.clear();
 	character_sprites.clear();
@@ -83,9 +90,9 @@ void Spriteset_Map::Update() {
 	tilemap->SetOy(Game_Map::GetDisplayY() / (SCREEN_TILE_SIZE / TILE_SIZE));
 	tilemap->SetTone(new_tone);
 
-	for (size_t i = 0; i < character_sprites.size(); i++) {
-		character_sprites[i]->Update();
-		character_sprites[i]->SetTone(new_tone);
+	for (const auto& character_sprite : character_sprites) {
+		character_sprite->Update();
+		character_sprite->SetTone(new_tone);
 	}
 
 	panorama->SetOx(Game_Map::Parallax::GetX());
@@ -108,19 +115,7 @@ void Spriteset_Map::Update() {
 		shadow->Update();
 	}
 
-	DynRpg::Update();
-}
-
-// Finds the sprite for a specific character
-Sprite_Character* Spriteset_Map::FindCharacter(Game_Character* character) const
-{
-	std::vector<std::shared_ptr<Sprite_Character> >::const_iterator it;
-	for (it = character_sprites.begin(); it != character_sprites.end(); ++it) {
-		Sprite_Character* sprite = it->get();
-		if (sprite->GetCharacter() == character)
-			return sprite;
-	}
-	return NULL;
+	Main_Data::game_dynrpg->Update();
 }
 
 void Spriteset_Map::ChipsetUpdated() {
@@ -144,17 +139,18 @@ void Spriteset_Map::ParallaxUpdated() {
 	std::string name = Game_Map::Parallax::GetName();
 	if (name != panorama_name) {
 		panorama_name = name;
-		if (name.empty()) {
-			panorama->SetBitmap(BitmapRef());
-			Game_Map::Parallax::Initialize(0, 0);
-		}
-		else {
+		if (!name.empty()) {
 			FileRequestAsync* request = AsyncHandler::RequestFile("Panorama", panorama_name);
 			request->SetGraphicFile(true);
 			request->SetImportantFile(true);
 			panorama_request_id = request->Bind(&Spriteset_Map::OnPanoramaSpriteReady, this);
 			request->Start();
 		}
+	}
+
+	if (name.empty()) {
+		panorama->SetBitmap(BitmapRef());
+		Game_Map::Parallax::Initialize(0, 0);
 	}
 }
 
@@ -178,8 +174,29 @@ void Spriteset_Map::SubstituteUp(int old_id, int new_id) {
 	}
 }
 
+void Spriteset_Map::ReplaceDownAt(int x, int y, int tile_index, bool disable_autotile) {
+	if (tile_index >= BLOCK_F_INDEX) tile_index = BLOCK_F_INDEX - 1;
+
+	auto tile_id = IndexToChipId(tile_index);
+	tilemap->SetMapTileDataDownAt(x, y, tile_id, disable_autotile);
+}
+
+void Spriteset_Map::ReplaceUpAt(int x, int y, int tile_index) {
+	tile_index += BLOCK_F_INDEX;
+	if (tile_index >= NUM_UPPER_TILES + BLOCK_F_INDEX) tile_index = BLOCK_F_INDEX;
+
+	auto tile_id = IndexToChipId(tile_index);
+	tilemap->SetMapTileDataUpAt(x, y, tile_id);
+}
+
 bool Spriteset_Map::RequireClear(DrawableList& drawable_list) {
 	if (drawable_list.empty()) {
+		return true;
+	}
+
+	// When using a custom resolution that is not divisible by 16, clear to avoid
+	// artifacts at the borders
+	if (Player::screen_width % TILE_SIZE != 0 || Player::screen_height % TILE_SIZE != 0) {
 		return true;
 	}
 
@@ -207,34 +224,50 @@ bool Spriteset_Map::RequireClear(DrawableList& drawable_list) {
 }
 
 void Spriteset_Map::CreateSprite(Game_Character* character, bool create_x_clone, bool create_y_clone) {
-	using CloneType = Sprite_Character::CloneType;
+	auto add_sprite = [&](auto&& chara) {
+		chara->SetRenderOx(map_render_ox);
+		chara->SetRenderOy(map_render_oy);
+		character_sprites.push_back(std::forward<decltype(chara)>(chara));
+	};
 
-	character_sprites.push_back(std::make_shared<Sprite_Character>(character));
+	add_sprite(std::make_unique<Sprite_Character>(character));
 	if (create_x_clone) {
-		character_sprites.push_back(std::make_shared<Sprite_Character>(character, CloneType::XClone));
+		add_sprite(std::make_unique<Sprite_Character>(character, -map_tiles_x, 0));
+		add_sprite(std::make_unique<Sprite_Character>(character, map_tiles_x, 0));
 	}
 	if (create_y_clone) {
-		character_sprites.push_back(std::make_shared<Sprite_Character>(character, CloneType::YClone));
+		add_sprite(std::make_unique<Sprite_Character>(character, 0, -map_tiles_y));
+		add_sprite(std::make_unique<Sprite_Character>(character, 0, map_tiles_y));
 	}
 	if (create_x_clone && create_y_clone) {
-		character_sprites.push_back(std::make_shared<Sprite_Character>(character,
-			(CloneType)(CloneType::XClone | CloneType::YClone)));
+		add_sprite(std::make_unique<Sprite_Character>(character, map_tiles_x, map_tiles_y));
+		add_sprite(std::make_unique<Sprite_Character>(character, -map_tiles_x, map_tiles_y));
+		add_sprite(std::make_unique<Sprite_Character>(character, map_tiles_x, -map_tiles_y));
+		add_sprite(std::make_unique<Sprite_Character>(character, -map_tiles_x, -map_tiles_y));
 	}
 }
 
 void Spriteset_Map::CreateAirshipShadowSprite(bool create_x_clone, bool create_y_clone) {
-	using CloneType = Sprite_AirshipShadow::CloneType;
+	auto add_sprite = [&](auto&& chara) {
+		chara->SetRenderOx(map_render_ox);
+		chara->SetRenderOy(map_render_oy);
+		airship_shadows.push_back(std::forward<decltype(chara)>(chara));
+	};
 
-	airship_shadows.push_back(std::make_shared<Sprite_AirshipShadow>());
+	add_sprite(std::make_unique<Sprite_AirshipShadow>());
 	if (create_x_clone) {
-		airship_shadows.push_back(std::make_shared<Sprite_AirshipShadow>(CloneType::XClone));
+		add_sprite(std::make_unique<Sprite_AirshipShadow>(-map_tiles_x, 0));
+		add_sprite(std::make_unique<Sprite_AirshipShadow>(map_tiles_x, 0));
 	}
 	if (create_y_clone) {
-		airship_shadows.push_back(std::make_shared<Sprite_AirshipShadow>(CloneType::YClone));
+		add_sprite(std::make_unique<Sprite_AirshipShadow>(0, -map_tiles_y));
+		add_sprite(std::make_unique<Sprite_AirshipShadow>(0, map_tiles_y));
 	}
 	if (create_x_clone && create_y_clone) {
-		airship_shadows.push_back(std::make_shared<Sprite_AirshipShadow>(
-			(CloneType)(CloneType::XClone | CloneType::YClone)));
+		add_sprite(std::make_unique<Sprite_AirshipShadow>(map_tiles_x, map_tiles_y));
+		add_sprite(std::make_unique<Sprite_AirshipShadow>(-map_tiles_x, map_tiles_y));
+		add_sprite(std::make_unique<Sprite_AirshipShadow>(map_tiles_x, -map_tiles_y));
+		add_sprite(std::make_unique<Sprite_AirshipShadow>(-map_tiles_x, -map_tiles_y));
 	}
 }
 
@@ -258,4 +291,47 @@ void Spriteset_Map::OnPanoramaSpriteReady(FileRequestResult* result) {
 	BitmapRef panorama_bmp = Cache::Panorama(result->file);
 	panorama->SetBitmap(panorama_bmp);
 	Game_Map::Parallax::Initialize(panorama_bmp->GetWidth(), panorama_bmp->GetHeight());
+	CalculatePanoramaRenderOffset();
+}
+
+void Spriteset_Map::CalculateMapRenderOffset() {
+	map_render_ox = 0;
+	map_render_oy = 0;
+
+	// Smallest possible map. Smaller maps are hacked
+	map_tiles_x = std::max<int>(Game_Map::GetTilesX(), 20) * TILE_SIZE;
+	map_tiles_y = std::max<int>(Game_Map::GetTilesY(), 15) * TILE_SIZE;
+
+	panorama->SetRenderOx(0);
+	panorama->SetRenderOy(0);
+	screen->SetViewport(Rect());
+
+	if (Player::game_config.fake_resolution.Get()) {
+		// Resolution hack for tiles and sprites
+		map_tiles_x = std::max<int>(Game_Map::GetTilesX(), 20) * TILE_SIZE;
+		map_tiles_y = std::max<int>(Game_Map::GetTilesY(), 15) * TILE_SIZE;
+
+		if (map_tiles_x < Player::screen_width) {
+			map_render_ox = (Player::screen_width - map_tiles_x) / 2;
+		}
+		if (map_tiles_y < Player::screen_height) {
+			map_render_oy = (Player::screen_height - map_tiles_y) / 2;
+		}
+
+		CalculatePanoramaRenderOffset();
+
+		screen->SetViewport({map_render_ox, map_render_oy, map_tiles_x, map_tiles_y});
+	}
+}
+
+void Spriteset_Map::CalculatePanoramaRenderOffset() {
+	// Resolution hack for Panorama
+	if (Player::game_config.fake_resolution.Get()) {
+		if (Game_Map::Parallax::FakeXPosition()) {
+			panorama->SetRenderOx((Player::screen_width - SCREEN_TARGET_WIDTH) / 2);
+		}
+		if (Game_Map::Parallax::FakeYPosition()) {
+			panorama->SetRenderOy((Player::screen_height - SCREEN_TARGET_HEIGHT) / 2);
+		}
+	}
 }

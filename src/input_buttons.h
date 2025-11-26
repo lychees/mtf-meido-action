@@ -22,6 +22,7 @@
 #include <vector>
 #include <array>
 #include <cassert>
+#include <cstdint>
 #include <initializer_list>
 #include <algorithm>
 #include <ostream>
@@ -29,6 +30,8 @@
 #include <lcf/enum_tags.h>
 #include "flat_map.h"
 #include "keys.h"
+
+struct Game_ConfigInput;
 
 #if USE_SDL==1
 #include "platform/sdl/axis.h"
@@ -73,29 +76,19 @@ namespace Input {
 		RESET,
 		PAGE_UP,
 		PAGE_DOWN,
+		MOUSE_LEFT,
+		MOUSE_RIGHT,
+		MOUSE_MIDDLE,
 		SCROLL_UP,
 		SCROLL_DOWN,
-		FAST_FORWARD,
-		FAST_FORWARD_PLUS,
+		FAST_FORWARD_A,
+		FAST_FORWARD_B,
 		TOGGLE_FULLSCREEN,
 		TOGGLE_ZOOM,
-		CHAT_FOCUS, // chat inputs
-		CHAT_UNFOCUS, // chat inputs
-		CHAT_UP, // chat inputs
-		CHAT_DOWN, // chat inputs
-		CHAT_LEFT, // chat inputs
-		CHAT_RIGHT, // chat inputs
-		CHAT_DEL_BACKWARD, // chat inputs
-		CHAT_DEL_FORWARD, // chat inputs
-		CHAT_SEND, // chat inputs
-		CHAT_TOGGLE_GLOBAL, // chat inputs
-		CHAT_COPY, // chat inputs
-		CHAT_PASTE, // chat inputs
-		CHAT_CTRL, // chat inputs
 		BUTTON_COUNT
 	};
 
-	constexpr auto kButtonNames = lcf::makeEnumTags<InputButton>(
+	constexpr auto kInputButtonNames = lcf::makeEnumTags<InputButton>(
 		"UP",
 		"DOWN",
 		"LEFT",
@@ -129,21 +122,24 @@ namespace Input {
 		"RESET",
 		"PAGE_UP",
 		"PAGE_DOWN",
+		"MOUSE_LEFT",
+		"MOUSE_RIGHT",
+		"MOUSE_MIDDLE",
 		"SCROLL_UP",
 		"SCROLL_DOWN",
-		"FAST_FORWARD",
-		"FAST_FORWARD_PLUS",
+		"FAST_FORWARD_A",
+		"FAST_FORWARD_B",
 		"TOGGLE_FULLSCREEN",
-		"TOGGLE_ZOOM",
-		"BUTTON_COUNT");
+		"TOGGLE_ZOOM");
+	static_assert(kInputButtonNames.size() == static_cast<size_t>(BUTTON_COUNT));
 
-	constexpr auto kButtonHelp = lcf::makeEnumTags<InputButton>(
+	constexpr auto kInputButtonHelp = lcf::makeEnumTags<InputButton>(
 		"Up Direction",
 		"Down Direction",
 		"Left Direction",
 		"Right Direction",
-		"Decision Key",
-		"Cancel Key",
+		"Decision (Enter) Key",
+		"Cancel (ESC) Key",
 		"Shift Key",
 		"Number 0",
 		"Number 1",
@@ -164,20 +160,23 @@ namespace Input {
 		"(Test Play) Walk through walls",
 		"(Test Play) Open the save menu",
 		"(Test Play) Aborts current active event",
-		"Open the settings menu",
+		"Open this settings menu",
 		"Toggle the FPS display",
 		"Take a screenshot",
 		"Show the console log on the screen",
 		"Reset to the title screen",
-		"Page up key",
-		"Page down key",
+		"Move up one page in menus",
+		"Move down one page in menus",
+		"Left mouse key",
+		"Right mouse key",
+		"Middle mouse key",
 		"Scroll up key",
 		"Scroll down key",
-		"Fast forward key",
-		"Fast forward plus key",
+		"Run the game at x{} speed",
+		"Run the game at x{} speed",
 		"Toggle Fullscreen mode",
-		"Toggle Window Zoom level",
-		"Total Button Count");
+		"Toggle Window Zoom level");
+	static_assert(kInputButtonHelp.size() == static_cast<size_t>(BUTTON_COUNT));
 
 	/**
 	 * Return true if the given button is a system button.
@@ -190,8 +189,27 @@ namespace Input {
 			case TAKE_SCREENSHOT:
 			case SHOW_LOG:
 			case TOGGLE_ZOOM:
-			case FAST_FORWARD:
-			case FAST_FORWARD_PLUS:
+			case FAST_FORWARD_A:
+			case FAST_FORWARD_B:
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	/**
+	 * Protected buttons are buttons where unmapping them makes the Player unusable.
+	 * @return true when the button is protected
+	 */
+	constexpr bool IsProtectedButton(InputButton b) {
+		switch (b) {
+			case UP:
+			case DOWN:
+			case LEFT:
+			case RIGHT:
+			case DECISION:
+			case CANCEL:
+			case SETTINGS_MENU: // Not really critical but needs a way to enter it
 				return true;
 			default:
 				return false;
@@ -213,7 +231,7 @@ namespace Input {
 			NUM_DIRECTIONS = 10,
 		};
 
-		static constexpr auto kNames = lcf::makeEnumTags<InputDirection>(
+		static constexpr auto kInputDirectionNames = lcf::makeEnumTags<InputDirection>(
 			"NONE",
 			"DOWNLEFT",
 			"DOWN",
@@ -223,8 +241,8 @@ namespace Input {
 			"RIGHT",
 			"UPLEFT",
 			"UP",
-			"UPRIGHT",
-			"NUM_DIRECTIONS");
+			"UPRIGHT");
+		static_assert(kInputDirectionNames.size() == static_cast<size_t>(NUM_DIRECTIONS));
 	};
 
 	using ButtonMappingArray = FlatUniqueMultiMap<InputButton,Keys::InputKey>;
@@ -233,7 +251,7 @@ namespace Input {
 	using ButtonMapping = ButtonMappingArray::pair_type;
 
 	inline std::ostream& operator<<(std::ostream& os, ButtonMapping bm) {
-		os << "{ " << kButtonNames.tag(bm.first) << ", " << Keys::kNames.tag(bm.second) << " }";
+		os << "{ " << kInputButtonNames.tag(bm.first) << ", " << Keys::kInputKeyNames.tag(bm.second) << " }";
 		return os;
 	}
 
@@ -243,7 +261,7 @@ namespace Input {
 	using DirectionMapping = DirectionMappingArray::pair_type;
 
 	inline std::ostream& operator<<(std::ostream& os, DirectionMapping dm) {
-		os << "{ " << Direction::kNames.tag(dm.first) << ", " << kButtonNames.tag(dm.second) << " }";
+		os << "{ " << Direction::kInputDirectionNames.tag(dm.first) << ", " << kInputButtonNames.tag(dm.second) << " }";
 		return os;
 	}
 
@@ -253,11 +271,11 @@ namespace Input {
 	/** Returns default button mappings */
 	ButtonMappingArray GetDefaultButtonMappings();
 
-	/** Returns default direction mappings */
-	DirectionMappingArray GetDefaultDirectionMappings();
-
 	/** Returns platform-specific, human readable name for an input key */
 	KeyNamesArray GetInputKeyNames();
+
+	/** Used to declare which config options are available */
+	void GetSupportedConfig(Game_ConfigInput& cfg);
 
 #if USE_SDL==1
 	SdlAxis GetSdlAxis();

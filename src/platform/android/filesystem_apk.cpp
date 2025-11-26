@@ -18,20 +18,20 @@
 #include "filesystem_apk.h"
 #include "filefinder.h"
 #include "output.h"
+#include "android.h"
 
 #include <jni.h>
 #include <SDL_system.h>
 
 ApkFilesystem::ApkFilesystem() : Filesystem("", FilesystemView()) {
-	JNIEnv* env = (JNIEnv*)SDL_AndroidGetJNIEnv();
-	jobject sdl_activity = (jobject)SDL_AndroidGetActivity();
-	jclass cls = env->GetObjectClass(sdl_activity);
-	jmethodID jni_getAssetManager = env->GetMethodID(cls, "getAssetManager", "()Landroid/content/res/AssetManager;");
-	jobject asset_manager = (jobject)env->CallObjectMethod(sdl_activity, jni_getAssetManager);
+	JNIEnv* env = EpAndroid::env;
+	jclass cls = env->FindClass("org/easyrpg/player/player/EasyRpgPlayerActivity");
+	jmethodID jni_getAssetManager = env->GetStaticMethodID(cls, "getAssetManager", "()Landroid/content/res/AssetManager;");
+	jobject asset_manager = (jobject)env->CallStaticObjectMethod(cls, jni_getAssetManager);
 	mgr = AAssetManager_fromJava(env, asset_manager);
 }
 
-bool ApkFilesystem::IsFile(StringView path) const {
+bool ApkFilesystem::IsFile(std::string_view path) const {
 	AAsset* asset = AAssetManager_open(mgr, ToString(path).c_str(), AASSET_MODE_STREAMING);
 	if (!asset) {
 		return false;
@@ -40,7 +40,7 @@ bool ApkFilesystem::IsFile(StringView path) const {
 	return true;
 }
 
-bool ApkFilesystem::IsDirectory(StringView dir, bool) const {
+bool ApkFilesystem::IsDirectory(std::string_view dir, bool) const {
 	// The openDir has no way to indicate failure
 	// This will also report false for empty directories...
 	AAssetDir* asset = AAssetManager_openDir(mgr, ToString(dir).c_str());
@@ -52,11 +52,11 @@ bool ApkFilesystem::IsDirectory(StringView dir, bool) const {
 	return name != nullptr;
 }
 
-bool ApkFilesystem::Exists(StringView filename) const {
+bool ApkFilesystem::Exists(std::string_view filename) const {
 	return IsFile(filename) || IsDirectory(filename, false);
 }
 
-int64_t ApkFilesystem::GetFilesize(StringView path) const {
+int64_t ApkFilesystem::GetFilesize(std::string_view path) const {
 	AAsset* asset = AAssetManager_open(mgr, ToString(path).c_str(), AASSET_MODE_STREAMING);
 	if (!asset) {
 		return -1;
@@ -82,7 +82,7 @@ private:
 	AAsset* asset;
 };
 
-std::streambuf* ApkFilesystem::CreateInputStreambuffer(StringView path, std::ios_base::openmode mode) const {
+std::streambuf* ApkFilesystem::CreateInputStreambuffer(std::string_view path, std::ios_base::openmode mode) const {
 	AAsset* asset = AAssetManager_open(mgr, ToString(path).c_str(), AASSET_MODE_STREAMING);
 	if (!asset) {
 		return nullptr;
@@ -99,11 +99,11 @@ std::streambuf* ApkFilesystem::CreateInputStreambuffer(StringView path, std::ios
 	return new AassetStreamBuf(asset, Span<uint8_t>(buffer, len));
 }
 
-std::streambuf* ApkFilesystem::CreateOutputStreambuffer(StringView, std::ios_base::openmode) const {
+std::streambuf* ApkFilesystem::CreateOutputStreambuffer(std::string_view, std::ios_base::openmode) const {
 	return nullptr;
 }
 
-bool ApkFilesystem::GetDirectoryContent(StringView path, std::vector<DirectoryTree::Entry>& entries) const {
+bool ApkFilesystem::GetDirectoryContent(std::string_view path, std::vector<DirectoryTree::Entry>& entries) const {
 	// WARNING: API Limitation
 	// According to Android source code some implementations will skip directories here!
 	// The function is good enough to boot a zip in standalone mode.

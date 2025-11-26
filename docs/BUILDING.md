@@ -18,10 +18,10 @@ Building requirements:
 
 Step-by-step instructions:
 
-    tar xf easyrpg-player-0.7.tar.xz # unpack the tarball
-    cd easyrpg-player-0.7            # enter in the package directory
-    ./configure                      # find libraries, set options
-    make                             # compile the executable
+    tar xf easyrpg-player-0.8.1.tar.xz # unpack the tarball
+    cd easyrpg-player-0.8.1            # enter in the package directory
+    ./configure                        # find libraries, set options
+    make                               # compile the executable
 
 Additional building requirements when using the source tree (git):
 
@@ -39,12 +39,12 @@ To generate the "configure" script, run before following the above section:
 Building requirements:
 
 - pkg-config (only on Linux)
-- CMake 3.10 or newer
+- CMake 3.18 or newer
 
 Step-by-step instructions:
 
-    tar xf easyrpg-player-0.7.tar.xz      # unpack the tarball
-    cd easyrpg-player-0.7                 # enter in the package directory
+    tar xf easyrpg-player-0.8.1.tar.xz    # unpack the tarball
+    cd easyrpg-player-0.8.1               # enter in the package directory
     cmake . -DCMAKE_BUILD_TYPE=Release    # configure project
     cmake --build .                       # compile the executable
     sudo cmake --build . --target install # install system-wide
@@ -78,8 +78,8 @@ Building requirements:
 
 Step-by-step instructions:
 
-    tar xf easyrpg-player-0.7.tar.xz     # unpack the tarball
-    cd easyrpg-player-0.7/builds/android # enter in the android directory
+    tar xf easyrpg-player-0.8.1.tar.xz     # unpack the tarball
+    cd easyrpg-player-0.8.1/builds/android # enter in the android directory
     ./gradlew -PtoolchainDirs="DIR1;DIR2" assembleRelease # create the APK
 
 Replace ``DIR1`` etc. with the path to the player dependencies. You can use
@@ -94,13 +94,13 @@ The unsigned APK is stored in:
     app/build/outputs/apk/release/app-release-unsigned.apk
 
 
-## Nintendo and Sony Homebrew ports (Wii, 3DS, Switch, PSVita/PSTV)
+## Nintendo and Sony Homebrew ports (Wii (U), 3DS, Switch, PSVita/PSTV)
 
 This is based on the CMake method.
 
 Building requirements:
 
-- devkitPPC for Wii
+- devkitPPC for Wii and Wii U
 - devkitARM for 3DS
 - devkitA64 for Switch
 - vitasdk for PSVita/PSTV
@@ -110,13 +110,12 @@ and vitasdk: https://vitasdk.org
 
 Invoke CMake with these additional parameters:
 
-    -DCMAKE_TOOLCHAIN_FILE=<DEVKITPRO>/cmake/3DS|Switch|Wii.cmake
+    -DCMAKE_TOOLCHAIN_FILE=<DEVKITPRO>/cmake/3DS|Switch|Wii|WiiU.cmake
                          (or <VITASDK>/share/vita.toolchain.cmake)
-    -DPLAYER_TARGET_PLATFORM=3ds|switch|wii|psvita
 
-Switch and 3DS support romfs game loading, use these parameters:
+Switch, Wii U and 3DS support shipping games, use these parameters:
 
-    -DPLAYER_ROMFS=ON -DPLAYER_ROMFS_PATH=path/to/myGame
+    -DPLAYER_BUNDLE=ON -DPLAYER_BUNDLE_PATH=path/to/myGame
 
 
 [buildscripts]: https://github.com/EasyRPG/buildscripts

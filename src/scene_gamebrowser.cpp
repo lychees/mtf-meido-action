@@ -19,12 +19,15 @@
 #include "scene_gamebrowser.h"
 
 #include <memory>
+#include "options.h"
+#include "scene_settings.h"
+#include "audio_midi.h"
 #include "audio_secache.h"
 #include "cache.h"
 #include "game_system.h"
 #include "input.h"
 #include "player.h"
-#include "scene_title.h"
+#include "scene_logo.h"
 #include "bitmap.h"
 #include "audio.h"
 #include "output.h"
@@ -47,11 +50,17 @@ void Scene_GameBrowser::Continue(SceneType /* prev_scene */) {
 
 	Cache::ClearAll();
 	AudioSeCache::Clear();
+	MidiDecoder::Reset();
 	lcf::Data::Clear();
-	Main_Data::Cleanup();
+	Player::ResetGameObjects();
+
+	// Restore the base resolution
+	Player::RestoreBaseResolution();
 
 	Player::game_title = "";
-	Player::engine = Player::EngineNone;
+	Player::game_title_original = "";
+
+	Player::translation.Reset();
 
 	Font::ResetDefault();
 
@@ -61,7 +70,7 @@ void Scene_GameBrowser::Continue(SceneType /* prev_scene */) {
 	Player::debug_flag = initial_debug_flag;
 }
 
-void Scene_GameBrowser::Update() {
+void Scene_GameBrowser::vUpdate() {
 	if (game_loading) {
 		BootGame();
 		return;
@@ -82,29 +91,30 @@ void Scene_GameBrowser::CreateWindows() {
 	// Create Options Window
 	std::vector<std::string> options;
 
-	options.emplace_back("Games");
-	options.emplace_back("About");
-	options.emplace_back("Exit");
+	options.push_back("Games");
+	options.push_back("Settings");
+	options.push_back("About");
+	options.push_back("Exit");
 
-	command_window = std::make_unique<Window_Command>(options, 60);
+	command_window = std::make_unique<Window_Command_Horizontal>(options, Player::screen_width);
 	command_window->SetY(32);
 	command_window->SetIndex(0);
 
-	gamelist_window = std::make_unique<Window_GameList>(60, 32, SCREEN_TARGET_WIDTH - 60, SCREEN_TARGET_HEIGHT - 32);
+	gamelist_window = std::make_unique<Window_GameList>(0, 64, Player::screen_width, Player::screen_height - 64);
 	gamelist_window->Refresh(stack.back().filesystem, false);
 
 	if (stack.size() == 1 && !gamelist_window->HasValidEntry()) {
 		command_window->DisableItem(0);
 	}
 
-	help_window = std::make_unique<Window_Help>(0, 0, SCREEN_TARGET_WIDTH, 32);
+	help_window = std::make_unique<Window_Help>(0, 0, Player::screen_width, 32);
 	help_window->SetText("EasyRPG Player - RPG Maker 2000/2003 interpreter");
 
-	load_window = std::make_unique<Window_Help>(SCREEN_TARGET_WIDTH / 4, SCREEN_TARGET_HEIGHT / 2 - 16, SCREEN_TARGET_WIDTH / 2, 32);
+	load_window = std::make_unique<Window_Help>(Player::screen_width / 4, Player::screen_height / 2 - 16, Player::screen_width / 2, 32);
 	load_window->SetText("Loading...");
 	load_window->SetVisible(false);
 
-	about_window = std::make_unique<Window_About>(60, 32, SCREEN_TARGET_WIDTH - 60, SCREEN_TARGET_HEIGHT - 32);
+	about_window = std::make_unique<Window_About>(0, 64, Player::screen_width, Player::screen_height - 64);
 	about_window->Refresh();
 	about_window->SetVisible(false);
 }
@@ -142,6 +152,9 @@ void Scene_GameBrowser::UpdateCommand() {
 				break;
 			case About:
 				break;
+			case Options:
+				Scene::Push(std::make_shared<Scene_Settings>());
+				break;
 			default:
 				Scene::Pop();
 		}
@@ -177,39 +190,59 @@ void Scene_GameBrowser::BootGame() {
 		return;
 	}
 
-	FilesystemView fs;
-	std::string entry;
-	std::tie(fs, entry) = gamelist_window->GetGameFilesystem();
+	auto entry = gamelist_window->GetFilesystemEntry();
 
-	if (!fs) {
+	if (!entry.fs) {
 		Output::Warning("The selected file or directory cannot be opened");
 		load_window->SetVisible(false);
 		game_loading = false;
 		return;
 	}
 
-	if (!FileFinder::IsValidProject(fs)) {
+	if (entry.type == FileFinder::ProjectType::Unknown) {
+		// Fetched again for platforms where the type is not populated due to bad IO performance
+		entry.type = FileFinder::GetProjectType(entry.fs);
+	}
+
+	if (entry.type > FileFinder::ProjectType::Supported) {
+		// Game is using a known unsupported engine
+		Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Buzzer));
+		Output::Warning(
+				"{} has unsupported engine {}",
+				FileFinder::GetPathAndFilename(entry.fs.GetFullPath()).second,
+				FileFinder::kProjectType.tag(entry.type)
+		);
+		load_window->SetVisible(false);
+		game_loading = false;
+		return;
+	}
+
+	if (entry.type == FileFinder::ProjectType::Unknown && !FileFinder::OpenViewToEasyRpgFile(entry.fs)) {
 		// Not a game: Open as directory
 		load_window->SetVisible(false);
 		game_loading = false;
-		if (!gamelist_window->Refresh(fs, true)) {
+		if (!gamelist_window->Refresh(entry.fs, true)) {
 			Output::Warning("The selected file or directory cannot be opened");
 			return;
 		}
-		stack.push_back({ fs, gamelist_window->GetIndex() });
+		stack.push_back({ entry.fs, gamelist_window->GetIndex() });
 		gamelist_window->SetIndex(0);
 
 		return;
 	}
 
-	FileFinder::SetGameFilesystem(fs);
+	FileFinder::SetGameFilesystem(entry.fs);
 	Player::CreateGameObjects();
-
-	if (!Player::startup_language.empty()) {
-		Player::translation.SelectLanguage(Player::startup_language);
-	}
-	Scene::Push(std::make_shared<Scene_Title>());
 
 	game_loading = false;
 	load_window->SetVisible(false);
+
+	auto logos = Scene_Logo::LoadLogos();
+	if (!logos.empty()) {
+		// Delegate to Scene_Logo when a startup graphic was found
+		Scene::Push(std::make_shared<Scene_Logo>(std::move(logos), 1));
+		return;
+	}
+
+	Scene::PushTitleScene();
 }

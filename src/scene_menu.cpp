@@ -24,6 +24,7 @@
 #include "game_system.h"
 #include "input.h"
 #include "player.h"
+#include "scene_settings.h"
 #include "scene_debug.h"
 #include "scene_end.h"
 #include "scene_equip.h"
@@ -36,9 +37,6 @@
 #include "feature.h"
 
 constexpr int menu_command_width = 88;
-
-constexpr int menu_status_offset_x = MENU_OFFSET_X + 88;
-
 constexpr int gold_window_width = 88;
 constexpr int gold_window_height = 32;
 
@@ -51,10 +49,10 @@ void Scene_Menu::Start() {
 	CreateCommandWindow();
 
 	// Gold Window
-	gold_window.reset(new Window_Gold(MENU_OFFSET_X, (SCREEN_TARGET_HEIGHT - gold_window_height - MENU_OFFSET_Y), gold_window_width, gold_window_height));
+	gold_window.reset(new Window_Gold(Player::menu_offset_x, (Player::screen_height - gold_window_height - Player::menu_offset_y), gold_window_width, gold_window_height));
 
 	// Status Window
-	menustatus_window.reset(new Window_MenuStatus(menu_status_offset_x, MENU_OFFSET_Y, (MENU_WIDTH - menu_command_width), MENU_HEIGHT));
+	menustatus_window.reset(new Window_MenuStatus(Player::menu_offset_x + menu_command_width, Player::menu_offset_y, (MENU_WIDTH - menu_command_width), MENU_HEIGHT));
 	menustatus_window->SetActive(false);
 }
 
@@ -63,7 +61,7 @@ void Scene_Menu::Continue(SceneType /* prev_scene */) {
 	gold_window->Refresh();
 }
 
-void Scene_Menu::Update() {
+void Scene_Menu::vUpdate() {
 	command_window->Update();
 	gold_window->Update();
 	menustatus_window->Update();
@@ -85,6 +83,9 @@ void Scene_Menu::CreateCommandWindow() {
 		command_options.push_back(Skill);
 		command_options.push_back(Equipment);
 		command_options.push_back(Save);
+		if (Player::player_config.settings_in_menu.Get()) {
+			command_options.push_back(Settings);
+		}
 		if (Player::debug_flag) {
 			command_options.push_back(Debug);
 		}
@@ -107,6 +108,9 @@ void Scene_Menu::CreateCommandWindow() {
 					command_options.push_back((CommandOptionType)*it);
 					break;
 				}
+		}
+		if (Player::player_config.settings_in_menu.Get()) {
+			command_options.push_back(Settings);
 		}
 		if (Player::debug_flag) {
 			command_options.push_back(Debug);
@@ -142,6 +146,9 @@ void Scene_Menu::CreateCommandWindow() {
 		case Wait:
 			options.push_back(ToString(Main_Data::game_system->GetAtbMode() == lcf::rpg::SaveSystem::AtbMode_atb_wait ? lcf::Data::terms.wait_on : lcf::Data::terms.wait_off));
 			break;
+		case Settings:
+			options.push_back("Settings");
+			break;
 		case Debug:
 			options.push_back("Debug");
 			break;
@@ -152,8 +159,8 @@ void Scene_Menu::CreateCommandWindow() {
 	}
 
 	command_window.reset(new Window_Command(options, menu_command_width));
-	command_window->SetX(MENU_OFFSET_X);
-	command_window->SetY(MENU_OFFSET_Y);
+	command_window->SetX(Player::menu_offset_x);
+	command_window->SetY(Player::menu_offset_y);
 	command_window->SetIndex(menu_index);
 
 	// Disable items
@@ -166,6 +173,7 @@ void Scene_Menu::CreateCommandWindow() {
 			}
 		case Wait:
 		case Quit:
+		case Settings:
 		case Debug:
 			break;
 		case Order:
@@ -233,6 +241,10 @@ void Scene_Menu::UpdateCommand() {
 			command_window->SetItemText(menu_index,
 				Main_Data::game_system->GetAtbMode() == lcf::rpg::SaveSystem::AtbMode_atb_wait ? lcf::Data::terms.wait_on : lcf::Data::terms.wait_off);
 			break;
+		case Settings:
+			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Game_System::SFX_Decision));
+			Scene::Push(std::make_shared<Scene_Settings>());
+			break;
 		case Debug:
 			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
 			Scene::Push(std::make_shared<Scene_Debug>());
@@ -259,15 +271,15 @@ void Scene_Menu::UpdateActorSelection() {
 				return;
 			}
 			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
-			Scene::Push(std::make_shared<Scene_Skill>(menustatus_window->GetIndex()));
+			Scene::Push(std::make_shared<Scene_Skill>(Main_Data::game_party->GetActors(), menustatus_window->GetIndex()));
 			break;
 		case Equipment:
 			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
-			Scene::Push(std::make_shared<Scene_Equip>(*menustatus_window->GetActor()));
+			Scene::Push(std::make_shared<Scene_Equip>(Main_Data::game_party->GetActors(), menustatus_window->GetIndex()));
 			break;
 		case Status:
 			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
-			Scene::Push(std::make_shared<Scene_Status>(menustatus_window->GetIndex()));
+			Scene::Push(std::make_shared<Scene_Status>(Main_Data::game_party->GetActors(), menustatus_window->GetIndex()));
 			break;
 		case Row:
 		{

@@ -23,6 +23,7 @@
 #include <chrono>
 #include "filesystem_stream.h"
 #include "game_clock.h"
+#include "output.h"
 
 #ifdef USE_LIBRETRO
 #include "platform/libretro/midiout_device.h"
@@ -33,7 +34,10 @@
 #elif _WIN32
 #include "platform/windows/midiout_device_win32.h"
 #elif __APPLE__
-#include "platform/macos/midiout_device_coreaudio.h"
+#  include <TargetConditionals.h>
+#  if TARGET_OS_OSX
+#    include "platform/macos/midiout_device_coreaudio.h"
+#  endif
 #endif
 
 using namespace std::chrono_literals;
@@ -43,18 +47,21 @@ static struct {
 	bool alsa = true;
 	bool win32 = true;
 	bool coreaudio = true;
+	std::string status;
 } works;
 
 GenericAudioMidiOut::GenericAudioMidiOut() {
 	stop_thread.store(false);
 
 #ifdef USE_LIBRETRO
+	std::string libretro_status;
 	if (works.libretro) {
-		auto dec = std::make_unique<LibretroMidiOutDevice>();
+		auto dec = std::make_unique<LibretroMidiOutDevice>(libretro_status);
 		if (dec->IsInitialized()) {
 			midi_out = std::make_unique<AudioDecoderMidi>(std::move(dec));
 		} else {
 			works.libretro = false;
+			Output::Debug(libretro_status);
 		}
 	}
 
@@ -65,31 +72,38 @@ GenericAudioMidiOut::GenericAudioMidiOut() {
 
 #ifdef HAVE_ALSA
 	if (works.alsa) {
-		auto dec = std::make_unique<AlsaMidiOutDevice>();
+		auto dec = std::make_unique<AlsaMidiOutDevice>(works.status);
 		if (dec->IsInitialized()) {
 			midi_out = std::make_unique<AudioDecoderMidi>(std::move(dec));
 		} else {
 			works.alsa = false;
+			Output::Debug(works.status);
 		}
 	}
 #elif _WIN32
 	if (works.win32) {
-		auto dec = std::make_unique<Win32MidiOutDevice>();
+		auto dec = std::make_unique<Win32MidiOutDevice>(works.status);
 		if (dec->IsInitialized()) {
 			midi_out = std::make_unique<AudioDecoderMidi>(std::move(dec));
 		} else {
 			works.win32 = false;
+			Output::Debug(works.status);
 		}
 	}
-#elif __APPLE__
+#elif TARGET_OS_OSX
 	if (works.coreaudio) {
-		auto dec = std::make_unique<CoreAudioMidiOutDevice>();
+		auto dec = std::make_unique<CoreAudioMidiOutDevice>(works.status);
 		if (dec->IsInitialized()) {
 			midi_out = std::make_unique<AudioDecoderMidi>(std::move(dec));
 		} else {
 			works.coreaudio = false;
+			Output::Debug(works.status);
 		}
 	}
+#endif
+
+#ifdef USE_LIBRETRO
+	works.status = libretro_status + ". " + works.status;
 #endif
 }
 
@@ -112,21 +126,6 @@ void GenericAudioMidiOut::UpdateMidiOut(std::chrono::microseconds delta) {
 	LockMutex();
 	assert(midi_out);
 
-	// Prevent stuck notes when the clock stops incrementing
-	// libretro does this and there is no callback to detect a lost focus
-	constexpr int stuck_treshold = 30;
-	if (delta == 0us) {
-		++midi_output_stuck;
-		if (midi_output_stuck == stuck_treshold) {
-			midi_out->Pause();
-		}
-	} else {
-		if (midi_output_stuck >= stuck_treshold) {
-			midi_out->Resume();
-		}
-		midi_output_stuck = 0;
-	}
-
 	midi_out->UpdateMidi(delta);
 	UnlockMutex();
 }
@@ -143,22 +142,25 @@ void GenericAudioMidiOut::StopThread() {
 }
 
 void GenericAudioMidiOut::ThreadFunction() {
-	Game_Clock::time_point start_ticks = Game_Clock::now();
+	// The libretro clock is not updating often enough for good MIDI timing but
+	// all platforms that support Native Midi also have a working high precision clock
+	using clock = std::chrono::steady_clock;
+
+	auto start_ticks = clock::now();
 	while (!stop_thread) {
-		auto ticks = Game_Clock::now();
+		auto ticks = clock::now();
 
 		auto us = std::chrono::duration_cast<std::chrono::microseconds>(ticks - start_ticks);
 		UpdateMidiOut(us);
 
-		// Some clocks (libretro) do not support sleeping
-		// All platforms that support Native Midi have working sleep_for
 		std::this_thread::sleep_for(1ms);
 
 		start_ticks = ticks;
 	}
 }
 
-bool GenericAudioMidiOut::IsInitialized() const {
+bool GenericAudioMidiOut::IsInitialized(std::string& status_message) const {
+	status_message = works.status;
 	return midi_out != nullptr;
 }
 

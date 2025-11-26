@@ -37,6 +37,7 @@ public:
 	virtual int GetWidth() const;
 	virtual int GetHeight() const;
 
+	BitmapRef& GetBitmap();
 	BitmapRef const& GetBitmap() const;
 	void SetBitmap(BitmapRef const& bitmap);
 	Rect const& GetSrcRect() const;
@@ -102,7 +103,6 @@ public:
 	 */
 	void SetFlashEffect(const Color &color);
 
-	Rect myRect = {0,0,0,0};
 private:
 	BitmapRef bitmap;
 
@@ -150,6 +150,10 @@ inline int Sprite::GetWidth() const {
 
 inline int Sprite::GetHeight() const {
 	return src_rect.height;
+}
+
+inline BitmapRef& Sprite::GetBitmap() {
+	return bitmap;
 }
 
 inline BitmapRef const& Sprite::GetBitmap() const {

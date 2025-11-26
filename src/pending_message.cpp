@@ -1,16 +1,35 @@
+/*
+ * This file is part of EasyRPG Player.
+ *
+ * EasyRPG Player is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * EasyRPG Player is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with EasyRPG Player. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "pending_message.h"
 #include "game_variables.h"
+#include "game_strings.h"
 #include "game_actors.h"
 #include "game_message.h"
+#include "game_switches.h"
 #include <lcf/data.h>
 #include "output.h"
 #include "utils.h"
 #include "player.h"
 #include "main_data.h"
-#include "game_system.h"
 #include <cassert>
 #include <cctype>
 #include <algorithm>
+#include <utility>
 
 static void RemoveControlChars(std::string& s) {
 	// RPG_RT ignores any control characters within messages.
@@ -18,62 +37,22 @@ static void RemoveControlChars(std::string& s) {
 	s.erase(iter, s.end());
 }
 
+PendingMessage::PendingMessage(PendingMessage::CommandInserter cmd_fn) :
+	command_inserter(std::move(cmd_fn)) {
+	// no-op
+};
+
 int PendingMessage::PushLineImpl(std::string msg) {
 	RemoveControlChars(msg);
-	msg = ApplyTextInsertingCommands(std::move(msg), Player::escape_char);
+	msg = ApplyTextInsertingCommands(std::move(msg), Player::escape_char, command_inserter);
 	texts.push_back(std::move(msg));
 	return texts.size();
 }
 
-const unsigned char kFirstBitMask = 128; // 1000000
-const unsigned char kSecondBitMask = 64; // 0100000
-const unsigned char kThirdBitMask = 32; // 0010000
-const unsigned char kFourthBitMask = 16; // 0001000
-const unsigned char kFifthBitMask = 8; // 0000100
-
-int utf8_char_len(char firstByte) {
-	std::string::difference_type offset = 1;
-	if(firstByte & kFirstBitMask) // This means the first byte has a value greater than 127, and so is beyond the ASCII range.
-	{
-		if(firstByte & kThirdBitMask) // This means that the first byte has a value greater than 224, and so it must be at least a three-octet code point.
-		{
-		if(firstByte & kFourthBitMask) // This means that the first byte has a value greater than 240, and so it must be a four-octet code point.
-			offset = 4;
-		else
-			offset = 3;
-		}
-		else
-		{
-		offset = 2;
-		}
-	}
-	return offset;
-}
-
-
-
 int PendingMessage::PushLine(std::string msg) {
 	assert(!HasChoices());
 	assert(!HasNumberInput());
-
-	std::string line, cur;
-	int len = 0;
-	for (int i=0;i<msg.size();++i) {
-		int offset = utf8_char_len(msg[i])-1;
-		int delta = 1; if (offset) delta += 1;
-		cur = msg[i];
-		for (;offset>0;--offset) {
-			cur += msg[++i];
-		}
-		if (len >= (Main_Data::game_system->GetMessageFaceIndex() ? 37 : 49)) {
-			PushLineImpl(line); line.clear();
-			len = 0;
-		}
-
-		line += cur;
-		len += delta;
-	}
-	return PushLineImpl(line);
+	return PushLineImpl(std::move(msg));
 }
 
 int PendingMessage::PushChoice(std::string msg, bool enabled) {
@@ -115,7 +94,7 @@ void PendingMessage::SetChoiceResetColors(bool value) {
 	choice_reset_color = value;
 }
 
-std::string PendingMessage::ApplyTextInsertingCommands(std::string input, uint32_t escape_char) {
+std::string PendingMessage::ApplyTextInsertingCommands(std::string input, uint32_t escape_char, const CommandInserter& cmd_fn) {
 	if (input.empty()) {
 		return input;
 	}
@@ -149,29 +128,11 @@ std::string PendingMessage::ApplyTextInsertingCommands(std::string input, uint32
 		const auto ch = *iter;
 		++iter;
 
-		if (ch == 'N' || ch == 'n') {
-			auto parse_ret = Game_Message::ParseActor(iter, end, escape_char, true);
-			iter = parse_ret.next;
-			int value = parse_ret.value;
-
-			const auto* actor = Main_Data::game_actors->GetActor(value);
-			if (!actor) {
-				Output::Warning("Invalid Actor Id {} in message text", value);
-			} else{
-				output.append(ToString(actor->GetName()));
-			}
-
+		auto fn_res = cmd_fn(ch, &iter, end, escape_char);
+		if (fn_res) {
+			output.append(*fn_res);
 			start_copy = iter;
-		} else if (ch == 'V' || ch == 'v') {
-			auto parse_ret = Game_Message::ParseVariable(iter, end, escape_char, true);
-			iter = parse_ret.next;
-			int value = parse_ret.value;
-
-			int variable_value = Main_Data::game_variables->Get(value);
-			output.append(std::to_string(variable_value));
-
-			start_copy = iter;
-		}
+		} 
 	}
 
 	if (start_copy == input.data()) {
@@ -184,4 +145,27 @@ std::string PendingMessage::ApplyTextInsertingCommands(std::string input, uint32
 	return output;
 }
 
+std::optional<std::string> PendingMessage::DefaultCommandInserter(char ch, const char** iter, const char* end, uint32_t escape_char) {
+	if (ch == 'N' || ch == 'n') {
+		auto parse_ret = Game_Message::ParseActor(*iter, end, escape_char, true);
+		*iter = parse_ret.next;
+		int value = parse_ret.value;
 
+		const auto* actor = Main_Data::game_actors->GetActor(value);
+		if (!actor) {
+			Output::Warning("Invalid Actor Id {} in message text", value);
+			return "";
+		} else {
+			return ToString(actor->GetName());
+		}
+	} else if (ch == 'V' || ch == 'v') {
+		auto parse_ret = Game_Message::ParseVariable(*iter, end, escape_char, true);
+		*iter = parse_ret.next;
+		int value = parse_ret.value;
+
+		int variable_value = Main_Data::game_variables->Get(value);
+		return std::to_string(variable_value);
+	}
+
+	return std::nullopt;
+}

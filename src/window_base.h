@@ -46,13 +46,13 @@ public:
 	/**
 	 * Updates the window.
 	 */
-	virtual void Update();
+	void Update() override;
 
 	/**
 	 * Draw helpers.
 	 */
 	/** @{ */
-	void DrawFace(StringView face_name, int face_index, int cx, int cy, bool flip = false);
+	void DrawFace(std::string_view face_name, int face_index, int cx, int cy, bool flip = false);
 	void DrawActorFace(const Game_Actor& actor, int cx, int cy);
 	void DrawActorName(const Game_Battler& actor, int cx, int cy) const;
 	void DrawActorTitle(const Game_Actor& actor, int cx, int cy) const;

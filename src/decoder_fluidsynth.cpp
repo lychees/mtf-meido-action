@@ -16,6 +16,7 @@
  */
 
 #include "system.h"
+#include "audio.h"
 #include "decoder_fluidsynth.h"
 
 #if defined(HAVE_FLUIDSYNTH) || defined(HAVE_FLUIDLITE)
@@ -93,46 +94,31 @@ static fluid_fileapi_t fluidlite_vio = {
 };
 #endif
 
-namespace {
-	bool shutdown = false;
-	std::string preferred_soundfont;
-}
-
-struct FluidSettingsDeleter {
+struct FluidSynthDeleter {
 	void operator()(fluid_settings_t* s) const {
 		delete_fluid_settings(s);
 	}
-};
 
-struct FluidSynthDeleter {
 	void operator()(fluid_synth_t* s) const {
 		delete_fluid_synth(s);
-		shutdown = true;
 	}
 };
 
 namespace {
-	std::unique_ptr<fluid_settings_t, FluidSettingsDeleter> global_settings;
+	bool once = false;
+	bool init = false;
+
+	std::unique_ptr<fluid_settings_t, FluidSynthDeleter> global_settings;
 	std::unique_ptr<fluid_synth_t, FluidSynthDeleter> global_synth;
-#if defined(HAVE_FLUIDSYNTH) && FLUIDSYNTH_VERSION_MAJOR > 1
-	fluid_sfloader_t* global_loader; // owned by global_settings
-#endif
+	std::unique_ptr<fluid_synth_t, FluidSynthDeleter> pending_global_synth;
+
 	int instances = 0;
 }
 
-static fluid_synth_t* create_synth(std::string& error_message) {
-	fluid_synth_t* syn = new_fluid_synth(global_settings.get());
-	if (!syn) {
-		error_message = "new_fluid_synth failed";
-		return nullptr;
-	}
-
-#if defined(HAVE_FLUIDSYNTH) && FLUIDSYNTH_VERSION_MAJOR > 1
-	fluid_synth_add_sfloader(syn, global_loader);
-#endif
-
+static bool load_default_sf(std::string& status_message, fluid_synth_t* syn) {
 	// Attempt loading a soundfont
 	std::vector<std::string> sf_paths;
+	std::string preferred_soundfont = Audio().GetFluidsynthSoundfont();
 	if (!preferred_soundfont.empty()) {
 		sf_paths.emplace_back(preferred_soundfont);
 	}
@@ -140,7 +126,7 @@ static fluid_synth_t* create_synth(std::string& error_message) {
 
 #if FLUIDSYNTH_VERSION_MAJOR >= 2
 	char* default_sf = nullptr;
-	if (fluid_settings_dupstr(global_settings.get(), "synth.default-soundfont", &default_sf) == FLUID_OK) {
+	if (fluid_settings_dupstr(global_settings.get(), "synth.default-soundfont", &default_sf) == 0) {
 		if (default_sf != nullptr && default_sf[0] != '\0') {
 			sf_paths.emplace_back(default_sf);
 		}
@@ -159,25 +145,46 @@ static fluid_synth_t* create_synth(std::string& error_message) {
 		sf_paths.insert(sf_paths.end(), sdl_sfs.begin(), sdl_sfs.end());
 	}
 
+#ifdef SYSTEM_DESKTOP_LINUX_BSD_MACOS
 	auto sf_files = {"FluidR3_GM.sf2"};
 	for (const auto& sf_file: sf_files) {
 		sf_paths.emplace_back(FileFinder::MakePath("/usr/share/soundfonts", sf_file));
 		sf_paths.emplace_back(FileFinder::MakePath("/usr/share/sounds/sf2", sf_file));
 	}
+#endif
 
 	bool sf_load_success = false;
 	for (const auto& sf_name: sf_paths) {
 		if (fluid_synth_sfload(syn, sf_name.c_str(), 1) != FLUID_FAILED) {
 			sf_load_success = true;
-			Output::Debug("Fluidsynth: Using soundfont {}", sf_name);
+			status_message = fmt::format("Using soundfont {}", sf_name);
 			break;
 		}
 	}
 
 	if (!sf_load_success) {
-		error_message = "Fluidsynth: Could not load soundfont.";
+		status_message = "Could not load soundfont.";
+		return false;
+	}
+
+	return true;
+}
+
+static fluid_synth_t* create_synth(std::string& status_message) {
+	fluid_synth_t* syn = new_fluid_synth(global_settings.get());
+	if (!syn) {
+		status_message = "new_fluid_synth failed";
 		return nullptr;
 	}
+
+#if defined(HAVE_FLUIDSYNTH) && FLUIDSYNTH_VERSION_MAJOR > 1
+	// Fluidsynth 1.x does not support VIO API for soundfonts
+	// owned by fluid_synth
+	auto* loader = new_fluid_defsfloader(global_settings.get());
+	fluid_sfloader_set_callbacks(loader,
+			vio_open, vio_read, vio_seek, vio_tell, vio_close);
+	fluid_synth_add_sfloader(syn, loader);
+#endif
 
 	fluid_synth_set_interp_method(syn, -1, FLUID_INTERP_LINEAR);
 
@@ -191,13 +198,13 @@ FluidSynthDecoder::FluidSynthDecoder() {
 	// Sharing is only not possible when a Midi is played as a SE (unlikely)
 	if (instances > 1) {
 		std::string error_message;
-		instance_synth = create_synth(error_message);
-		if (!instance_synth) {
+		local_synth = create_synth(error_message);
+		if (!local_synth) {
 			// unlikely, the SF was already allocated once
 			Output::Debug("FluidSynth failed: {}", error_message);
 		}
 	} else {
-		instance_synth = global_synth.get();
+		use_global_synth = true;
 		fluid_synth_program_reset(global_synth.get());
 	}
 }
@@ -206,58 +213,65 @@ FluidSynthDecoder::~FluidSynthDecoder() {
 	--instances;
 	assert(instances >= 0);
 
-	if (instance_synth != global_synth.get()) {
-		delete_fluid_synth(instance_synth);
+	if (use_global_synth) {
+		// Exhaust the internal synth buffer
+		// Prevents that old samples play when a new Midi song starts (even when there was a longer break between them)
+		std::array<uint8_t, 64 * 4> buffer;
+		fluid_synth_write_s16(global_synth.get(), buffer.size() / 4, buffer.data(), 0, 2, buffer.data(), 1, 2);
+	} else {
+		delete_fluid_synth(local_synth);
 	}
 }
 
-bool FluidSynthDecoder::Initialize(std::string& error_message) {
-	static bool init = false;
-	static bool once = false;
+bool FluidSynthDecoder::Initialize(std::string& status_message) {
+	// only initialize once until a new game starts
+	if (once) {
+		if (!init && global_settings && !global_synth) {
+			global_synth.reset(create_synth(status_message));
+			if (global_synth) {
+				if (!load_default_sf(status_message, global_synth.get())) {
+					global_synth.reset();
+				}
+			}
 
-	// only initialize once
-	if (once)
+			init = (global_synth != nullptr);
+		}
 		return init;
+	}
+
 	once = true;
 
 #ifdef HAVE_FLUIDLITE
 	fluid_set_default_fileapi(&fluidlite_vio);
 #endif
 
+	global_settings.reset(new_fluid_settings());
 	if (!global_settings) {
-		global_settings.reset(new_fluid_settings());
-		if (!global_settings) {
-			return false;
-		}
-		fluid_settings_setstr(global_settings.get(), "player.timing-source", "sample");
-		fluid_settings_setint(global_settings.get(), "synth.lock-memory", 0);
+		return false;
+	}
+	fluid_settings_setstr(global_settings.get(), "player.timing-source", "sample");
+	fluid_settings_setint(global_settings.get(), "synth.lock-memory", 0);
 
-		fluid_settings_setnum(global_settings.get(), "synth.gain", 0.6);
-		fluid_settings_setnum(global_settings.get(), "synth.sample-rate", EP_MIDI_FREQ);
-		fluid_settings_setint(global_settings.get(), "synth.polyphony", 256);
+	fluid_settings_setnum(global_settings.get(), "synth.gain", 0.6);
+	fluid_settings_setnum(global_settings.get(), "synth.sample-rate", EP_MIDI_FREQ);
+	fluid_settings_setint(global_settings.get(), "synth.polyphony", 256);
 
 #if defined(HAVE_FLUIDSYNTH) && FLUIDSYNTH_VERSION_MAJOR > 1
-		fluid_settings_setint(global_settings.get(), "synth.reverb.active", 0);
-		fluid_settings_setint(global_settings.get(), "synth.chorus.active", 0);
+	fluid_settings_setint(global_settings.get(), "synth.reverb.active", 0);
+	fluid_settings_setint(global_settings.get(), "synth.chorus.active", 0);
 #else
-		fluid_settings_setstr(global_settings.get(), "synth.reverb.active", "no");
-		fluid_settings_setstr(global_settings.get(), "synth.chorus.active", "no");
+	fluid_settings_setstr(global_settings.get(), "synth.reverb.active", "no");
+	fluid_settings_setstr(global_settings.get(), "synth.chorus.active", "no");
 #endif
 
-		// Fluidsynth 1.x does not support VIO API for soundfonts
-#if defined(HAVE_FLUIDSYNTH) && FLUIDSYNTH_VERSION_MAJOR > 1
-		// owned by fluid_settings
-		global_loader = new_fluid_defsfloader(global_settings.get());
-		fluid_sfloader_set_callbacks(global_loader,
-				vio_open, vio_read, vio_seek, vio_tell, vio_close);
-#endif
+	global_synth.reset(create_synth(status_message));
+	if (!global_synth) {
+		return false;
 	}
 
-	if (!global_synth) {
-		global_synth.reset(create_synth(error_message));
-		if (!global_synth) {
-			return false;
-		}
+	if (!load_default_sf(status_message, global_synth.get())) {
+		global_synth.reset();
+		return false;
 	}
 
 	init = true;
@@ -265,11 +279,43 @@ bool FluidSynthDecoder::Initialize(std::string& error_message) {
 	return init;
 }
 
-void FluidSynthDecoder::SetSoundfont(StringView sf) {
-	preferred_soundfont = ToString(sf);
+void FluidSynthDecoder::ResetState() {
+	once = false;
+	init = false;
+
+	global_synth.reset();
+	global_settings.reset();
+	pending_global_synth.reset();
+}
+
+bool FluidSynthDecoder::ChangeGlobalSoundfont(std::string_view sf_path, std::string& status_message) {
+	if (!global_synth) {
+		return false;
+	}
+
+	pending_global_synth.reset(create_synth(status_message));
+
+	if (!pending_global_synth) {
+		return false;
+	}
+
+	if (sf_path.empty()) {
+		return load_default_sf(status_message, pending_global_synth.get());
+	}
+
+	if (fluid_synth_sfload(pending_global_synth.get(), ToString(sf_path).c_str(), 1) != FLUID_FAILED) {
+		status_message = fmt::format("Using soundfont {}", sf_path);
+		return true;
+	}
+
+	pending_global_synth.reset();
+	status_message = "Could not load soundfont.";
+	return false;
 }
 
 int FluidSynthDecoder::FillBuffer(uint8_t* buffer, int length) {
+	auto* instance_synth = GetSynthInstance();
+
 	if (!instance_synth) {
 		return -1;
 	}
@@ -282,6 +328,8 @@ int FluidSynthDecoder::FillBuffer(uint8_t* buffer, int length) {
 }
 
 void FluidSynthDecoder::SendMidiMessage(uint32_t message) {
+	auto* instance_synth = GetSynthInstance();
+
 	if (!instance_synth) {
 		return;
 	}
@@ -329,8 +377,28 @@ void FluidSynthDecoder::SendSysExMessage(const uint8_t* data, std::size_t size) 
 		return;
 	}
 
+	auto* instance_synth = GetSynthInstance();
+
 	fluid_synth_sysex(instance_synth, reinterpret_cast<const char*>(data + 1), static_cast<int>(size - 2),
 		nullptr, nullptr, nullptr, 0);
+}
+
+fluid_synth_t *FluidSynthDecoder::GetSynthInstance() {
+	if (use_global_synth) {
+		return global_synth.get();
+	} else {
+		return local_synth;
+	}
+}
+
+void FluidSynthDecoder::OnNewMidi() {
+	if (pending_global_synth) {
+		global_synth = std::move(pending_global_synth);
+	}
+}
+
+bool FluidSynthDecoder::NeedsSoftReset() {
+	return true;
 }
 
 #endif

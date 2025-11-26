@@ -77,20 +77,6 @@ static_assert(Game_Character::IsDirectionFixedAnimationType(lcf::rpg::EventPage:
 static_assert(!Game_Character::IsDirectionFixedAnimationType(lcf::rpg::EventPage::AnimType_spin), "DirFixedBroken");
 static_assert(!Game_Character::IsDirectionFixedAnimationType(lcf::rpg::EventPage::AnimType_step_frame_fix), "DirFixedBroken");
 
-#if 0
-
-	/** @return the direction we would need to face the hero. */
-	int GetDirectionToHero();
-
-	/** @return the direction we would need to face away from hero. */
-	int GetDirectionAwayHero();
-
-	virtual Drawable::Z_t GetScreenZ(bool apply_shift = false) const;
-
-	int DistanceXfromPlayer() const;
-	int DistanceYfromPlayer() const;
-#endif
-
 TEST_SUITE_BEGIN("Game_Character");
 
 static void testInit(Game_Character& ch, int max_stop_count = 0) {
@@ -206,7 +192,7 @@ TEST_CASE("InitPlayer") {
 	REQUIRE_EQ(ch.GetVehicle(), nullptr);
 
 	REQUIRE(!ch.IsEncounterCalling());
-	REQUIRE_EQ(ch.GetEncounterSteps(), 0);
+	REQUIRE_EQ(ch.GetTotalEncounterRate(), 0);
 	REQUIRE(!ch.IsMenuCalling());
 
 	REQUIRE(!ch.IsPanActive());
@@ -412,8 +398,8 @@ TEST_CASE("BasicSetPlayer") {
 	ch.SetEncounterCalling(true);
 	REQUIRE(ch.IsEncounterCalling());
 
-	ch.SetEncounterSteps(100);
-	REQUIRE_EQ(ch.GetEncounterSteps(), 100);
+	ch.SetTotalEncounterRate(100);
+	REQUIRE_EQ(ch.GetTotalEncounterRate(), 100);
 
 	// FIMXE: Test Panning
 

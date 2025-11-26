@@ -19,7 +19,11 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include "game_config.h"
+#include "options.h"
+#include "scene_settings.h"
 #include "scene_title.h"
+#include "scene_language.h"
 #include "audio.h"
 #include "audio_secache.h"
 #include "cache.h"
@@ -48,6 +52,25 @@ Scene_Title::Scene_Title() {
 void Scene_Title::Start() {
 	Main_Data::game_system->ResetSystemGraphic();
 
+	// Change the resolution of the window
+	if (Player::has_custom_resolution) {
+		Player::ChangeResolution(Player::screen_width, Player::screen_height);
+	} else {
+		switch (DisplayUi->GetConfig().game_resolution.Get()) {
+			case ConfigEnum::GameResolution::Original:
+				Player::ChangeResolution(SCREEN_TARGET_WIDTH, SCREEN_TARGET_HEIGHT);
+				break;
+			case ConfigEnum::GameResolution::Widescreen:
+				Player::ChangeResolution(416, SCREEN_TARGET_HEIGHT);
+				Player::game_config.fake_resolution.Set(true);
+				break;
+			case ConfigEnum::GameResolution::Ultrawide:
+				Player::ChangeResolution(560, SCREEN_TARGET_HEIGHT);
+				Player::game_config.fake_resolution.Set(true);
+				break;
+		}
+	}
+
 	// Skip background image and music if not used
 	if (CheckEnableTitleGraphicAndMusic()) {
 		CreateTitleGraphic();
@@ -55,19 +78,6 @@ void Scene_Title::Start() {
 	}
 
 	CreateCommandWindow();
-	CreateTranslationWindow();
-	CreateHelpWindow();
-}
-
-void Scene_Title::CreateHelpWindow() {
-	help_window.reset(new Window_Help(0, 0, SCREEN_TARGET_WIDTH, 32));
-
-	if (Player::IsRPG2k3E() && lcf::Data::battlecommands.transparency == lcf::rpg::BattleCommands::Transparency_transparent) {
-		help_window->SetBackOpacity(160);
-	}
-
-	help_window->SetVisible(false);
-	translate_window->SetHelpWindow(help_window.get());
 }
 
 
@@ -81,7 +91,9 @@ void Scene_Title::Continue(SceneType prev_scene) {
 		AudioSeCache::Clear();
 
 		Player::ResetGameObjects();
-		Main_Data::game_ineluki->ExecuteScriptList(FileFinder::Game().FindFile("autorun.script"));
+		if (Player::IsPatchKeyPatch()) {
+			Main_Data::game_ineluki->ExecuteScriptList(FileFinder::Game().FindFile("autorun.script"));
+		}
 
 		Start();
 
@@ -96,7 +108,7 @@ void Scene_Title::Continue(SceneType prev_scene) {
 }
 
 void Scene_Title::TransitionIn(SceneType prev_scene) {
-	if (Game_Battle::battle_test.enabled || !lcf::Data::system.show_title || Player::new_game_flag)
+	if (Game_Battle::battle_test.enabled || !Check2k3ShowTitle() || Player::game_config.new_game.Get())
 		return;
 
 	if (prev_scene == Scene::Load || Player::hide_title_flag) {
@@ -106,18 +118,22 @@ void Scene_Title::TransitionIn(SceneType prev_scene) {
 	Transition::instance().InitShow(Transition::TransitionFadeIn, this);
 }
 
-void Scene_Title::Suspend(Scene::SceneType next_scene) {
+void Scene_Title::Suspend(Scene::SceneType scene_type) {
+	if (scene_type == Scene::Settings || scene_type == Scene::LanguageMenu) {
+		restart_title_cache = true;
+	}
+
 	// Unload title graphic to save memory
 	title.reset();
 }
 
-void Scene_Title::Update() {
+void Scene_Title::vUpdate() {
 	if (Game_Battle::battle_test.enabled) {
 		Player::SetupBattleTest();
 		return;
 	}
 
-	if (!lcf::Data::system.show_title || Player::new_game_flag) {
+	if (!Check2k3ShowTitle() || Player::game_config.new_game.Get()) {
 		Player::SetupNewGame();
 		if (Player::debug_flag && Player::hide_title_flag) {
 			Scene::Push(std::make_shared<Scene_Load>());
@@ -125,44 +141,45 @@ void Scene_Title::Update() {
 		return;
 	}
 
-	if (active_window == 0) {
-		command_window->Update();
-	} else {
-		translate_window->Update();
-	}
+	command_window->Update();
 
 	if (Input::IsTriggered(Input::DECISION)) {
-		if (active_window == 0) {
-			int index = command_window->GetIndex();
-			if (index == indices.new_game) {  // New Game
-				CommandNewGame();
-			} else if (index == indices.continue_game) {  // Load Game
-				CommandContinue();
-			} else if (index == indices.import) {  // Import (multi-part games)
-				CommandImport();
-			} else if (index == indices.translate) { // Choose a Translation (Language)
-				CommandTranslation();
-			} else if (index == indices.exit) {  // Exit Game
-				CommandShutdown();
-			}
-		} else if (active_window == 1) {
-			int index = translate_window->GetIndex();
-			ChangeLanguage(lang_dirs.at(index));
+		int index = command_window->GetIndex();
+		if (index == indices.new_game) {  // New Game
+			CommandNewGame();
+		} else if (index == indices.continue_game) {  // Load Game
+			CommandContinue();
+		} else if (index == indices.import) {  // Import (multi-part games)
+			CommandImport();
+		} else if (index == indices.settings) {
+			CommandSettings();
+		} else if (index == indices.translate) { // Choose a Translation (Language)
+			CommandTranslation();
+		} else if (index == indices.exit) {  // Exit Game
+			CommandShutdown();
 		}
-	} else if (Input::IsTriggered(Input::CANCEL)) {
-		if (active_window == 1) {
-			// Switch back
-			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Cancel));
-			HideTranslationWindow();
+	} else if (Input::IsTriggered(Input::SHIFT)) {
+		// For emscripten: Allow accessing the load scene for file upload with Shift
+		int index = command_window->GetIndex();
+		if (index == indices.continue_game) {
+			CommandContinue();
 		}
 	}
+}
+
+void Scene_Title::Refresh() {
+	// Enable load game if available
+	continue_enabled = FileFinder::HasSavegame();
+	if (continue_enabled) {
+		command_window->SetIndex(1);
+	}
+	command_window->SetItemEnabled(1, continue_enabled);
 }
 
 void Scene_Title::OnTranslationChanged() {
 	Start();
 
 	command_window->SetIndex(indices.translate);
-	HideTranslationWindow();
 
 	Scene::OnTranslationChanged();
 }
@@ -177,17 +194,17 @@ void Scene_Title::CreateTitleGraphic() {
 		request->Start();
 	} else {
 		title.reset(new Sprite());
-		title->SetBitmap(Bitmap::Create(DisplayUi->GetWidth(), DisplayUi->GetHeight(), Color(0, 0, 0, 255)));
+		title->SetBitmap(Bitmap::Create(Player::screen_width, Player::screen_height, Color(0, 0, 0, 255)));
 	}
 }
 
 void Scene_Title::RepositionWindow(Window_Command& window, bool center_vertical) {
 	if (!center_vertical) {
-		window.SetX(SCREEN_TARGET_WIDTH / 2 - window.GetWidth() / 2);
-		window.SetY(SCREEN_TARGET_HEIGHT * 53 / 60 - window.GetHeight());
+		window.SetX(Player::screen_width / 2 - window.GetWidth() / 2);
+		window.SetY(Player::screen_height * 53 / 60 - window.GetHeight());
 	} else {
-		window.SetX(SCREEN_TARGET_WIDTH / 2 - window.GetWidth() / 2);
-		window.SetY(SCREEN_TARGET_HEIGHT / 2 - window.GetHeight() / 2);
+		window.SetX(Player::screen_width / 2 - window.GetWidth() / 2);
+		window.SetY(Player::screen_height / 2 - window.GetHeight() / 2);
 	}
 }
 
@@ -207,8 +224,16 @@ void Scene_Title::CreateCommandWindow() {
 		indices.exit++;
 	}
 
+	// Set "Settings" based on the configuration
+	if (Player::player_config.settings_in_title.Get()) {
+		// FIXME: Translation? Not shown by default though
+		options.push_back("Settings");
+		indices.settings = indices.exit;
+		indices.exit++;
+	}
+
 	// Set "Translate" based on metadata
-	if (Player::translation.HasTranslations()) {
+	if (Player::translation.HasTranslations() && Player::player_config.lang_select_in_title.Get()) {
 		options.push_back(Player::meta->GetExVocabTranslateTitleText());
 		indices.translate = indices.exit;
 		indices.exit++;
@@ -219,13 +244,7 @@ void Scene_Title::CreateCommandWindow() {
 	command_window.reset(new Window_Command(options));
 	RepositionWindow(*command_window, Player::hide_title_flag);
 
-	// Enable load game if available
-	continue_enabled = FileFinder::HasSavegame();
-	if (continue_enabled) {
-		command_window->SetIndex(1);
-	} else {
-		command_window->DisableItem(1);
-	}
+	Refresh();
 
 	// Set the number of frames for the opening animation to last
 	if (!Player::hide_title_flag) {
@@ -234,49 +253,10 @@ void Scene_Title::CreateCommandWindow() {
 
 	if (Player::IsRPG2k3E() && lcf::Data::battlecommands.transparency == lcf::rpg::BattleCommands::Transparency_transparent) {
 		command_window->SetBackOpacity(160);
+		command_window->SetBackgroundPreserveTransparentColor(true);
 	}
 
 	command_window->SetVisible(true);
-}
-
-void Scene_Title::CreateTranslationWindow() {
-	// Build a list of 'Default' and all known languages.
-	std::vector<std::string> lang_names;
-	lang_names.push_back("Default Language");
-	lang_dirs.push_back("");
-	lang_helps.push_back("Play the game in its original language.");
-
-	// Push menu entries with the display name, but also save the directory location and help text.
-	for (const Language& lg : Player::translation.GetLanguages()) {
-		lang_names.push_back(lg.lang_name);
-		lang_dirs.push_back(lg.lang_dir);
-		lang_helps.push_back(lg.lang_desc);
-	}
-
-	// Allow overwriting text of the default language
-	const Language& def = Player::translation.GetDefaultLanguage();
-	if (!def.lang_name.empty()) {
-		lang_names.front() = def.lang_name;
-	}
-	if (!def.lang_desc.empty()) {
-		lang_helps.front() = def.lang_desc;
-	}
-
-	translate_window = std::make_unique<Window_Command>(lang_names, -1, lang_names.size() > 9 ? 9 : lang_names.size());
-	translate_window->UpdateHelpFn = [this](Window_Help& win, int index) {
-		if (index >= 0 && index < static_cast<int>(lang_helps.size())) {
-			win.SetText(lang_helps[index]);
-		} else {
-			win.SetText("");
-		}
-	};
-	RepositionWindow(*translate_window, Player::hide_title_flag);
-
-	if (Player::IsRPG2k3E() && lcf::Data::battlecommands.transparency == lcf::rpg::BattleCommands::Transparency_transparent) {
-		translate_window->SetBackOpacity(160);
-	}
-
-	translate_window->SetVisible(false);
 }
 
 void Scene_Title::PlayTitleMusic() {
@@ -287,10 +267,14 @@ void Scene_Title::PlayTitleMusic() {
 }
 
 bool Scene_Title::CheckEnableTitleGraphicAndMusic() {
-	return lcf::Data::system.show_title &&
-		!Player::new_game_flag &&
+	return Check2k3ShowTitle() &&
+		!Player::game_config.new_game.Get() &&
 		!Game_Battle::battle_test.enabled &&
 		!Player::hide_title_flag;
+}
+
+bool Scene_Title::Check2k3ShowTitle() {
+	return !Player::IsRPG2k3E() || (Player::IsRPG2k3E() && lcf::Data::system.show_title);
 }
 
 bool Scene_Title::CheckValidPlayerLocation() {
@@ -308,7 +292,7 @@ void Scene_Title::CommandNewGame() {
 }
 
 void Scene_Title::CommandContinue() {
-	if (continue_enabled) {
+	if (continue_enabled || Input::IsTriggered(Input::SHIFT)) {
 		Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
 	} else {
 		Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Buzzer));
@@ -324,34 +308,16 @@ void Scene_Title::CommandImport() {
 	Scene::Push(std::make_shared<Scene_Import>());
 }
 
+void Scene_Title::CommandSettings() {
+	Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
+
+	Scene::Push(std::make_unique<Scene_Settings>());
+}
+
 void Scene_Title::CommandTranslation() {
 	Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
 
-	// Switch windows
-	active_window = 1;
-	command_window->SetVisible(false);
-	translate_window->SetVisible(true);
-	help_window->SetVisible(true);
-}
-
-void Scene_Title::ChangeLanguage(const std::string& lang_str) {
-	Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
-
-	// No-op?
-	if (lang_str == Player::translation.GetCurrentLanguage().lang_dir) {
-		HideTranslationWindow();
-		return;
-	}
-
-	// First change the language
-	Player::translation.SelectLanguage(lang_str);
-}
-
-void Scene_Title::HideTranslationWindow() {
-	active_window = 0;
-	command_window->SetVisible(true);
-	translate_window->SetVisible(false);
-	help_window->SetVisible(false);
+	Scene::Push(std::make_unique<Scene_Language>());
 }
 
 void Scene_Title::CommandShutdown() {
@@ -361,7 +327,17 @@ void Scene_Title::CommandShutdown() {
 }
 
 void Scene_Title::OnTitleSpriteReady(FileRequestResult* result) {
-	title->SetBitmap(Cache::Title(result->file));
+	BitmapRef bitmapRef = Cache::Title(result->file);
+
+	title->SetBitmap(bitmapRef);
+
+	// If the title sprite doesn't fill the screen, center it to support custom resolutions
+	if (bitmapRef->GetWidth() < Player::screen_width) {
+		title->SetX(Player::menu_offset_x);
+	}
+	if (bitmapRef->GetHeight() < Player::screen_height) {
+		title->SetY(Player::menu_offset_y);
+	}
 }
 
 void Scene_Title::OnGameStart() {

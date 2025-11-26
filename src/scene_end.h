@@ -20,6 +20,7 @@
 
 // Headers
 #include "scene.h"
+#include "scene_title.h"
 #include "window_command.h"
 #include "window_help.h"
 
@@ -32,11 +33,13 @@ class Scene_End : public Scene {
 public:
 	/**
 	 * Constructor.
+	 *
+	 * @param target_scene Scene entered after selecting "Yes"
 	 */
-	Scene_End();
+	Scene_End(SceneType target_scene = Scene::Title);
 
 	void Start() override;
-	void Update() override;
+	void vUpdate() override;
 
 	/**
 	 * Creates the Window displaying the yes and no option.
@@ -54,6 +57,8 @@ private:
 	std::unique_ptr<Window_Help> help_window;
 	/** Command window containing the yes and no option. */
 	std::unique_ptr<Window_Command> command_window;
+
+	SceneType target_scene;
 };
 
 #endif

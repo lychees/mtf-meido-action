@@ -22,7 +22,7 @@ class AudioDecoderMidi;
 
 #include "audio_decoder_base.h"
 
-#if defined(GEKKO) || defined(__3DS__)
+#if defined(__wii__) || defined(__3DS__)
 #  define EP_MIDI_FREQ 22050
 #else
 #  define EP_MIDI_FREQ 44100
@@ -181,19 +181,56 @@ public:
 	}
 
 	/**
+	 * Notifies the sequencer that a new MIDI is about to start.
+	 */
+	virtual void OnNewMidi() {};
+
+	/*
+	 * Does the sequencer need "sound off" messages sent to every channel between
+	 * tracks? NOTE: enabling this can break smooth fade outs between tracks.
+	 *
+	 * @return true only if synth needs "sound off" messages between tracks.
+	 */
+	virtual bool NeedsSoftReset() {
+		return false;
+	}
+
+	/**
 	 * Attempts to initialize a Midi library for processing the Midi data.
 	 *
-	 * @param stream handle to parse
 	 * @param resample Whether the decoder shall be wrapped into a resampler (if supported)
 	 * @return A Midi decoder instance when the Midi data is supported, otherwise null
 	 */
-	static std::unique_ptr<AudioDecoderBase> Create(Filesystem_Stream::InputStream& stream, bool resample);
+	static std::unique_ptr<AudioDecoderBase> Create(bool resample);
 
-	static std::unique_ptr<AudioDecoderBase> CreateFluidsynth(Filesystem_Stream::InputStream& stream, bool resample);
+	static std::unique_ptr<AudioDecoderBase> CreateFluidsynth(bool resample);
 
-	static std::unique_ptr<AudioDecoderBase> CreateWildMidi(Filesystem_Stream::InputStream& stream, bool resample);
+	static std::unique_ptr<AudioDecoderBase> CreateWildMidi(bool resample);
 
-	static std::unique_ptr<AudioDecoderBase> CreateFmMidi(Filesystem_Stream::InputStream& stream, bool resample);
+	static std::unique_ptr<AudioDecoderBase> CreateFmMidi(bool resample);
+
+	/**
+	 * Checks if Fluidsynth works.
+	 *
+	 * @param status_message Current Fluidsynth status
+	 * @return true: Works, false: Not working
+	 */
+	static bool CheckFluidsynth(std::string& status_message);
+
+	static void ChangeFluidsynthSoundfont(std::string_view sf_path);
+
+	/**
+	 * Checks if WildMidi works.
+	 *
+	 * @param status_message Current WildMidi status
+	 * @return true: Works, false: Not working
+	 */
+	static bool CheckWildMidi(std::string& status_message);
+
+	/**
+	 * Resets the global state of the midi libraries.
+	 */
+	static void Reset();
 
 protected:
 	int frequency = EP_MIDI_FREQ;

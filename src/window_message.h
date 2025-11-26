@@ -131,7 +131,7 @@ public:
 	/** @return the number of lines per page */
 	int GetMaxLinesPerPage() const;
 
-	/** 
+	/**
 	 * Set the number of lines per page
 	 *
 	 * @param lines the number of lines
@@ -179,6 +179,8 @@ protected:
 	bool prev_char_waited = true;
 	/** Was the previous character printable? */
 	bool prev_char_printable = false;
+	/** Active font for the current page */
+	FontRef page_font;
 
 	/** Used by the number input event. */
 	std::unique_ptr<Window_NumberInput> number_input_window;
@@ -186,7 +188,10 @@ protected:
 
 	PendingMessage pending_message;
 
+	std::vector<Font::ShapeRet> shape_ret;
+
 	bool DrawGlyph(Font& font, const Bitmap& system, char32_t glyph, bool is_exfont);
+	bool DrawGlyph(Font& font, const Bitmap& system, const Font::ShapeRet& shape);
 	void IncrementLineCharCounter(int width);
 
 	void SetWaitForCharacter(int width);

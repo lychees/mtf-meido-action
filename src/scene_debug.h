@@ -20,10 +20,13 @@
 
 // Headers
 #include <vector>
+#include "game_interpreter_debug.h"
 #include "scene.h"
 #include "window_command.h"
 #include "window_numberinput.h"
 #include "window_varlist.h"
+#include "window_stringview.h"
+#include "window_interpreter.h"
 
 /**
  * Scene Equip class.
@@ -38,7 +41,7 @@ public:
 	Scene_Debug();
 
 	void Start() override;
-	void Update() override;
+	void vUpdate() override;
 	void TransitionIn(SceneType prev_scene) override;
 	void TransitionOut(SceneType next_scene) override;
 
@@ -64,9 +67,13 @@ public:
 		eMap,
 		eFullHeal,
 		eLevel,
+		eMoveSpeed,
 		eCallCommonEvent,
 		eCallMapEvent,
 		eCallBattleEvent,
+		eString,
+		eInterpreter,
+		eOpenMenu,
 		eLastMainMenuOption,
 	};
 
@@ -74,7 +81,10 @@ public:
 		eUiMain,
 		eUiRangeList,
 		eUiVarList,
-		eUiNumberInput
+		eUiNumberInput,
+		eUiStringView,
+		eUiChoices,
+		eUiInterpreterView
 	};
 private:
 	Mode mode = eMain;
@@ -93,8 +103,24 @@ private:
 	/** Creates number input window. */
 	void CreateNumberInputWindow();
 
+	/** Creates choices window. */
+	void CreateChoicesWindow();
+
+	/** Creates string view window. */
+	void CreateStringViewWindow();
+
+	/** Creates interpreter window. */
+	void CreateInterpreterWindow();
+
 	/** Get the last page for the current mode */
-	int GetLastPage();
+	int GetLastPage() const;
+
+	/** Get the first item number for the selected range */
+	int GetSelectedIndexFromRange() const;
+
+	int GetSelectedIndexFromRange(Window_VarList::Mode window_mode, int range_page, int range_index) const;
+
+	void RestoreRangeSelectionFromSelectedValue(int value);
 
 	int GetNumMainMenuItems() const;
 
@@ -106,9 +132,13 @@ private:
 	void DoMap();
 	void DoFullHeal();
 	void DoLevel();
+	void DoMoveSpeed();
 	void DoCallCommonEvent();
 	void DoCallMapEvent();
 	void DoCallBattleEvent();
+	void DoOpenMenu();
+
+	const int choice_window_width = 120;
 
 	/** Displays a range selection for mode. */
 	std::unique_ptr<Window_Command> range_window;
@@ -116,6 +146,12 @@ private:
 	std::unique_ptr<Window_VarList> var_window;
 	/** Number Editor. */
 	std::unique_ptr<Window_NumberInput> numberinput_window;
+	/** Choices window. */
+	std::unique_ptr<Window_Command> choices_window;
+	/** Windows for displaying multiline strings. */
+	std::unique_ptr<Window_StringView> stringview_window;
+	/** Displays the currently running inteprreters. */
+	std::unique_ptr<Window_Interpreter> interpreter_window;
 
 	struct StackFrame {
 		UiMode uimode = eUiMain;
@@ -136,14 +172,62 @@ private:
 	void PushUiRangeList();
 	void PushUiVarList();
 	void PushUiNumberInput(int init_value, int digits, bool show_operator);
+	void PushUiChoices(std::vector<std::string> choices, std::vector<bool> choices_enabled);
+	void PushUiStringView();
+	void PushUiInterpreterView();
 
 	Window_VarList::Mode GetWindowMode() const;
+	static constexpr Window_VarList::Mode GetWindowMode(Mode mode);
+
 	void UpdateFrameValueFromUi();
+	void UpdateDetailWindow();
+	void RefreshDetailWindow();
 
 	bool IsValidMapId(int map_id) const;
 
 	void UpdateArrows();
 	int arrow_frame = 0;
+
+	bool interpreter_states_cached = false;
+
+	void UpdateInterpreterWindow(int index);
+	lcf::rpg::SaveEventExecFrame const& GetSelectedInterpreterFrameFromUiState() const;
+	struct {
+		Debug::ParallelInterpreterStates background_states;
+
+		// Frame-scoped data types introduced in 'ScopedVars' branch
+		// bool show_frame_switches = false;
+		// bool show_frame_vars = false;
+		int selected_state = -1;
+		int selected_frame = -1;
+	} state_interpreter;
 };
+
+constexpr Window_VarList::Mode Scene_Debug::GetWindowMode(Mode mode) {
+	switch (mode) {
+		case eSwitch:
+			return Window_VarList::eSwitch;
+		case eVariable:
+			return Window_VarList::eVariable;
+		case eItem:
+			return Window_VarList::eItem;
+		case eBattle:
+			return Window_VarList::eTroop;
+		case eMap:
+			return Window_VarList::eMap;
+		case eFullHeal:
+			return Window_VarList::eHeal;
+		case eLevel:
+			return Window_VarList::eLevel;
+		case eCallCommonEvent:
+			return Window_VarList::eCommonEvent;
+		case eCallMapEvent:
+			return Window_VarList::eMapEvent;
+		case eString:
+			return Window_VarList::eString;
+		default:
+			return Window_VarList::eNone;
+	}
+}
 
 #endif

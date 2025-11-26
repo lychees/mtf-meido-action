@@ -21,29 +21,30 @@
 /** Window title to show. */
 #define GAME_TITLE "EasyRPG Player"
 
+// These two defines control the name of the folder structure in the global
+// configuration directory
+/** Parent folder name for global configuration */
+#define ORGANIZATION_NAME "EasyRPG"
+
+/** Subfolder name for global configuration */
+#define APPLICATION_NAME "Player"
+
+/** Website shown on the logo scene */
+#define WEBSITE_ADDRESS "easyrpg.org"
+
 /** Targeted screen default width. */
 #define SCREEN_TARGET_WIDTH 320
 
 /** Targeted screen default height. */
 #define SCREEN_TARGET_HEIGHT 240
 
-/** Menus width and offset */
+/** Menus width */
 #define MENU_WIDTH 320
 #define MENU_HEIGHT 240
-const int MENU_OFFSET_X = (SCREEN_TARGET_WIDTH - MENU_WIDTH) / 2;
-const int MENU_OFFSET_Y = (SCREEN_TARGET_HEIGHT - MENU_HEIGHT) / 2;
 
 /** MessageBox dimension and offset */
 #define MESSAGE_BOX_WIDTH 320
 #define MESSAGE_BOX_HEIGHT 80
-const int MESSAGE_BOX_OFFSET_X = (SCREEN_TARGET_WIDTH - MENU_WIDTH) / 2;
-
-/** ingame chat */
-#if USE_SDL==2
-    #define INGAME_CHAT // only supported with SDL2 renderer
-#endif
-#define CHAT_TARGET_WIDTH 160
-#define TOTAL_TARGET_WIDTH (SCREEN_TARGET_WIDTH + CHAT_TARGET_WIDTH)
 
 /** Working with hi resolutions. default 16 */
 #define TILE_SIZE 16
@@ -51,20 +52,13 @@ const int MESSAGE_BOX_OFFSET_X = (SCREEN_TARGET_WIDTH - MENU_WIDTH) / 2;
 /** Targeted screen bits per pixel. */
 #define SCREEN_TARGET_BPP 32
 
-/**
- * Pause the game process when the player window
- * looses its focus.
- */
-#define PAUSE_GAME_WHEN_FOCUS_LOST 1
-
-/**
- * Pause the audio process when the player window
- * looses its focus.
- */
-#define PAUSE_AUDIO_WHEN_FOCUS_LOST 1
-
 /** INI configuration filename. */
 #define INI_NAME "RPG_RT.ini"
+#define EASYRPG_INI_NAME "EasyRPG.ini"
+
+#ifndef EASYRPG_CONFIG_NAME
+#  define EASYRPG_CONFIG_NAME "config.ini"
+#endif
 
 /** Prefix for .ldb and .lmt files; used when guessing non-standard extensions. */
 #define RPG_RT_PREFIX "RPG_RT"
@@ -89,7 +83,7 @@ const int MESSAGE_BOX_OFFSET_X = (SCREEN_TARGET_WIDTH - MENU_WIDTH) / 2;
 #define TREEMAP_NAME_EASYRPG EASY_RT_PREFIX "." SUFFIX_EMT
 
 /** File name for additional metadata, such as multi-game save imports. */
-#define META_NAME "easyrpg.ini"
+#define META_NAME "Meta.ini"
 
 /**
  * RPG_RT.exe (official engine) filename.
@@ -113,7 +107,7 @@ const int MESSAGE_BOX_OFFSET_X = (SCREEN_TARGET_WIDTH - MENU_WIDTH) / 2;
 
 /** Name of the file for output. */
 #ifndef OUTPUT_FILENAME
-#  define OUTPUT_FILENAME "easyrpg_log.txt"
+#  define OUTPUT_FILENAME ORGANIZATION_NAME "-" APPLICATION_NAME ".log"
 #endif
 
 #define USE_KEYBOARD
@@ -121,7 +115,5 @@ const int MESSAGE_BOX_OFFSET_X = (SCREEN_TARGET_WIDTH - MENU_WIDTH) / 2;
 #define USE_JOYSTICK
 #define USE_JOYSTICK_AXIS
 #define USE_TOUCH
-
-//#define USE_FIXED_TIMESTEP_FPS
 
 #endif

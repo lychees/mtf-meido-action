@@ -58,7 +58,7 @@ void Scene_Import::Start() {
 	// We don't populate them until later (once we've loaded all potential importable files).
 	for (int i = 0; i < 15; i++) {
 		std::shared_ptr<Window_SaveFile>
-			w(new Window_SaveFile(0, 40 + i * 64, SCREEN_TARGET_WIDTH, 64));
+			w(new Window_SaveFile(0, 40 + i * 64, Player::screen_width, 64));
 		w->SetIndex(i);
 		w->SetVisible(false);
 		w->SetZ(Priority_Window);
@@ -67,7 +67,7 @@ void Scene_Import::Start() {
 	}
 
 	// Create a window to show scanning progress, since this can take a while.
-	progress_window.reset(new Window_ImportProgress(SCREEN_TARGET_WIDTH/4, 40 + 64, SCREEN_TARGET_WIDTH/2, 64));
+	progress_window.reset(new Window_ImportProgress(Player::screen_width/4, 40 + 64, Player::screen_width/2, 64));
 	progress_window->SetZ(Priority_Window + 1);
 
 	border_bottom = Scene_File::MakeBorderSprite(232);
@@ -75,17 +75,19 @@ void Scene_Import::Start() {
 	index = latest_slot;
 	top_index = std::max(0, index - 2);
 
+	Scene_File::Start();
+
 	Refresh();
 	Update();
 }
 
-void Scene_Import::Update() {
+void Scene_Import::vUpdate() {
 	if (progress_window->IsVisible()) {
 		UpdateScanAndProgress();
 		return;
 	}
 
-	Scene_File::Update();
+	Scene_File::vUpdate();
 }
 
 void Scene_Import::UpdateScanAndProgress() {
@@ -104,8 +106,8 @@ void Scene_Import::UpdateScanAndProgress() {
 
 	// Gather the list of children, if it does not exist.
 	if (children.empty()) {
-		/*FIXME if (Main_Data::GetSavePath() == Main_Data::GetProjectPath()) {
-			auto parentPath = FileFinder::MakePath(Main_Data::GetSavePath(), "..");
+		std::string parentPath = FileFinder::Save().MakePath("../");
+		if (FileFinder::Save().Exists("../")) {
 			parent_fs = FileFinder::Root().Create(parentPath);
 			if (parent_fs) {
 				children = Player::meta->GetImportChildPaths(parent_fs);
@@ -113,7 +115,7 @@ void Scene_Import::UpdateScanAndProgress() {
 		}
 		if (children.empty()) {
 			FinishScan();
-		}*/
+		}
 	} else if (curr_child_id < children.size()) {
 		auto candidates = Player::meta->SearchImportPaths(parent_fs, children[curr_child_id]);
 		files.insert(files.end(), candidates.begin(), candidates.end());
