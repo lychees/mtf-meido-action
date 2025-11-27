@@ -1516,6 +1516,7 @@ Video options:
                        original   - 320x240 (4:3). Recommended
                        widescreen - 416x240 (16:9)
                        ultrawide  - 560x240 (21:9)
+                      Alternatively specify WIDTHxHEIGHT, e.g. 1280x960
  --pause-focus-lost   Pause the game when the window has no focus.
                       Disable with --no-pause-focus-lost.
  --scaling S          How the video output is scaled.

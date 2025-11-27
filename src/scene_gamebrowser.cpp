@@ -54,8 +54,9 @@ void Scene_GameBrowser::Continue(SceneType /* prev_scene */) {
 	lcf::Data::Clear();
 	Player::ResetGameObjects();
 
-	// Restore the base resolution
-	Player::RestoreBaseResolution();
+    // Disable restoring the base resolution here to preserve current resolution
+    // Original behavior commented out:
+    // Player::RestoreBaseResolution();
 
 	Player::game_title = "";
 	Player::game_title_original = "";

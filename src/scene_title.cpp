@@ -53,23 +53,26 @@ void Scene_Title::Start() {
 	Main_Data::game_system->ResetSystemGraphic();
 
 	// Change the resolution of the window
-	if (Player::has_custom_resolution) {
-		Player::ChangeResolution(Player::screen_width, Player::screen_height);
-	} else {
-		switch (DisplayUi->GetConfig().game_resolution.Get()) {
-			case ConfigEnum::GameResolution::Original:
-				Player::ChangeResolution(SCREEN_TARGET_WIDTH, SCREEN_TARGET_HEIGHT);
-				break;
-			case ConfigEnum::GameResolution::Widescreen:
-				Player::ChangeResolution(416, SCREEN_TARGET_HEIGHT);
-				Player::game_config.fake_resolution.Set(true);
-				break;
-			case ConfigEnum::GameResolution::Ultrawide:
-				Player::ChangeResolution(560, SCREEN_TARGET_HEIGHT);
-				Player::game_config.fake_resolution.Set(true);
-				break;
-		}
-	}
+    if (Player::has_custom_resolution) {
+        Player::ChangeResolution(Player::screen_width, Player::screen_height);
+    } else {
+        // Disable automatic resolution reset based on configured presets.
+        // This preserves the current resolution and avoids resetting to base.
+        // Original behavior commented out:
+        // switch (DisplayUi->GetConfig().game_resolution.Get()) {
+        //     case ConfigEnum::GameResolution::Original:
+        //         Player::ChangeResolution(SCREEN_TARGET_WIDTH, SCREEN_TARGET_HEIGHT);
+        //         break;
+        //     case ConfigEnum::GameResolution::Widescreen:
+        //         Player::ChangeResolution(416, SCREEN_TARGET_HEIGHT);
+        //         Player::game_config.fake_resolution.Set(true);
+        //         break;
+        //     case ConfigEnum::GameResolution::Ultrawide:
+        //         Player::ChangeResolution(560, SCREEN_TARGET_HEIGHT);
+        //         Player::game_config.fake_resolution.Set(true);
+        //         break;
+        // }
+    }
 
 	// Skip background image and music if not used
 	if (CheckEnableTitleGraphicAndMusic()) {

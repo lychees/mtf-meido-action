@@ -497,12 +497,33 @@ void Game_Config::LoadFromArgs(CmdlineParser& cp) {
 			}
 			continue;
 		}
-		if (cp.ParseNext(arg, 1, "--game-resolution")) {
-			if (arg.ParseValue(0, str_value)) {
-				video.game_resolution.SetFromString(str_value);
-			}
-			continue;
-		}
+        if (cp.ParseNext(arg, 1, "--game-resolution")) {
+            if (arg.ParseValue(0, str_value)) {
+                std::string s = str_value;
+                auto pos_x = s.find('x');
+                if (pos_x == std::string::npos) {
+                    pos_x = s.find('X');
+                }
+                if (pos_x != std::string::npos) {
+                    try {
+                        int w = std::stoi(s.substr(0, pos_x));
+                        int h = std::stoi(s.substr(pos_x + 1));
+                        if (w > 0 && h > 0) {
+                            Player::screen_width = w;
+                            Player::screen_height = h;
+                            Player::has_custom_resolution = true;
+                        } else {
+                            video.game_resolution.SetFromString(str_value);
+                        }
+                    } catch (...) {
+                        video.game_resolution.SetFromString(str_value);
+                    }
+                } else {
+                    video.game_resolution.SetFromString(str_value);
+                }
+            }
+            continue;
+        }
 		if (cp.ParseNext(arg, 1, "--autobattle-algo")) {
 			std::string svalue;
 			if (arg.ParseValue(0, svalue)) {
