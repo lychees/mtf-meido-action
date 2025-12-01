@@ -30,6 +30,7 @@
 #include <cctype>
 #include <algorithm>
 #include <utility>
+#include "game_system.h"
 
 static void RemoveControlChars(std::string& s) {
 	// RPG_RT ignores any control characters within messages.
@@ -49,10 +50,51 @@ int PendingMessage::PushLineImpl(std::string msg) {
 	return texts.size();
 }
 
+static const unsigned char kFirstBitMask = 128; // 1000000
+static const unsigned char kSecondBitMask = 64; // 0100000
+static const unsigned char kThirdBitMask = 32; // 0010000
+static const unsigned char kFourthBitMask = 16; // 0001000
+static const unsigned char kFifthBitMask = 8; // 0000100
+
+int utf8_char_len(char firstByte) {
+	std::string::difference_type offset = 1;
+	if(firstByte & kFirstBitMask) // This means the first byte has a value greater than 127, and so is beyond the ASCII range.
+	{
+		if(firstByte & kThirdBitMask) // This means that the first byte has a value greater than 224, and so it must be at least a three-octet code point.
+		{
+		if(firstByte & kFourthBitMask) // This means that the first byte has a value greater than 240, and so it must be a four-octet code point.
+			offset = 4;
+		else
+			offset = 3;
+		}
+		else
+		{
+		offset = 2;
+		}
+	}
+	return offset;
+}
+
 int PendingMessage::PushLine(std::string msg) {
 	assert(!HasChoices());
 	assert(!HasNumberInput());
-	return PushLineImpl(std::move(msg));
+	std::string line, cur;
+	int len = 0;
+	for (int i=0;i<msg.size();++i) {
+		int offset = utf8_char_len(msg[i])-1;
+		int delta = 1; if (offset) delta += 1;
+		cur = msg[i];
+		for (;offset>0;--offset) {
+			cur += msg[++i];
+		}
+		if (len >= (Main_Data::game_system->GetMessageFaceIndex() ? 37 : 49)) {
+			PushLineImpl(line); line.clear();
+			len = 0;
+		}
+		line += cur;
+		len += delta;
+	}
+	return PushLineImpl(line);
 }
 
 int PendingMessage::PushChoice(std::string msg, bool enabled) {
