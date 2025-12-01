@@ -156,3 +156,5 @@ eboot.bin
 /EasyRPG_Player.dir
 *.sln
 *.dll
+/test_runner_player.dir/Debug
+/test_runner_player.dir
