@@ -915,16 +915,20 @@ bool Game_Interpreter::CommandShowMessage(lcf::rpg::EventCommand const& com) { /
 	pm.SetFromForegroundInterpreter(main_flag);
 
 	// Set first line
-	pm.PushLine(ToString(com.string));
+	// pm.PushLine(ToString(com.string));
+	std::string msg = ToString(com.string);
 
 	++index;
 
 	// Check for continued lines via ShowMessage_2
 	while (index < static_cast<int>(list.size()) && static_cast<Cmd>(list[index].code) == Cmd::ShowMessage_2) {
 		// Add second (another) line
-		pm.PushLine(ToString(list[index].string));
+		// pm.PushLine(ToString(list[index].string));
+		msg += ToString(list[index].string);
 		++index;
 	}
+
+	pm.PushLine(msg);
 
 	// Handle Choices or number
 	if (index < static_cast<int>(list.size())) {
