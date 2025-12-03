@@ -158,3 +158,4 @@ eboot.bin
 *.dll
 /test_runner_player.dir/Debug
 /test_runner_player.dir
+/Game

@@ -30,6 +30,7 @@
 #include <cctype>
 #include <algorithm>
 #include <utility>
+#include <regex>
 #include "game_system.h"
 
 static void RemoveControlChars(std::string& s) {
@@ -75,6 +76,24 @@ int utf8_char_len(char firstByte) {
 	return offset;
 }
 
+int calculatePatternLengths(const std::string& str) {
+    // 匹配：反斜杠 + 一个或多个字母 + [ + 一个或多个数字 + ]
+    std::regex pattern(R"(\\[a-zA-Z]+\[\d+\])");
+    int totalLength = 0;
+    
+    // 遍历所有匹配项
+    auto words_begin = std::sregex_iterator(str.begin(), str.end(), pattern);
+    auto words_end = std::sregex_iterator();
+    
+    for (auto it = words_begin; it != words_end; ++it) {
+        std::string match = it->str();
+        int len = static_cast<int>(match.length());
+        totalLength += len;
+    }
+    
+    return totalLength;
+}
+
 int PendingMessage::PushLine(std::string msg) {
 	assert(!HasChoices());
 	assert(!HasNumberInput());
@@ -87,12 +106,12 @@ int PendingMessage::PushLine(std::string msg) {
 		for (;offset>0;--offset) {
 			cur += msg[++i];
 		}
-		if (len >= (Main_Data::game_system->GetMessageFaceIndex() ? 37 : 49)) {
+		line += cur;
+		len += delta;		
+		if (len - calculatePatternLengths(line) >= (Main_Data::game_system->GetMessageFaceIndex() ? 37 : 49)) {
 			PushLineImpl(line); line.clear();
 			len = 0;
-		}
-		line += cur;
-		len += delta;
+		}		
 	}
 	return PushLineImpl(line);
 }

@@ -90,6 +90,9 @@ function parseArgs () {
 }
 
 function onPreRun () {
+  if (Module.saveFs === undefined) {
+    Module.saveFs = IDBFS;
+  }  
   // Retrieve save directory from persistent storage before using it
   FS.mkdir("Save");
   FS.mount(Module.saveFs, {}, 'Save');
