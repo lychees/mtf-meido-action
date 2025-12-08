@@ -17,18 +17,17 @@
 
 // Headers
 #include <cassert>
-#include <iostream>
 #include "scene_bartending.h"
 #include "audio.h"
 #include "cache.h"
 #include "game_party.h"
 #include "game_system.h"
+#include "game_variables.h"
 #include "input.h"
 #include "player.h"
 #include "bitmap.h"
 #include "feature.h"
-#include "game_interpreter.h"
-#include "game_variables.h"
+#include "main_data.h"
 
 constexpr int menu_bartending_width = 88;
 //constexpr int gold_window_width = 88;
