@@ -44,7 +44,7 @@ void Window_Picture::OnPictureReady(FileRequestResult* result, int cx, int cy, b
 		contents->FlipBlit(cx, cy, *picture, src_rect, true, false, Opacity::Opaque());
 	}
 	else {
-		contents->Blit(cx, cy, *picture, src_rect, 255);
+		contents->ZoomOpacityBlit(cx, cy, cx, cy, *picture, src_rect, 0.18, 0.18, 255);
 	}
 }
 
