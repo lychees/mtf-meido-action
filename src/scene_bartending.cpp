@@ -17,6 +17,7 @@
 
 // Headers
 #include <cassert>
+#include <iostream>
 #include "scene_bartending.h"
 #include "audio.h"
 #include "cache.h"
@@ -26,6 +27,8 @@
 #include "player.h"
 #include "bitmap.h"
 #include "feature.h"
+#include "game_interpreter.h"
+#include "game_variables.h"
 
 constexpr int menu_bartending_width = 88;
 //constexpr int gold_window_width = 88;
@@ -119,19 +122,14 @@ void Scene_Bartending::CreateBartendingWindow() {
 }
 
 void Scene_Bartending::UpdateCommand() {
-	if (Input::IsTriggered(Input::CANCEL)) {
-		Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Cancel));
-		Scene::Pop();
-	} else if (Input::IsTriggered(Input::DECISION)) {
+	if (Input::IsTriggered(Input::DECISION)) {
 		decision_index = bartending_window->GetIndex();
 
 		if (decision_index < bartending_options.size()) {
-			if (bartending_options[decision_index] == "") {
-				Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
-
-			} else {
-				Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Buzzer));
-			}
+			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
+			Main_Data::game_variables->Set(99, decision_index);
+			std::cout << decision_index << std::endl;
+			Scene::Pop();
 		}
 	}
 }
