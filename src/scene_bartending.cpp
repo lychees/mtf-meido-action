@@ -128,7 +128,6 @@ void Scene_Bartending::UpdateCommand() {
 		if (decision_index < bartending_options.size()) {
 			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
 			Main_Data::game_variables->Set(99, decision_index);
-			std::cout << decision_index << std::endl;
 			Scene::Pop();
 		}
 	}
