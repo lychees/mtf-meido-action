@@ -53,6 +53,7 @@
 #include "scene_map.h"
 #include "scene_save.h"
 #include "scene_settings.h"
+#include "scene_bartending.h"
 #include "scene.h"
 #include "game_clock.h"
 #include "input.h"
@@ -901,6 +902,14 @@ bool Game_Interpreter::CommandOptionGeneric(lcf::rpg::EventCommand const& com, i
 	return true;
 }
 
+bool isCommand(std::string cmd) {
+	if (cmd == ".bartending") {
+		Scene::Push(std::make_shared<Scene_Bartending>());
+		return true;
+	}
+	return false;
+}
+
 bool Game_Interpreter::CommandShowMessage(lcf::rpg::EventCommand const& com) { // code 10110
 	auto& frame = GetFrame();
 	const auto& list = frame.commands;
@@ -908,6 +917,10 @@ bool Game_Interpreter::CommandShowMessage(lcf::rpg::EventCommand const& com) { /
 
 	if (!Game_Message::CanShowMessage(main_flag)) {
 		return false;
+	}
+
+	if (isCommand(ToString(com.string))) {
+		return true;
 	}
 
 	PendingMessage pm(Game_Message::CommandCodeInserter);

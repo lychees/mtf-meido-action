@@ -60,6 +60,7 @@ public:
 		Teleport,
 		Settings,
 		LanguageMenu,
+		Bartending,
 		SceneMax
 	};
 
