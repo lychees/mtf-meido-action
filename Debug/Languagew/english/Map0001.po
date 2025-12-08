@@ -5,7 +5,7 @@ msgstr ""
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: YOUR NAME <mail@your.address>\n"
-"Language: en\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -14,7 +14,7 @@ msgstr ""
 
 #. ID 1, Page 1, Line 3, Pos (0,0)
 msgid "这个游戏正在开发中。请输入想要跳入的章节（1-4）："
-msgstr "This game is currently in development. Please enter the chapter (1-4) you want to jump into:"
+msgstr "このゲームは開発中です。飛び込みたい章を入力してください（1～4）。"
 
 #. ID 1, Page 2, Line 4, Pos (0,0)
 #. ID 1, Page 2, Line 68, Pos (0,0)
@@ -26,17 +26,19 @@ msgstr ""
 
 #. ID 1, Page 2, Line 8, Pos (0,0)
 msgid "东京都的夜晚总是繁华似锦。"
-msgstr ""
+msgstr "夜の東京はいつも賑やかです。"
 
 #. ID 1, Page 2, Line 9, Pos (0,0)
 msgid "新宿的街区则更是如此。"
-msgstr ""
+msgstr "特に新宿の界隈はそうです。"
 
 #. ID 1, Page 2, Line 10, Pos (0,0)
 msgid ""
 "即使是在这乍暖还寒的初春时景，淅淅沥沥的细雨还未完全褪去，空气中\n"
 "还伴随着淡淡的树叶与泥土气息的时候，这里的街肆依旧攘攘熙熙。"
 msgstr ""
+"まだ暖かかったり寒かったりする春先でも、霧雨がまだ完全に消えていない時や、空気が\n"
+"まだ雨が完全に消えておらず、葉や土の香りがかすかに漂う早春のこの時期でも、街は多くの人で賑わっています。"
 
 #. ID 1, Page 2, Line 12, Pos (0,0)
 msgid ""
@@ -44,10 +46,13 @@ msgid ""
 "班族、带着相机的异国游客、还是各式各样的机器人和随处可见的霓虹荧\n"
 "幕，所有的这一切似乎都在暗示着..."
 msgstr ""
+"遠くで見慣れない曲を演奏するギタリストも、2人組の女子高生も、急ぐ通勤客も、カメラを持った外国人観光客も、さまざまなロボットも、そこらじゅうにあるネオンも、です。\n"
+"女子高生、通勤ラッシュ、カメラを持った外国人観光客、様々なロボット、いたるところにあるネオンサイン。\n"
+"これらすべてが示唆するのは..."
 
 #. ID 1, Page 2, Line 15, Pos (0,0)
 msgid "这里就是\\c[11]世界的中心\\c[0]。"
-msgstr ""
+msgstr "ここに、\\c[11]世界の中心\\c[0]があります。"
 
 #. ID 1, Page 2, Line 16, Pos (0,0)
 msgid ""
@@ -118,7 +123,7 @@ msgstr ""
 #. ID 1, Page 2, Line 60, Pos (0,0)
 msgid ""
 "我伸出右手，作出敲门的手势，呆呆的望了会眼前的木质门牌 \n"
-"———— \\c[11]Shelter\\c[0]。"
+"———— \\c[11]\c[11]Shelter\c[0]\\c[0]。"
 msgstr ""
 
 #. ID 1, Page 2, Line 62, Pos (0,0)
@@ -145,14 +150,14 @@ msgstr ""
 
 #. ID 1, Page 2, Line 75, Pos (0,0)
 msgid "「你是今天入职的出云酱吧？果然是很可爱的孩子呢！」\n"
-msgstr ""
+msgstr "\"今日から参加した出雲さんですよね？本当にかわいい子ですね！\"\n"
 
 #. ID 1, Page 2, Line 77, Pos (0,0)
 msgid "她敏锐的观察了一眼藏在我口袋里一角露在外面的信封，说道。"
 msgstr ""
 
 #. ID 1, Page 2, Line 78, Pos (0,0)
-msgid "「我是小笠原里穂，Shelter 的店长，当然你也可以称呼我，大姐头。」\n"
+msgid "「我是小笠原里穂，\c[11]Shelter\c[0] 的店长，当然你也可以称呼我，大姐头。」\n"
 msgstr ""
 
 #. ID 1, Page 2, Line 80, Pos (0,0)
@@ -167,21 +172,23 @@ msgstr ""
 
 #. ID 1, Page 2, Line 89, Pos (0,0)
 msgid "「嗨...」"
-msgstr ""
+msgstr "\"ハイ...\""
 
 #. ID 1, Page 2, Line 91, Pos (0,0)
 msgid "「大姐头，找紫亚什么事？」"
-msgstr ""
+msgstr "\"お姉ちゃん、ジアに何を求めてるの？\""
 
 #. ID 1, Page 2, Line 94, Pos (0,0)
 msgid ""
 "「紫亚，这位是刚才我提到的今天准备入职的出云同学，不巧我现在有十\n"
 "分要紧的事务要离开店里一下。」"
 msgstr ""
+"\"ジア、今日から参加することになった先ほどの生徒の出雲です。\n"
+"しばらくお店を離れることになりました。\""
 
 #. ID 1, Page 2, Line 96, Pos (0,0)
 msgid "「麻烦你带她熟悉一下酒吧的日常事务吧...」"
-msgstr ""
+msgstr "\"バーの日課を彼女に教えてあげてください...\""
 
 #. ID 1, Page 2, Line 100, Pos (0,0)
 msgid "「啊，好...」"
@@ -189,7 +196,7 @@ msgstr ""
 
 #. ID 1, Page 2, Line 104, Pos (0,0)
 msgid "「那么，拜托了。」"
-msgstr ""
+msgstr "\"では、お願い。\""
 
 #. ID 1, Page 2, Line 105, Pos (0,0)
 msgid "「我现在，必须去处理\\c[11]那件事\\c[0]\\。。。」"
@@ -650,11 +657,11 @@ msgid "明明十几分钟之前它们还在家暴的。"
 msgstr ""
 
 #. ID 1, Page 4, Line 105, Pos (0,0)
-msgid "随后高个子的家伙给了一个公主抱... 两个人就这样离开了 Shelter..."
+msgid "随后高个子的家伙给了一个公主抱... 两个人就这样离开了 \c[11]Shelter\c[0]..."
 msgstr ""
 
 #. ID 1, Page 4, Line 106, Pos (0,0)
-msgid "Shelter 里只剩下我和紫亚。"
+msgid "\c[11]Shelter\c[0] 里只剩下我和紫亚。"
 msgstr ""
 
 #. ID 1, Page 4, Line 107, Pos (0,0)
@@ -780,7 +787,7 @@ msgstr ""
 #. ID 1, Page 4, Line 153, Pos (0,0)
 msgid ""
 "紫亚左手右手各拎了一袋黑色的垃圾袋，我两只手拎了一个，一起走出了 \n"
-"Shelter，随后紫亚从包里拿出了钥匙，锁上了门。"
+"\c[11]Shelter\c[0]，随后紫亚从包里拿出了钥匙，锁上了门。"
 msgstr ""
 
 #. ID 1, Page 4, Line 155, Pos (0,0)

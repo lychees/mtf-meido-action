@@ -123,7 +123,7 @@ msgstr ""
 #. ID 1, Page 2, Line 60, Pos (0,0)
 msgid ""
 "我伸出右手，作出敲门的手势，呆呆的望了会眼前的木质门牌 \n"
-"———— \\c[11]Shelter\\c[0]。"
+"———— \\c[11]\c[11]Shelter\c[0]\\c[0]。"
 msgstr ""
 
 #. ID 1, Page 2, Line 62, Pos (0,0)
@@ -157,7 +157,7 @@ msgid "她敏锐的观察了一眼藏在我口袋里一角露在外面的信封�
 msgstr ""
 
 #. ID 1, Page 2, Line 78, Pos (0,0)
-msgid "「我是小笠原里穂，Shelter 的店长，当然你也可以称呼我，大姐头。」\n"
+msgid "「我是小笠原里穂，\c[11]Shelter\c[0] 的店长，当然你也可以称呼我，大姐头。」\n"
 msgstr ""
 
 #. ID 1, Page 2, Line 80, Pos (0,0)
@@ -657,11 +657,11 @@ msgid "明明十几分钟之前它们还在家暴的。"
 msgstr ""
 
 #. ID 1, Page 4, Line 105, Pos (0,0)
-msgid "随后高个子的家伙给了一个公主抱... 两个人就这样离开了 Shelter..."
+msgid "随后高个子的家伙给了一个公主抱... 两个人就这样离开了 \c[11]Shelter\c[0]..."
 msgstr ""
 
 #. ID 1, Page 4, Line 106, Pos (0,0)
-msgid "Shelter 里只剩下我和紫亚。"
+msgid "\c[11]Shelter\c[0] 里只剩下我和紫亚。"
 msgstr ""
 
 #. ID 1, Page 4, Line 107, Pos (0,0)
@@ -787,7 +787,7 @@ msgstr ""
 #. ID 1, Page 4, Line 153, Pos (0,0)
 msgid ""
 "紫亚左手右手各拎了一袋黑色的垃圾袋，我两只手拎了一个，一起走出了 \n"
-"Shelter，随后紫亚从包里拿出了钥匙，锁上了门。"
+"\c[11]Shelter\c[0]，随后紫亚从包里拿出了钥匙，锁上了门。"
 msgstr ""
 
 #. ID 1, Page 4, Line 155, Pos (0,0)
