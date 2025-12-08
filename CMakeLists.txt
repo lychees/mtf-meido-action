@@ -27,7 +27,6 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
 
 # Must be at global scope, otherwise breaks -DPLAYER_BUILD_LIBLCF (see CMP0077)
 option(BUILD_SHARED_LIBS "Build shared easyrpg_libretro core" ON)
@@ -349,6 +348,8 @@ add_library(${PROJECT_NAME} OBJECT
 	src/scene_teleport.h
 	src/scene_title.cpp
 	src/scene_title.h
+	src/scene_bartending.cpp
+	src/scene_bartending.h
 	src/screen.cpp
 	src/screen.h
 	src/shake.h
@@ -457,6 +458,8 @@ add_library(${PROJECT_NAME} OBJECT
 	src/window_numberinput.h
 	src/window_paramstatus.cpp
 	src/window_paramstatus.h
+	src/window_picture.cpp
+	src/window_picture.h
 	src/window_savefile.cpp
 	src/window_savefile.h
 	src/window_selectable.cpp
@@ -487,6 +490,8 @@ add_library(${PROJECT_NAME} OBJECT
 	src/window_teleport.h
 	src/window_varlist.cpp
 	src/window_varlist.h
+	src/window_bartending.cpp
+	src/window_bartending.h
 )
 
 # These are actually unused when building in CMake
