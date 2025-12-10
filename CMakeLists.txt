@@ -492,6 +492,19 @@ add_library(${PROJECT_NAME} OBJECT
 	src/window_varlist.h
 	src/window_bartending.cpp
 	src/window_bartending.h
+	src/configor/configor.hpp
+	src/configor/configor_basic.hpp
+	src/configor/configor_conversion.hpp
+	src/configor/configor_declare.hpp
+	src/configor/configor_encoding.hpp
+	src/configor/configor_exception.hpp
+	src/configor/configor_iterator.hpp
+	src/configor/configor_parser.hpp
+	src/configor/configor_serializer.hpp
+	src/configor/configor_stream.hpp
+	src/configor/configor_token.hpp
+	src/configor/configor_value.hpp
+	src/configor/json.hpp	
 )
 
 # These are actually unused when building in CMake
