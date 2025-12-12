@@ -235,29 +235,6 @@ void Scene_Bartending::CreateBartendingWindow() {
 		}}
 	};
 
-
-	//bartending_options = {"Mojito", "Long Island Iced Tea", "Margarita", "Blue Hawaii", "Negroni", "Piña colada", "Bomb shot", "Clover Club", "Cosmopolitan", "White Lady", "Zombie", "Martini", "Rum", "Beer", "Vodka"};
-
-	/*discriptions = {
-		"莫吉托是一款源自古巴的清新鸡尾酒，以白朗姆酒为基酒，加入青柠汁、薄荷叶、糖和苏打水调制而成，口感清爽酸甜，带有浓郁的薄荷香气。",
-		"長島冰茶（英語：Long Island Iced Tea），取名冰茶，卻是在沒有使用紅茶的情況下，調製出具有紅茶色澤與口味的雞尾酒。",
-		"玛格丽特是一款经典的墨西哥鸡尾酒，以龙舌兰酒为基酒，加入橙皮利口酒和新鲜青柠汁调和，通常以盐圈点缀杯口，口感酸甜平衡，富有层次感。",
-		"蓝色夏威夷是一款标志性的热带鸡尾酒，以朗姆酒为基酒，混合蓝橙利口酒、椰奶和菠萝汁，呈现出独特的鲜亮蓝色与甜美顺滑的热带风味。",
-		"尼格罗尼",
-		"椰林飘香",
-		"深水炸弹是一类用啤酒和烈性酒混合配制成的鸡尾酒。",
-		"CloverClub",
-		"Cosmopolitan",
-		"WhiteLady",
-		"僵尸",
-		"朗姆酒是以甘蔗副产品（如糖蜜或甘蔗汁）为原料蒸馏而成的烈酒，以其甜润基底、风味多样（从清新到醇厚）而闻名，是许多热带鸡尾酒的核心基酒。",
-		"啤酒是以麦芽、啤酒花、水和酵母为主要原料，经过发酵制成的酒精饮料，以其丰富的泡沫、多样的风味（如拉格和艾尔）和清爽的口感而广受欢迎。",
-		"伏特加是一种经多次蒸馏以追求极致纯净的烈酒，核心原料为谷物或土豆，以其酒精度高、口感纯澈、风味中性而著称，是调酒中百搭的经典基酒。",
-		"马丁尼是一款标志性的经典短饮鸡尾酒，以金酒（或伏特加）和干味美思为核心，经搅拌冰镇而成，风格纯粹锐利，通常饰以橄榄或柠檬皮，被誉为鸡尾酒之王。"
-	};
-	pictures = {"Mojito", "LongIslandIcedTea", "Margarita", "BlueHawaii", "Negroni", "PiñaColada", "BombShot", "CloverClub", "Cosmopolitan", "WhiteLady", "Zombie", "Rum", "Beer", "Vodka", "Martini"};*/
-	// Add all menu items
-
 	for (configor::json::iterator it = json.begin(); it != json.end(); ++it) {
 		std::string name = (*it)["name"];
 		bartending_options.push_back(name);

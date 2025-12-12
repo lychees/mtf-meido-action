@@ -1297,7 +1297,7 @@ if(PLAYER_BUILD_EXECUTABLE AND ${PLAYER_TARGET_PLATFORM} MATCHES "^SDL.*$" AND N
 			set_property(TARGET ${EXE_NAME} APPEND_STRING PROPERTY LINK_FLAGS " --shell-file ${PLAYER_JS_SHELL}")
 		endif()
 
-		target_compile_options(${PROJECT_NAME} PUBLIC -fno-exceptions)
+		#target_compile_options(${PROJECT_NAME} PUBLIC -fno-exceptions)
 
 		target_sources(${PROJECT_NAME} PRIVATE
 				src/platform/emscripten/clock.h
