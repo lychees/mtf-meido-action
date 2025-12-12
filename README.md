@@ -2,7 +2,7 @@
 
 # 木桶饭妹抖行动
 
-- [试玩地址](https://static-fr.xyn.design/easyrpg/easyrpg-player.html)
+- [试玩地址](https://minakokojima.itch.io/mtf-meido-action)
 
 [toc]
 
@@ -60,7 +60,7 @@ Shelter 店员，某俄罗斯能源寡头家的小儿子，原本来说应该家
 
 ## Ref
 
-- [不可解的我的一切](https://manhua.dmzj.com/bukejiedewodeyiqie/77189.shtml#@page=1)
+- [不可解的我的一切](https://comic.acgn.cc/view-309755.htm)
 - [赛博朋克酒保行动](https://www.bilibili.com/video/BV1jW4y1G7ks)
 - [夜色玛奇莲](http://www.shuxiu.cc/read/shidu.asp?bid=6262562)
 - [药空](https://github.com/Dimples1337/Yao-niang-de-tiankong) | [恋谭](https://store.steampowered.com/app/1345740/_/)
