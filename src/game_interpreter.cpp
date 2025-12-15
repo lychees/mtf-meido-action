@@ -70,6 +70,7 @@
 #include "transition.h"
 #include "baseui.h"
 #include "algo.h"
+#include "temp_json_hardcode.h"
 
 using namespace Game_Interpreter_Shared;
 
@@ -904,9 +905,14 @@ bool Game_Interpreter::CommandOptionGeneric(lcf::rpg::EventCommand const& com, i
 
 bool isCommand(std::string cmd) {
 	if (cmd == ".bartending") {
-		Scene::Push(std::make_shared<Scene_Bartending>());
+		Scene::Push(std::make_shared<Scene_Bartending>(0, drink));
+		return true;
+	} else if (cmd == ".medicine")
+	{
+		Scene::Push(std::make_shared<Scene_Bartending>(0, medicine));
 		return true;
 	}
+	
 	return false;
 }
 

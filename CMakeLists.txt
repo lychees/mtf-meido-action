@@ -383,6 +383,7 @@ add_library(${PROJECT_NAME} OBJECT
 	src/string_view.h
 	src/system.h
 	src/teleport_target.h
+	src/temp_json_hardcode.h
 	src/text.cpp
 	src/text.h
 	src/tilemap.cpp

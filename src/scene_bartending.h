@@ -21,6 +21,7 @@
 // Headers
 #include "scene.h"
 #include "window_bartending.h"
+#include "configor/json.hpp"
 
 /**
  * Scene Menu class.
@@ -32,7 +33,7 @@ public:
 	 *
 	 * @param decision_index selected index in the menu.
 	 */
-	Scene_Bartending(int decision_index = 0);
+	Scene_Bartending(int decision_index = 0, configor::json json = {});
 
 	void Start() override;
 	//void Continue(SceneType prev_scene) override;
@@ -72,6 +73,8 @@ public:
 private:
 	/** Selected index on startup. */
 	int decision_index;
+
+	configor::json json;
 
 	/** Window displaying the bartending selections. */
 	std::unique_ptr<Window_Bartending> bartending_window;
