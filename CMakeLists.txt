@@ -350,7 +350,9 @@ add_library(${PROJECT_NAME} OBJECT
 	src/scene_title.h
 	src/scene_bartending.cpp
 	src/scene_bartending.h
-	src/screen.cpp
+	src/scene_piano.cpp
+	src/scene_piano.h
+	src/screen.cpp	
 	src/screen.h
 	src/shake.h
 	src/span.h

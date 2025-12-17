@@ -54,6 +54,7 @@
 #include "scene_save.h"
 #include "scene_settings.h"
 #include "scene_bartending.h"
+#include "scene_piano.h"
 #include "scene.h"
 #include "game_clock.h"
 #include "input.h"
@@ -907,9 +908,11 @@ bool isCommand(std::string cmd) {
 	if (cmd == ".bartending") {
 		Scene::Push(std::make_shared<Scene_Bartending>(0, drink));
 		return true;
-	} else if (cmd == ".medicine")
-	{
+	} else if (cmd == ".medicine") {
 		Scene::Push(std::make_shared<Scene_Bartending>(0, medicine));
+		return true;
+	} else if (cmd == ".piano") {
+		Scene::Push(std::make_shared<Scene_Piano>());
 		return true;
 	}
 	
