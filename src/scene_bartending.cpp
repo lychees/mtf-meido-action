@@ -120,14 +120,15 @@ void Scene_Bartending::CreateBartendingWindow() {
 }
 
 void Scene_Bartending::UpdateCommand() {
-	if (Input::IsTriggered(Input::DECISION)) {
+	if (Input::IsTriggered(Input::CANCEL)) {
+		Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Cancel));
+		Scene::Pop();
+	} else if (Input::IsTriggered(Input::DECISION)) {
 		decision_index = bartending_window->GetIndex();
 
-		if (decision_index < bartending_options.size()) {
-			Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
-			Main_Data::game_variables->Set(99, decision_index);
-			Scene::Pop();
-		}
+		Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
+		Main_Data::game_variables->Set(99, decision_index);
+		Scene::Pop();		
 	}
 }
 /*
