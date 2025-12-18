@@ -119,7 +119,10 @@ void Scene_Piano::Start() {
 	keyMap['0'] = { 75, false, "D#5" };
 	keyMap['P'] = { 76, false, "E5" };
 	MMRESULT result = midiOutOpen(&hMidiOut, 0, 0, 0, CALLBACK_NULL);
-	sendMidiMsg(PROGRAM_CHANGE | 0);	
+	sendMidiMsg(PROGRAM_CHANGE | 0);
+
+	picture_window.reset(new Window_Picture(0, 0, MENU_WIDTH, MENU_HEIGHT));
+	picture_window->Set("piano");
 }
 
 //void Scene_Piano::Continue(SceneType /* prev_scene */) {

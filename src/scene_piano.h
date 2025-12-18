@@ -20,6 +20,7 @@
 
 // Headers
 #include "scene.h"
+#include "window_bartending.h"
 #include <map>
 
 // Structure to track key state
@@ -77,7 +78,8 @@ public:
 	};
 
 private:
-	std::map<int, KeyState> keyMap;
+	std::map<int, KeyState> keyMap;		
+	std::unique_ptr<Window_Picture> picture_window;
 };
 
 #endif
