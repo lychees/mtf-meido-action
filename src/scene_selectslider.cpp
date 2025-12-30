@@ -91,7 +91,7 @@ void Scene_SelectSlider::CreateSelectSliderWindow() {
 	main_windows[2]->SetPictureWindow(picture_windows[2].get());
 	//main_window->SetHelpWindow(help_window.get());
 	UpdateIndex();
-}right
+}
 
 void Scene_SelectSlider::UpdateCommand() {
 	auto move_right = [&]() {
