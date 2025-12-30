@@ -61,6 +61,7 @@ public:
 		Settings,
 		LanguageMenu,
 		Bartending,
+		SelectSlider,
 		SceneMax
 	};
 

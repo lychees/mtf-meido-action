@@ -21,10 +21,11 @@
 #include "window_picture.h"
 #include "cache.h"
 
-Window_Picture::Window_Picture(int ix, int iy, int iwidth, int iheight) :
+Window_Picture::Window_Picture(int ix, int iy, int iwidth, int iheight, double zoom_x, double zoom_y) :
 	Window_Base(ix, iy, iwidth, iheight) {
-
-	SetContents(Bitmap::Create(width - 8, height - 8));
+	zoom_x = zoom_x;
+	zoom_y = zoom_y;
+	SetContents(Bitmap::Create(this->width - 8, this->height - 8));
 }
 
 void Window_Picture::OnPictureReady(FileRequestResult* result, int cx, int cy, bool flip) {
@@ -44,7 +45,7 @@ void Window_Picture::OnPictureReady(FileRequestResult* result, int cx, int cy, b
 		contents->FlipBlit(cx, cy, *picture, src_rect, true, false, Opacity::Opaque());
 	}
 	else {
-		contents->ZoomOpacityBlit(cx, cy, cx, cy, *picture, src_rect, 0.18, 0.18, 255);
+		contents->ZoomOpacityBlit(cx, cy, cx, cy, *picture, src_rect, zoom_x, zoom_y, 255);
 	}
 }
 
@@ -69,3 +70,8 @@ void Window_Picture::Set(const std::string name) {
 	picture_name = name;
 	Refresh();
 }
+/*
+std::string Window_Picture::Get() {
+	return picture_name;
+}
+*/

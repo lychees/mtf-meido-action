@@ -55,6 +55,7 @@
 #include "scene_settings.h"
 #include "scene_bartending.h"
 #include "scene_piano.h"
+#include "scene_selectslider.h"
 #include "scene.h"
 #include "game_clock.h"
 #include "input.h"
@@ -913,6 +914,9 @@ bool isCommand(std::string cmd) {
 		return true;
 	} else if (cmd == ".piano") {
 		Scene::Push(std::make_shared<Scene_Piano>());
+		return true;
+	} else if (cmd == ".selectslider") {
+		Scene::Push(std::make_shared<Scene_SelectSlider>(0));
 		return true;
 	}
 	

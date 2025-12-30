@@ -31,7 +31,7 @@ public:
 	/**
 	 * Constructor.
 	 */
-	Window_Picture(int ix, int iy, int iwidth, int iheight);
+	Window_Picture(int ix, int iy, int iwidth, int iheight, double zoom_x = 1.0, double zoom_y = 1.0);
 
 	/**
 	 * Renders the current face on the window.
@@ -39,10 +39,14 @@ public:
 	void Refresh();
 
 	void Set(const std::string picture_name);
-
+/*
+	std::string Get();
+*/
     void DrawPicture(std::string_view face_name, int cx, int cy, bool flip = false);
 
 protected:
+	double zoom_x = 1.0;
+	double zoom_y = 1.0;
 	std::string picture_name = "";
     std::vector<FileRequestBinding> picture_request_ids;
 

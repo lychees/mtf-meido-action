@@ -344,6 +344,8 @@ add_library(${PROJECT_NAME} OBJECT
 	src/scene_status.h
 	src/scene_settings.h
 	src/scene_settings.cpp
+	src/scene_selectslider.cpp
+	src/scene_selectslider.h
 	src/scene_teleport.cpp
 	src/scene_teleport.h
 	src/scene_title.cpp
@@ -467,6 +469,8 @@ add_library(${PROJECT_NAME} OBJECT
 	src/window_savefile.h
 	src/window_selectable.cpp
 	src/window_selectable.h
+	src/window_selectslider.cpp
+	src/window_selectslider.h
 	src/window_settings.cpp
 	src/window_settings.h
 	src/window_shopbuy.cpp
