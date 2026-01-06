@@ -916,7 +916,15 @@ bool isCommand(std::string cmd) {
 		Scene::Push(std::make_shared<Scene_Piano>());
 		return true;
 	} else if (cmd == ".selectslider") {
-		Scene::Push(std::make_shared<Scene_SelectSlider>(0));
+		configor::json arr = configor::json::array({});
+		int i = 101;
+		for (auto element : evidence) {
+			if (Main_Data::game_switches->Get(i)) {
+				arr.push_back(configor::json(element));
+			}
+			i++;
+		}
+		Scene::Push(std::make_shared<Scene_SelectSlider>(0, arr));
 		return true;
 	}
 	

@@ -21,10 +21,10 @@
 #include "window_picture.h"
 #include "cache.h"
 
-Window_Picture::Window_Picture(int ix, int iy, int iwidth, int iheight, double zoom_x, double zoom_y) :
+Window_Picture::Window_Picture(int ix, int iy, int iwidth, int iheight, double izoom_x, double izoom_y) :
 	Window_Base(ix, iy, iwidth, iheight) {
-	zoom_x = zoom_x;
-	zoom_y = zoom_y;
+	zoom_x = izoom_x;
+	zoom_y = izoom_y;
 	SetContents(Bitmap::Create(this->width - 8, this->height - 8));
 }
 

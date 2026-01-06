@@ -69,13 +69,13 @@ void Window_SelectSlider::UpdateText() {
     contents->ClearRect(Rect(Player::menu_offset_x + 70, 0, contents->GetWidth() - 0, 96));
     curr_row = 0;
     std::string line = "";
-    for (int i = 0; i < commands[index].size(); i++) {
-        if (commands[index][i] == '\n') {
+    for (int i = 0; i < discriptions[index].size(); i++) {
+        if (discriptions[index][i] == '\n') {
             DrawLine(line);
             curr_row++;
             line = "";
         } else {
-            line.push_back(commands[index][i]);
+            line.push_back(discriptions[index][i]);
         }
     }
     if (!line.empty()) DrawLine(line);

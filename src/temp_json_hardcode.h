@@ -237,3 +237,14 @@ const configor::json medicine = {
         {"description", "苯二氮䓬类药物，用于抗焦虑和镇静催眠"}
     }}
 };
+
+const configor::json evidence = {
+    {"evidence_1", {
+        {"name", "证物-解剖记录"},
+        {"description", "证物-解剖记录\n死亡时间为昨日晚间，\n死因为亚硝酸钠中毒导致高铁血红蛋白症"}
+    }},
+    {"evidence_2", {
+        {"name", "证物-亚硝酸钠"},
+        {"description", "证物-亚硝酸钠\n一瓶胶囊，内含致死量亚硝酸钠。"}
+    }}
+};

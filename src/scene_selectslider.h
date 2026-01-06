@@ -37,6 +37,8 @@ public:
 	 */
 	Scene_SelectSlider(int decision_index = 0, configor::json json = {});
 
+	//void TransitionIn(SceneType prev_scene) override;
+
 	void Start() override;
 	//void Continue(SceneType prev_scene) override;
 	void vUpdate() override;
@@ -93,6 +95,10 @@ private:
 
 	/** Options available in the menu. */
 	std::vector<std::string> options;
+
+	std::vector<std::string> discriptions;
+	
+	std::vector<std::string> pictures;
 };
 
 #endif

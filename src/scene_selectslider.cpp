@@ -39,6 +39,10 @@ Scene_SelectSlider::Scene_SelectSlider(int decision_index, configor::json json) 
 	type = Scene::SelectSlider;
 }
 
+//void Scene_SelectSlider::TransitionIn(SceneType prev_scene) {
+//	Transition::instance().InitShow(Transition::TransitionNone, this);
+//}
+
 void Scene_SelectSlider::Start() {
 	CreateSelectSliderWindow();
 }
@@ -67,21 +71,27 @@ void Scene_SelectSlider::UpdateIndex() {
 }
 
 void Scene_SelectSlider::CreateSelectSliderWindow() {
-    std::vector<std::string> noptions{"解剖记录\n死者死于下午四时\n死因为高铁血红蛋白症", "一瓶胶囊\n含有致命剂量的亚硝酸钠", "3"};
-	std::vector<std::string> discriptions{"1", "2", "3"};
-	std::vector<std::string> pictures{"证物-解剖记录", "证物-亚硝酸钠", "daodao-1"};
+    std::vector<std::string> noptions;
+
+	for (configor::json::iterator it = json.begin(); it != json.end(); ++it) {
+		std::string name = (*it)["name"];
+		options.push_back(name);
+		name.erase(std::remove(name.begin(), name.end(), ' '), name.end());
+		pictures.push_back(name);
+  		discriptions.push_back((*it)["description"]);
+	}
 
 	curr_window = 1;
 	decision_index = 1;
-    options = noptions;
+    noptions = options;
 	item_max = options.size();
 
 	main_windows[0].reset(new Window_SelectSlider(noptions, discriptions, pictures, -320));
 	main_windows[1].reset(new Window_SelectSlider(noptions, discriptions, pictures, 0));
 	main_windows[2].reset(new Window_SelectSlider(noptions, discriptions, pictures, 320));
-	picture_windows[0].reset(new Window_Picture(10 - 320, 80, 60, 60));
-	picture_windows[1].reset(new Window_Picture(10, 80, 60, 60));
-	picture_windows[2].reset(new Window_Picture(10 + 320, 80, 60, 60));
+	picture_windows[0].reset(new Window_Picture(10 - 320, 80, 65, 65, 0.45, 0.45));
+	picture_windows[1].reset(new Window_Picture(10, 80, 65, 65, 0.45, 0.45));
+	picture_windows[2].reset(new Window_Picture(10 + 320, 80, 65, 65, 0.45, 0.45));
 	//main_window->SetX(Player::menu_offset_x);
 	//main_window->SetY(Player::menu_offset_y);
 	//picture_windows[0]->Set("证物-解剖记录");
