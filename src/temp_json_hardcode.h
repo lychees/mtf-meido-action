@@ -239,12 +239,89 @@ const configor::json medicine = {
 };
 
 const configor::json evidence = {
-    {"evidence_1", {
+	{"001", {
+		{"id", 1},
+        {"name", "lawyer_badge"},
+        {"description", "律师徽章\n法律的制定是为了惩罚人类的凶恶悖谬，\n所以法律本身必须最为纯洁无垢。"}
+    }},
+    {"002", {
+		{"id", 2},
+        {"name", "physician_badge"},
+        {"description", "医师徽章\n不损害病人、不歧视病人、不泄漏秘密。"}
+    }},
+	{"003", {
+		{"id", 3},
+        {"name", "psychologist_badge"},
+        {"description", "心理治疗师徽章\n作为一名精神科医生，\n你的职责是帮助患者承受痛苦，\n这与医学界的其他从业人员的理念截然相反。"}
+    }},
+    {"004", {
+		{"id", 4},
+        {"name", "musician_badge"},
+        {"description", "乐师徽章\n音乐是万德胚胎的源泉。\n不为音乐所动的人，我必定把他比做木石。"}
+    }},
+	{"005", {
+		{"id", 5},
+        {"name", "computer_scientist_badge"},
+        {"description", "计算机二级徽章\n被认可为计算机专家"}
+    }},
+    {"006", {
+		{"id", 6},
         {"name", "证物-解剖记录"},
         {"description", "证物-解剖记录\n死亡时间为昨日晚间，\n死因为亚硝酸钠中毒导致高铁血红蛋白症"}
     }},
-    {"evidence_2", {
+    {"007", {
+		{"id", 7},
         {"name", "证物-亚硝酸钠"},
         {"description", "证物-亚硝酸钠\n一瓶胶囊，内含致死量亚硝酸钠。"}
+    }},
+    {"008", {
+		{"id", 8},
+        {"name", "evidence_photo"},
+        {"description", "证物-现场照片\n记录案发现场的照片。"}
+    }},
+    {"009", {
+		{"id", 9},
+        {"name", "evidence_empty_capsule"},
+        {"description", "证物-空胶囊\n在案发现场发现的空胶囊。"}
+    }},
+    {"010", {
+		{"id", 10},
+        {"name", "evidence_economy"},
+        {"description", "被告经济情况的证词\n被告的证词，\n被告曾经平价转卖受管制的药物给需要她们的人，对买家进行甄选。\n被告并没有钱委托律师，委托律师的钱是顾客们众筹的。"}
+    }},
+	{"011", {
+		{"id", 11},
+        {"name", "evidence_relic_box"},
+        {"description", "美芽的遗物盒\n死者一之濑美芽的遗物盒。"}
+    }},
+	{"012", {
+		{"id", 12},
+        {"name", "evidence_relic_box"},
+        {"description", "美莉的遗物盒\n死者一之濑美莉的遗物盒。"}
+    }},
+	{"101", {
+		{"id", 101},
+        {"name", "portrait-daodao"},
+        {"description", "绫里千岛\n你的律师助手。\n真实身份是将大脑移植到机械躯体的赛博人，\n年龄存疑。"}
+    }},
+	{"102", {
+		{"id", 102},
+        {"name", "portrait-ezra"},
+        {"description", "须磨寺琴音\n你的辩护对象，\n被指控教唆自杀和扰乱药品监管。"}
+    }},
+	{"103", {
+		{"id", 103},
+        {"name", "portrait-misaki"},
+        {"description", "盐田美咲\n你的委托人，委托你为须磨寺琴音辩护。"}
+    }},
+	{"104", {
+		{"id", 104},
+        {"name", "portrait-unknown"},
+        {"description", "一之濑美芽\n本案两名死者之一，\n凌晨4:50在温泉旅馆死于亚硝酸钠中毒。\n与另一名死者一之濑美莉是好友关系。"}
+    }},
+	{"105", {
+		{"id", 105},
+        {"name", "portrait-unknown"},
+        {"description", "一之濑美莉\n本案两名死者之一，\n凌晨4:50在温泉旅馆死于亚硝酸钠中毒。\n与另一名死者一之濑美芽是好友关系。"}
     }}
 };

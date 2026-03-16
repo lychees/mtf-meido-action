@@ -24,6 +24,7 @@
 #include <sstream>
 #include <string>
 #include <cassert>
+#include <vector>
 #include "game_interpreter.h"
 #include "async_handler.h"
 #include "game_dynrpg.h"
@@ -916,13 +917,13 @@ bool isCommand(std::string cmd) {
 		Scene::Push(std::make_shared<Scene_Piano>());
 		return true;
 	} else if (cmd == ".selectslider") {
-		configor::json arr = configor::json::array({});
-		int i = 101;
+		std::vector<configor::json> arr;
 		for (auto element : evidence) {
-			if (Main_Data::game_switches->Get(i)) {
+			std::cout << element["name"] << std::endl;
+			int id = element["id"];
+			if (Main_Data::game_switches->Get(100+id)) {
 				arr.push_back(configor::json(element));
 			}
-			i++;
 		}
 		Scene::Push(std::make_shared<Scene_SelectSlider>(0, arr));
 		return true;

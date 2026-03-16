@@ -34,7 +34,7 @@
 //constexpr int gold_window_width = 88;
 constexpr int menu_help_height = 64;
 
-Scene_SelectSlider::Scene_SelectSlider(int decision_index, configor::json json) :
+Scene_SelectSlider::Scene_SelectSlider(int decision_index, std::vector<configor::json> json) :
 	decision_index(decision_index), json(json) {
 	type = Scene::SelectSlider;
 }
@@ -73,16 +73,15 @@ void Scene_SelectSlider::UpdateIndex() {
 void Scene_SelectSlider::CreateSelectSliderWindow() {
     std::vector<std::string> noptions;
 
-	for (configor::json::iterator it = json.begin(); it != json.end(); ++it) {
-		std::string name = (*it)["name"];
+	for (auto it : json) {
+		std::string name = it["name"];
 		options.push_back(name);
 		name.erase(std::remove(name.begin(), name.end(), ' '), name.end());
 		pictures.push_back(name);
-  		discriptions.push_back((*it)["description"]);
+  		discriptions.push_back(it["description"]);
 	}
 
 	curr_window = 1;
-	decision_index = 1;
     noptions = options;
 	item_max = options.size();
 
@@ -134,7 +133,7 @@ void Scene_SelectSlider::UpdateCommand() {
 	} else if (Input::IsTriggered(Input::DECISION)) {
 
 		Main_Data::game_system->SePlay(Main_Data::game_system->GetSystemSE(Main_Data::game_system->SFX_Decision));
-		Main_Data::game_variables->Set(99, decision_index);
+		Main_Data::game_variables->Set(99, json[decision_index]["id"]);
 		Scene::Pop();		
 	} else if (Input::IsTriggered(Input::LEFT)) {
 		move_left();

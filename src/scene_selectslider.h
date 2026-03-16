@@ -24,6 +24,7 @@
 #include "window_help.h"
 #include "window_selectslider.h"
 #include "configor/json.hpp"
+#include <vector>
 
 /**
  * Scene Menu class.
@@ -35,7 +36,7 @@ public:
 	 *
 	 * @param decision_index selected index in the menu.
 	 */
-	Scene_SelectSlider(int decision_index = 0, configor::json json = {});
+	Scene_SelectSlider(int decision_index = 0, std::vector<configor::json> json = {});
 
 	//void TransitionIn(SceneType prev_scene) override;
 
@@ -83,7 +84,7 @@ private:
 	int item_max;
 	int curr_window;
 
-	configor::json json;
+	std::vector<configor::json> json;
 
 	/** Window displaying the help. */
 	std::unique_ptr<Window_Help> help_window;
